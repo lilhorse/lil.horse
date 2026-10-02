@@ -68,6 +68,21 @@ describe('post selectors', () => {
     });
     expect(adjacentPosts(posts, 'secret')).toEqual({ previous: null, next: null });
   });
+
+  it('orders same-day posts by slug, whatever the input order', () => {
+    const alpha = post('alpha', '2024-05-01');
+    const beta = post('beta', '2024-05-01');
+    for (const input of [
+      [alpha, beta],
+      [beta, alpha],
+    ]) {
+      expect(homePosts(input).map((item) => item.slug)).toEqual(['alpha', 'beta']);
+      expect(adjacentPosts(input, 'alpha')).toMatchObject({
+        previous: { slug: 'beta' },
+        next: null,
+      });
+    }
+  });
 });
 
 describe('project selectors', () => {
@@ -91,6 +106,17 @@ describe('project selectors', () => {
     ]);
     expect(sorted.map((item) => item.name)).toEqual(['gamma', 'beta', 'alpha', 'zeta']);
     expect(featuredProjects(sorted).map((item) => item.name)).toEqual(['gamma']);
+  });
+
+  it('breaks order ties between CJK names in pinyin order', () => {
+    const xiaoma = project('小马', { order: 1 });
+    const biji = project('笔记', { order: 1 });
+    for (const input of [
+      [xiaoma, biji],
+      [biji, xiaoma],
+    ]) {
+      expect(sortProjects(input).map((item) => item.name)).toEqual(['笔记', '小马']);
+    }
   });
 });
 

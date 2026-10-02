@@ -1,6 +1,9 @@
 import type { PostEntry, ProjectEntry } from '../notion/types';
 
-const byPublishedDesc = (a: PostEntry, b: PostEntry) => b.published.localeCompare(a.published);
+const COLLATOR = new Intl.Collator('zh');
+
+const byPublishedDesc = (a: PostEntry, b: PostEntry) =>
+  b.published.localeCompare(a.published) || (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0);
 
 export function listedPosts(posts: PostEntry[]): PostEntry[] {
   return posts.filter((post) => post.status !== 'Unlisted').sort(byPublishedDesc);
@@ -39,7 +42,7 @@ export function sortProjects(projects: ProjectEntry[]): ProjectEntry[] {
   return [...projects].sort(
     (a, b) =>
       (a.order ?? Number.POSITIVE_INFINITY) - (b.order ?? Number.POSITIVE_INFINITY) ||
-      a.name.localeCompare(b.name),
+      COLLATOR.compare(a.name, b.name),
   );
 }
 

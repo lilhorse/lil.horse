@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { formatBytes, hostnameOf, renderCell, renderRichText } from '../../src/lib/html';
-import type { Annotations, RichTextSpan } from '../../src/notion/types';
+import type { Annotations, MediaRef, RichTextSpan } from '../../src/notion/types';
 
 const base: Annotations = {
   bold: false,
@@ -48,6 +48,38 @@ describe('renderRichText', () => {
     expect(renderRichText([span('xss', {}, { href: 'javascript:alert(1)' })], resolve)).toBe('xss');
   });
 
+  it('treats only single-slash paths as site-relative', () => {
+    expect(renderRichText([span('a', {}, { href: '/blog/x' })], resolve)).toBe(
+      '<a href="/blog/x" rel="noopener noreferrer">a</a>',
+    );
+    expect(renderRichText([span('b', {}, { href: '//evil.example/x' })], resolve)).toBe('b');
+    expect(renderRichText([span('c', {}, { href: '/\\evil.example/x' })], resolve)).toBe('c');
+  });
+
+  it('links a resolved page to its site URL, whatever its href', () => {
+    expect(
+      renderRichText(
+        [span('post', {}, { pageId: HELLO, href: `https://www.notion.so/${HELLO}` })],
+        resolve,
+      ),
+    ).toBe('<a href="/blog/helloworld">post</a>');
+  });
+
+  it('escapes quotes in attributes', () => {
+    expect(renderRichText([span('x', {}, { href: '/a" onmouseover="b' })], resolve)).toBe(
+      '<a href="/a&quot; onmouseover=&quot;b" rel="noopener noreferrer">x</a>',
+    );
+    expect(
+      renderRichText(
+        [{ kind: 'date', text: 'Feb 29', start: '2024-02-29"', end: null, annotations: base }],
+        resolve,
+      ),
+    ).toBe('<time datetime="2024-02-29&quot;">Feb 29</time>');
+    expect(
+      renderRichText([span('x', {}, { pageId: HELLO })], () => ({ url: '/a"b', title: '' })),
+    ).toBe('<a href="/a&quot;b">x</a>');
+  });
+
   it('renders dates, highlights, line breaks and inline math', () => {
     expect(
       renderRichText(
@@ -62,6 +94,30 @@ describe('renderRichText', () => {
     expect(
       renderRichText([{ kind: 'equation', expression: 'x^2', annotations: base }], resolve),
     ).toContain('class="katex"');
+  });
+
+  it('renders CJK in math without strict-mode warnings', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const html = renderRichText(
+        [{ kind: 'equation', expression: '速度 = \\frac{距离}{时间}', annotations: base }],
+        resolve,
+      );
+      expect(html).toContain('<math');
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('still warns about other strict-mode issues in math', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      renderRichText([{ kind: 'equation', expression: 'x%', annotations: base }], resolve);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('[commentAtEnd]'));
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
 
@@ -84,6 +140,46 @@ describe('renderCell', () => {
     expect(renderCell({ kind: 'checkbox', value: true }, resolve)).toContain('✓');
     expect(renderCell({ kind: 'number', value: 1993 }, resolve)).toBe('1993');
   });
+
+  it('keeps a visible label for mailto and tel links', () => {
+    expect(hostnameOf('mailto:a@b.c')).toBe('mailto:a@b.c');
+    expect(renderCell({ kind: 'url', url: 'tel:+123' }, resolve)).toBe(
+      '<a href="tel:+123" rel="noopener noreferrer">tel:+123</a>',
+    );
+  });
+
+  it('renders unsafe urls as escaped text', () => {
+    expect(renderCell({ kind: 'url', url: 'javascript:alert(1)//<b>' }, resolve)).toBe(
+      'javascript:alert(1)//&lt;b&gt;',
+    );
+  });
+
+  it('renders media as lazy thumbnails', () => {
+    const media: MediaRef = {
+      key: 'k',
+      kind: 'image',
+      mime: 'image/png',
+      bytes: 1,
+      fileName: 'a".png',
+      src: '/_media/k/a".png',
+      width: 1200,
+      height: 800,
+      variants: [],
+      dominant: null,
+    };
+    expect(renderCell({ kind: 'media', items: [media] }, resolve)).toBe(
+      '<img src="/_media/k/a&quot;.png" alt="" width="64" height="43" loading="lazy" decoding="async">',
+    );
+  });
+
+  it('escapes quotes in attributes', () => {
+    expect(renderCell({ kind: 'url', url: 'https://example.com/"' }, resolve)).toBe(
+      '<a href="https://example.com/&quot;" rel="noopener noreferrer">example.com</a>',
+    );
+    expect(renderCell({ kind: 'date', start: '2023"', end: '2024"' }, resolve)).toBe(
+      '<time datetime="2023&quot;">2023"</time> → <time datetime="2024&quot;">2024"</time>',
+    );
+  });
 });
 
 describe('format helpers', () => {
@@ -93,5 +189,19 @@ describe('format helpers', () => {
     expect(formatBytes(25 * 1024 * 1024)).toBe('25 MB');
     expect(hostnameOf('https://www.example.com/a')).toBe('example.com');
     expect(hostnameOf('not a url')).toBe('not a url');
+  });
+
+  it('moves to the next unit instead of printing 1024 of one', () => {
+    expect(formatBytes(1023)).toBe('1023 B');
+    expect(formatBytes(1024)).toBe('1.0 KB');
+    expect(formatBytes(1048063)).toBe('1023 KB');
+    expect(formatBytes(1048064)).toBe('1.0 MB');
+    expect(formatBytes(1048575)).toBe('1.0 MB');
+    expect(formatBytes(1073217535)).toBe('1023 MB');
+    expect(formatBytes(1073217536)).toBe('1.0 GB');
+  });
+
+  it('shows internationalized hostnames in Unicode', () => {
+    expect(hostnameOf('https://例子.测试/x')).toBe('例子.测试');
   });
 });

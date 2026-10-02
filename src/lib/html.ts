@@ -1,5 +1,7 @@
+import { domainToUnicode } from 'node:url';
 import katex from 'katex';
 import type { DbCell, MediaRef, RichText, RichTextSpan } from '../notion/types';
+import { KATEX_OPTIONS } from './katex';
 import type { LinkTarget } from './links';
 
 export type LinkResolver = (pageId: string) => LinkTarget | undefined;
@@ -13,7 +15,8 @@ export function escapeAttr(value: string): string {
 }
 
 export function isSafeHref(href: string): boolean {
-  return /^(https?:|mailto:|tel:)/i.test(href) || href.startsWith('/') || href.startsWith('#');
+  // Browsers read '\' as '/', so '/\host' is as off-site as '//host'.
+  return /^(https?:|mailto:|tel:)/i.test(href) || /^\/(?![/\\])/.test(href) || href.startsWith('#');
 }
 
 export function colorClass(color: string): string {
@@ -24,7 +27,7 @@ export function colorClass(color: string): string {
 
 export function hostnameOf(url: string): string {
   try {
-    return new URL(url).hostname.replace(/^www\./, '');
+    return domainToUnicode(new URL(url).hostname).replace(/^www\./, '') || url;
   } catch {
     return url;
   }
@@ -35,7 +38,7 @@ export function formatBytes(bytes: number): string {
   const units = ['KB', 'MB', 'GB'];
   let value = bytes / 1024;
   let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
+  while (Math.round(value) >= 1024 && unit < units.length - 1) {
     value /= 1024;
     unit += 1;
   }
@@ -44,11 +47,7 @@ export function formatBytes(bytes: number): string {
 
 function renderSpan(span: RichTextSpan, resolve: LinkResolver): string {
   if (span.kind === 'equation') {
-    return katex.renderToString(span.expression, {
-      displayMode: false,
-      output: 'htmlAndMathml',
-      throwOnError: false,
-    });
+    return katex.renderToString(span.expression, { ...KATEX_OPTIONS, displayMode: false });
   }
   let html =
     span.kind === 'date'
