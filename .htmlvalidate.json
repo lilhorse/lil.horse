@@ -1,4 +1,5 @@
 {
+  "root": true,
   "extends": ["html-validate:standard"],
   "elements": [
     "html5",
