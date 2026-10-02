@@ -1,12 +1,12 @@
 import type { RichTextItemResponse } from '@notionhq/client';
 import { parseId } from './ids';
-import type { Annotations, NotionColor, RichText, RichTextSpan } from './types';
+import type { Annotations, RichText, RichTextSpan } from './types';
 
 export function pageIdFromHref(href: string | null): string | null {
   if (!href) return null;
   if (href.startsWith('/') && !href.startsWith('//')) return parseId(href);
   try {
-    return /(^|\.)notion\.(so|site)$/.test(new URL(href).hostname) ? parseId(href) : null;
+    return /(^|\.)notion\.(so|site|com)$/.test(new URL(href).hostname) ? parseId(href) : null;
   } catch {
     return null;
   }
@@ -14,7 +14,7 @@ export function pageIdFromHref(href: string | null): string | null {
 
 function annotationsOf(item: RichTextItemResponse): Annotations {
   const { bold, italic, strikethrough, underline, code, color } = item.annotations;
-  return { bold, italic, strikethrough, underline, code, color: color as NotionColor };
+  return { bold, italic, strikethrough, underline, code, color };
 }
 
 function toSpan(item: RichTextItemResponse): RichTextSpan {

@@ -58,12 +58,35 @@ describe('toRichText', () => {
     expect(spans[5]).toMatchObject({ kind: 'text', text: '@someone', pageId: null });
     expect(spans[6]).toMatchObject({ kind: 'equation', expression: 'E=mc^2' });
   });
+
+  it('resolves database mentions and keeps link mention URLs', () => {
+    const url = 'https://github.com/lilhorse';
+    const [databaseMention, linkMention] = toRichText([
+      mention(
+        { type: 'database', database: { id: '71d7802a-0abf-4857-a535-dfd861d8491e' } },
+        'Reading list',
+      ),
+      { ...mention({ type: 'link_mention', link_mention: { href: url } }, 'lilhorse'), href: url },
+    ]);
+    expect(databaseMention).toMatchObject({
+      kind: 'text',
+      text: 'Reading list',
+      href: null,
+      pageId: ID,
+    });
+    expect(linkMention).toMatchObject({ kind: 'text', text: 'lilhorse', href: url, pageId: null });
+  });
 });
 
 describe('helpers', () => {
   it('extracts page ids only from Notion links', () => {
     expect(pageIdFromHref(`https://lilhorse.notion.site/x-${ID}`)).toBe(ID);
+    expect(pageIdFromHref(`https://app.notion.com/p/${ID}`)).toBe(ID);
+    expect(
+      pageIdFromHref(`https://www.notion.so/ws/${'b'.repeat(32)}?v=${'c'.repeat(32)}&p=${ID}`),
+    ).toBe(ID);
     expect(pageIdFromHref(`https://example.com/${ID}`)).toBeNull();
+    expect(pageIdFromHref(`https://evilnotion.so/${ID}`)).toBeNull();
     expect(pageIdFromHref(`//example.com/?p=${ID}`)).toBeNull();
     expect(pageIdFromHref(null)).toBeNull();
   });
@@ -73,5 +96,6 @@ describe('helpers', () => {
     expect(plain(text)).toBe('a x b');
     expect(isBlank(toRichText([rt('  \n')]))).toBe(true);
     expect(isBlank([])).toBe(true);
+    expect(isBlank(toRichText([equation('x')]))).toBe(false);
   });
 });
