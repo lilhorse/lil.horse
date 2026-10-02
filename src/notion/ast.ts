@@ -10,6 +10,15 @@ import { slug } from 'github-slugger';
 import type { BlockNode } from './blocks';
 import type { BookmarkFetcher } from './bookmarks';
 import type { MediaStore } from './media';
+import {
+  audioNode,
+  bookmarkNode,
+  embedNode,
+  fileNode,
+  imageNode,
+  pageLinkNode,
+  videoNode,
+} from './media-blocks';
 import { isBlank, plain, toRichText } from './rich-text';
 import type {
   CodeNode,
@@ -240,6 +249,24 @@ async function convert({ block, children }: BlockNode, ctx: AstContext): Promise
       const inner = await nested();
       return inner.length > 0 ? { type: 'container', id: block.id, children: inner } : null;
     }
+    case 'image':
+      return imageNode(block, ctx);
+    case 'video':
+      return videoNode(block, ctx);
+    case 'audio':
+      return audioNode(block, ctx);
+    case 'file':
+    case 'pdf':
+      return fileNode(block, ctx);
+    case 'bookmark':
+      return bookmarkNode(block.id, block.bookmark.url, block.bookmark.caption, ctx);
+    case 'link_preview':
+      return bookmarkNode(block.id, block.link_preview.url, [], ctx);
+    case 'embed':
+      return embedNode(block, ctx);
+    case 'link_to_page':
+    case 'child_page':
+      return pageLinkNode(block, ctx);
     case 'child_database':
       return ctx.database(block);
     case 'table_of_contents':
