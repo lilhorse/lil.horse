@@ -4,6 +4,8 @@ import type { AddressInfo } from 'node:net';
 export interface TestServer {
   url: string;
   hits: Map<string, number>;
+  /** Errors thrown by the handler; the server fails those requests instead of hanging. */
+  errors: unknown[];
   close(): Promise<void>;
 }
 
@@ -11,16 +13,24 @@ export async function startServer(
   handler: (request: IncomingMessage, response: ServerResponse) => void | Promise<void>,
 ): Promise<TestServer> {
   const hits = new Map<string, number>();
+  const errors: unknown[] = [];
   const server = createServer((request, response) => {
     const path = request.url ?? '/';
     hits.set(path, (hits.get(path) ?? 0) + 1);
-    void handler(request, response);
+    Promise.resolve()
+      .then(() => handler(request, response))
+      .catch((error: unknown) => {
+        errors.push(error);
+        if (response.headersSent) response.destroy();
+        else response.writeHead(500).end();
+      });
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address() as AddressInfo;
   return {
     url: `http://127.0.0.1:${port}`,
     hits,
+    errors,
     close: () => new Promise<void>((resolve) => server.close(() => resolve())),
   };
 }
