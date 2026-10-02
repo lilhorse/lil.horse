@@ -7,8 +7,8 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "NOTION_INCLUDE_DRAFTS=1 astro dev",
-    "build": "astro build",
+    "dev": "NOTION_INCLUDE_DRAFTS=1 node --env-file-if-exists=.env ./node_modules/astro/bin/astro.mjs dev",
+    "build": "node --env-file-if-exists=.env ./node_modules/astro/bin/astro.mjs build",
     "build:fixtures": "NOTION_FIXTURES=1 astro build",
     "preview": "astro preview",
     "check": "astro check",

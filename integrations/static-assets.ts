@@ -3,6 +3,7 @@ import { cp, mkdir, readFile } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createRequire } from 'node:module';
 import { basename, dirname, extname, join, normalize, sep } from 'node:path';
+import { pipeline } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import type { AstroIntegration } from 'astro';
 import katex from 'katex';
@@ -56,7 +57,7 @@ export async function copyKatex(outDir: string): Promise<void> {
   await cp(join(dist, 'fonts'), join(target, 'fonts'), { recursive: true });
 }
 
-function serveFrom(root: string) {
+export function serveFrom(root: string) {
   return (request: IncomingMessage, response: ServerResponse, next: () => void) => {
     const path = decodeURIComponent((request.url ?? '/').split('?')[0] ?? '/');
     const file = normalize(join(root, path));
@@ -68,7 +69,8 @@ function serveFrom(root: string) {
       'content-type',
       MIME[extname(file).toLowerCase()] ?? 'application/octet-stream',
     );
-    createReadStream(file).pipe(response);
+    // pipe() leaves the file open when the client aborts.
+    pipeline(createReadStream(file), response, () => undefined);
   };
 }
 

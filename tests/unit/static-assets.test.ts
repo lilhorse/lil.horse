@@ -1,10 +1,12 @@
-import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, readdir, writeFile } from 'node:fs/promises';
+import { existsSync, fstatSync, readdirSync, statSync } from 'node:fs';
+import { chmod, mkdir, mkdtemp, readdir, writeFile } from 'node:fs/promises';
+import { get } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import katex from 'katex';
-import { describe, expect, it } from 'vitest';
-import { copyKatex, copyMedia } from '../../integrations/static-assets';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { copyKatex, copyMedia, serveFrom } from '../../integrations/static-assets';
+import { startServer, type TestServer } from '../helpers/http';
 
 async function mediaCache(keys: string[]): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'assets-'));
@@ -53,4 +55,94 @@ describe('copyKatex', () => {
       (await readdir(join(out, katex.version, 'fonts'))).some((file) => file.endsWith('.woff2')),
     ).toBe(true);
   });
+});
+
+// Not fetch(): it resolves ../ and %2e%2e/ before sending.
+function getRaw(base: string, path: string) {
+  return new Promise<{ status?: number; type?: string; body: string }>((resolve, reject) => {
+    get(base, { path, agent: false, signal: AbortSignal.timeout(2000) }, (response) => {
+      const chunks: Buffer[] = [];
+      response.on('data', (chunk: Buffer) => chunks.push(chunk));
+      response.on('end', () =>
+        resolve({
+          status: response.statusCode,
+          type: response.headers['content-type'],
+          body: Buffer.concat(chunks).toString(),
+        }),
+      );
+    }).on('error', reject);
+  });
+}
+
+function isOpen(file: string): boolean {
+  const { dev, ino } = statSync(file);
+  return readdirSync('/dev/fd').some((fd) => {
+    // The listing includes readdir's own descriptor, already closed by now.
+    try {
+      const stats = fstatSync(Number(fd));
+      return stats.dev === dev && stats.ino === ino;
+    } catch {
+      return false;
+    }
+  });
+}
+
+describe('serveFrom', () => {
+  let root: string;
+  let server: TestServer;
+
+  beforeAll(async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'serve-'));
+    root = join(dir, 'media');
+    await mkdir(join(root, 'k'), { recursive: true });
+    await mkdir(join(dir, 'media-evil'));
+    await writeFile(join(dir, 'x'), 'outside');
+    await writeFile(join(dir, 'media-evil', 'x'), 'sibling');
+    await writeFile(join(root, 'k', '480.webp'), 'webp');
+    await writeFile(join(root, 'k', '数学.pdf'), 'pdf');
+    const serve = serveFrom(root);
+    server = await startServer((request, response) =>
+      serve(request, response, () => response.writeHead(404).end()),
+    );
+  });
+
+  afterAll(() => server.close());
+
+  const next = { status: 404 };
+  it.each([
+    ['/../x', next],
+    ['/%2e%2e/x', next],
+    ['/..%2fmedia-evil/x', next],
+    ['/', next],
+    ['/k/480.webp?v=1', { status: 200, type: 'image/webp', body: 'webp' }],
+    ['/k/%E6%95%B0%E5%AD%A6.pdf', { status: 200, type: 'application/pdf', body: 'pdf' }],
+  ])('GET %s', async (path, expected) => {
+    expect(await getRaw(server.url, path)).toMatchObject(expected);
+  });
+
+  it('closes the file when the client aborts', async () => {
+    const file = join(root, 'k', 'big.bin');
+    await writeFile(file, Buffer.alloc(16 * 1024 * 1024));
+    const openWhenAborted = await new Promise<boolean>((resolve, reject) => {
+      const request = get(server.url, { path: '/k/big.bin', agent: false }, () => {
+        resolve(isOpen(file));
+        request.destroy();
+      });
+      request.on('error', reject);
+    });
+    expect(openWhenAborted).toBe(true);
+    await vi.waitFor(() => expect(isOpen(file)).toBe(false));
+  });
+
+  it.skipIf(process.getuid?.() === 0)(
+    'drops the connection when the file cannot be read',
+    async () => {
+      const file = join(root, 'k', 'locked.pdf');
+      await writeFile(file, 'pdf');
+      await chmod(file, 0);
+      await expect(getRaw(server.url, '/k/locked.pdf')).rejects.toMatchObject({
+        code: 'ECONNRESET',
+      });
+    },
+  );
 });
