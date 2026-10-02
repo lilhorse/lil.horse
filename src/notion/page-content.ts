@@ -4,6 +4,7 @@ import { blocksToAst } from './ast';
 import { fetchBlockTree } from './blocks';
 import type { BookmarkFetcher } from './bookmarks';
 import { buildDatabaseNode } from './database';
+import { notionUrl } from './ids';
 import type { MediaStore } from './media';
 import {
   collectHeadings,
@@ -31,6 +32,16 @@ export async function buildPageContent(
   pageId: string,
   deps: PageContentDeps,
 ): Promise<PageContent> {
+  const url = notionUrl(pageId);
+  try {
+    return await assemble(pageId, deps);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to build Notion page ${url}: ${message}`, { cause: error });
+  }
+}
+
+async function assemble(pageId: string, deps: PageContentDeps): Promise<PageContent> {
   const tree = await fetchBlockTree(deps.api, pageId);
   const childDataSourceIds = new Set<string>();
   const slugger = new GithubSlugger();
