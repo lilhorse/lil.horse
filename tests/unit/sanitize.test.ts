@@ -2,18 +2,28 @@ import { mkdtemp, readdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type {
+  BlockObjectResponse,
   DatabaseObjectResponse,
   DataSourceObjectResponse,
   DataSourceViewObjectResponse,
   PageObjectResponse,
 } from '@notionhq/client';
 import { describe, expect, it } from 'vitest';
-import type { NotionApi } from '../../src/notion/api';
+import { isNotFoundError, type NotionApi } from '../../src/notion/api';
 import { createFixtureApi, createRecordingApi } from '../../src/notion/fixture-api';
 import { normalizeId } from '../../src/notion/ids';
 import { createFixtureSanitizer, scrub } from '../../src/notion/sanitize';
 import type { DatabaseDisplay, NotionSiteConfig } from '../../src/notion/types';
-import { database, dataSource, page, prop, rt, tableView } from '../helpers/notion-factory';
+import {
+  block,
+  database,
+  dataSource,
+  nextId,
+  page,
+  prop,
+  rt,
+  tableView,
+} from '../helpers/notion-factory';
 
 const POSTS = 'a'.repeat(32);
 const PROJECTS = 'b'.repeat(32);
@@ -24,6 +34,7 @@ const BLOCK = '1'.repeat(32);
 const DS = '2'.repeat(32);
 const LINKED = '3'.repeat(32);
 const POSTS_DS = 'd'.repeat(32);
+const PAGE = '6'.repeat(32);
 
 describe('scrub', () => {
   it('removes signatures, users, emails, people and request ids', () => {
@@ -290,6 +301,8 @@ interface FakeData {
   rows?: Record<string, PageObjectResponse[]>;
   views?: Record<string, DataSourceViewObjectResponse[]>;
   orders?: Record<string, string[]>;
+  pages?: Record<string, PageObjectResponse>;
+  children?: Record<string, BlockObjectResponse[]>;
 }
 
 function fakeApi(data: FakeData): NotionApi {
@@ -305,6 +318,8 @@ function fakeApi(data: FakeData): NotionApi {
     queryDataSource: (id) => find(data.rows, id),
     listViews: (id) => find(data.views, id),
     queryViewPageIds: (id) => find(data.orders, id),
+    retrievePage: (id) => find(data.pages, id),
+    listBlockChildren: (id) => find(data.children, id),
   } as NotionApi;
 }
 
@@ -318,7 +333,7 @@ async function renderInlineTable(
   const views = database.data_sources.length === 0 ? await api.listViews(blockId) : undefined;
   const sourceView = views?.find((view) => view.type === 'table') ?? views?.[0];
   const source = database.data_sources[0]?.id ?? sourceView?.data_source_id;
-  if (!source) throw new Error(`${blockId} has no data source`);
+  if (!source) return;
   await Promise.all([
     api.retrieveDataSource(normalizeId(source)),
     api.queryDataSource(normalizeId(source)),
@@ -327,6 +342,41 @@ async function renderInlineTable(
   const view = (views ?? (await api.listViews(blockId))).find((item) => item.type === 'table');
   if (view) await api.queryViewPageIds(view.id);
 }
+
+// The lists fetchBlockTree requests, including those under blocks the site then drops.
+async function fetchTree(api: NotionApi, blockId: string): Promise<BlockObjectResponse[]> {
+  const blocks = await api.listBlockChildren(blockId);
+  await Promise.all(
+    blocks.map(async (item) => {
+      if (item.type === 'synced_block' && item.synced_block.synced_from)
+        await fetchTree(api, item.synced_block.synced_from.block_id);
+      else if (item.has_children && item.type !== 'child_page' && item.type !== 'child_database')
+        await fetchTree(api, item.id);
+    }),
+  );
+  return blocks;
+}
+
+// The calls syncNotion makes for a standalone page whose inline tables sit at its top level.
+async function renderPage(api: NotionApi, pageId: string): Promise<void> {
+  await api.retrievePage(pageId);
+  for (const item of await fetchTree(api, pageId)) {
+    if (item.type !== 'child_database') continue;
+    await renderInlineTable(api, normalizeId(item.id)).catch((error: unknown) => {
+      if (!isNotFoundError(error)) throw error;
+    });
+  }
+}
+
+const childDatabase = (id: string, title: string) => block('child_database', { title }, { id });
+const paragraph = (text: string, hasChildren = false) =>
+  block('paragraph', { rich_text: [rt(text)], color: 'default' }, { hasChildren });
+const syncedFrom = (original: string) =>
+  block(
+    'synced_block',
+    { synced_from: { type: 'block_id', block_id: original } },
+    { hasChildren: true },
+  );
 
 async function record(
   data: FakeData,
@@ -863,7 +913,7 @@ describe('FixtureSanitizer.prune', () => {
     expect(await replay.retrieveDataSource(DS)).toEqual({
       object: 'data_source',
       id: DS,
-      title: [{ plain_text: 'Reading list' }],
+      title: [],
       properties: {
         Name: { id: 'title', name: 'Name', type: 'title' },
         Rating: {
@@ -887,8 +937,107 @@ describe('FixtureSanitizer.prune', () => {
       },
     });
     expect(await everything(dir)).not.toMatch(
-      /Unread|Hidden|Unused|Abandoned|About|Private|Book title|Complete/,
+      /Unread|Hidden|Unused|Abandoned|About|Private|Book title|Complete|Reading list/,
     );
+  });
+
+  it.each(['', 'Untitled'])(
+    'commits a data source title only when a block titled %j shows it',
+    async (untitled) => {
+      const IDEAS = '5'.repeat(32);
+      const PICKS = '4'.repeat(32);
+      const titled = (dataSourceId: string, column: string, title: string) => ({
+        ...dataSource(dataSourceId, { [column]: { id: 'title', type: 'title' } }),
+        title: [rt(title)],
+      });
+      const linked = (blockId: string) => ({
+        ...database(blockId, DS, 'Untitled'),
+        data_sources: [],
+      });
+      const titleView = (viewId: string, dataSourceId: string) => [
+        { ...tableView(viewId, [{ property_id: 'title' }]), data_source_id: dataSourceId },
+      ];
+      const [idea, item] = [
+        page({ Idea: prop.title('Fly') }),
+        page({ Item: prop.title('Old map') }),
+      ];
+      const { dir, sanitize, replay } = await record(
+        {
+          pages: { [PAGE]: page({ title: prop.title('Home') }, { id: PAGE }) },
+          children: {
+            [PAGE]: [
+              childDatabase(BLOCK, 'Ideas'),
+              childDatabase(PICKS, 'Picks'),
+              childDatabase(LINKED, untitled),
+            ],
+          },
+          databases: {
+            [BLOCK]: {
+              ...database(BLOCK, IDEAS, 'Ideas'),
+              data_sources: [
+                { id: IDEAS, name: 'Ideas' },
+                { id: DS, name: 'Private archive' },
+              ],
+            },
+            [PICKS]: linked(PICKS),
+            [LINKED]: linked(LINKED),
+          },
+          dataSources: {
+            [IDEAS]: titled(IDEAS, 'Idea', 'Ideas'),
+            [DS]: titled(DS, 'Item', 'Private archive'),
+          },
+          rows: { [IDEAS]: [idea], [DS]: [item] },
+          views: {
+            [BLOCK]: [],
+            [PICKS]: titleView('picks-view', DS),
+            [LINKED]: titleView('linked-view', IDEAS),
+          },
+          orders: { 'picks-view': [item.id], 'linked-view': [idea.id] },
+        },
+        (api) => renderPage(api, PAGE),
+      );
+      await sanitize.prune(dir);
+
+      expect((await replay.retrieveDataSource(IDEAS)).title).toEqual([{ plain_text: 'Ideas' }]);
+      expect((await replay.retrieveDataSource(DS)).title).toEqual([]);
+      expect(await everything(dir)).not.toContain('Private archive');
+    },
+  );
+
+  it('blanks the titles of inline tables the site skips, in the list that names them', async () => {
+    const { schema, rows } = movies();
+    const [UNSHARED, SOURCELESS, PRIVATE] = ['4', '5', '7'].map((digit) => digit.repeat(32));
+    const data = showing(schema, rows, ['title']);
+    const { dir, sanitize, replay } = await record(
+      {
+        ...data,
+        pages: { [PAGE]: page({ title: prop.title('Home') }, { id: PAGE }) },
+        children: {
+          [PAGE]: [
+            childDatabase(BLOCK, 'Reading list'),
+            childDatabase(UNSHARED, 'Secret unshared'),
+            childDatabase(SOURCELESS, 'Secret sourceless'),
+            childDatabase(PRIVATE, 'Secret source'),
+          ],
+        },
+        databases: {
+          ...data.databases,
+          [SOURCELESS]: { ...database(SOURCELESS, DS, 'Untitled'), data_sources: [] },
+          [PRIVATE]: database(PRIVATE, '8'.repeat(32)),
+        },
+        views: { ...data.views, [SOURCELESS]: [] },
+      },
+      (api) => renderPage(api, PAGE),
+    );
+    const titles = async () =>
+      (await replay.listBlockChildren(PAGE)).map((item) =>
+        item.type === 'child_database' ? item.child_database.title : item.type,
+      );
+
+    expect(await titles()).toEqual(['', '', '', '']);
+    await sanitize.prune(dir);
+    expect(await titles()).toEqual(['Reading list', '', '', '']);
+    expect(await everything(dir)).not.toMatch(/secret/i);
   });
 
   it('leaves the main data sources untouched, even where a linked view hides part of one', async () => {
@@ -934,5 +1083,79 @@ describe('FixtureSanitizer.prune', () => {
     await sanitize.prune(dir);
 
     expect(await snapshot(dir)).toEqual(before);
+  });
+});
+
+describe('recorded block children', () => {
+  it('records no children under blocks whose children the site never renders', async () => {
+    const toggle = block(
+      'toggle',
+      { rich_text: [rt('More')], color: 'default' },
+      { hasChildren: true },
+    );
+    const notes = block('meeting_notes', { title: [rt('Weekly sync')] }, { hasChildren: true });
+    const template = block('template', { rich_text: [rt('Add entry')] }, { hasChildren: true });
+    const summary = paragraph('Secret summary', true);
+    const [original, hiddenOriginal] = [nextId(), nextId()];
+    const { dir, sanitize, replay } = await record(
+      {
+        pages: { [PAGE]: page({ title: prop.title('Home') }, { id: PAGE }) },
+        children: {
+          [PAGE]: [toggle, notes, template, syncedFrom(original)],
+          [toggle.id]: [paragraph('Shown detail')],
+          [notes.id]: [summary],
+          [summary.id]: [paragraph('Secret transcript')],
+          [template.id]: [syncedFrom(hiddenOriginal)],
+          [original]: [paragraph('Shown synced')],
+          [hiddenOriginal]: [paragraph('Secret synced')],
+        },
+      },
+      (api) => renderPage(api, PAGE),
+    );
+    await sanitize.prune(dir);
+
+    const listed = async (id: string) => JSON.stringify(await replay.listBlockChildren(id));
+    expect((await replay.listBlockChildren(PAGE)).map((item) => item.type)).toEqual([
+      'toggle',
+      'meeting_notes',
+      'template',
+      'synced_block',
+    ]);
+    expect(await listed(toggle.id)).toContain('Shown detail');
+    expect(await listed(original)).toContain('Shown synced');
+    for (const id of [notes.id, summary.id, template.id, hiddenOriginal])
+      expect(await replay.listBlockChildren(id)).toEqual([]);
+    expect(await everything(dir)).not.toMatch(/secret/i);
+  });
+
+  it('keeps the bodies of published posts and retrieved pages, and of no other page', async () => {
+    const [published, draft] = ['Published', 'Draft'].map((status) =>
+      page({ Name: prop.title(status), Status: prop.status(status) }),
+    );
+    const { dir, replay } = await record(
+      {
+        databases: { [POSTS]: database(POSTS, POSTS_DS) },
+        rows: { [POSTS_DS]: [published, draft] },
+        pages: { [PAGE]: page({ title: prop.title('Home') }, { id: PAGE }) },
+        children: {
+          [published.id]: [paragraph('Post body')],
+          [PAGE]: [paragraph('Page body')],
+          [draft.id]: [paragraph('Secret draft body')],
+          [BLOCK]: [paragraph('Secret block body')],
+        },
+      },
+      async (api) => {
+        const [source] = (await api.retrieveDatabase(POSTS)).data_sources;
+        await api.queryDataSource(normalizeId(source.id));
+        await renderPage(api, PAGE);
+        for (const id of [published.id, draft.id, BLOCK]) await fetchTree(api, id);
+      },
+    );
+
+    expect(JSON.stringify(await replay.listBlockChildren(published.id))).toContain('Post body');
+    expect(JSON.stringify(await replay.listBlockChildren(PAGE))).toContain('Page body');
+    expect(await replay.listBlockChildren(draft.id)).toEqual([]);
+    expect(await replay.listBlockChildren(BLOCK)).toEqual([]);
+    expect(await everything(dir)).not.toMatch(/secret/i);
   });
 });

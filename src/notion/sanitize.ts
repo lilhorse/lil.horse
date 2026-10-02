@@ -1,4 +1,5 @@
 import type {
+  BlockObjectResponse,
   DatabaseObjectResponse,
   DataSourceObjectResponse,
   DataSourceViewObjectResponse,
@@ -10,6 +11,7 @@ import { normalizeId, notionUrl, parseId } from './ids';
 import type { DatabaseDisplay } from './types';
 
 type Method = keyof NotionApi;
+type Block = BlockObjectResponse;
 type Database = DatabaseObjectResponse;
 type Schema = DataSourceObjectResponse;
 type Column = Schema['properties'][string];
@@ -20,7 +22,7 @@ type FileEntry = Extract<Value, { type: 'files' }>['files'][number];
 
 export interface FixtureSanitizer {
   (method: Method, arg: string, value: unknown): unknown;
-  /** Writes the recorded inline tables, cut down to the rows and columns the site renders. */
+  /** Writes the recorded inline tables and block lists, cut down to what the site renders. */
   prune(dir: string): Promise<void>;
 }
 
@@ -106,6 +108,29 @@ const RENDERED_TYPES = new Set<string>([
   'last_edited_time',
 ]);
 const IMAGE_FILE = /\.(png|jpe?g|gif|webp|avif|svg)(\?|#|$)/i;
+
+// Keep in sync with the block types src/notion/ast.ts renders the children of.
+const RENDERS_CHILDREN = new Set<string>([
+  'paragraph',
+  'heading_1',
+  'heading_2',
+  'heading_3',
+  'heading_4',
+  'bulleted_list_item',
+  'numbered_list_item',
+  'to_do',
+  'toggle',
+  'quote',
+  'callout',
+  'table',
+  'column_list',
+  'column',
+  'synced_block',
+  'tab',
+]);
+
+const untitled = (block: Block): Block =>
+  block.type === 'child_database' ? { ...block, child_database: { title: '' } } : block;
 
 // `title` must stay, even empty: the SDK's isFullDatabase and isFullDataSource check for it.
 const databaseFields = (database: Database) =>
@@ -204,14 +229,14 @@ function columnFields(column: Column, rows: Row[]) {
   return { id, name, type, [type]: { options: kept.map(({ name, color }) => ({ name, color })) } };
 }
 
-function schemaFields(schema: Schema, columns: Set<string>, rows: Row[]) {
+function schemaFields(schema: Schema, columns: Set<string>, rows: Row[], titleShown: boolean) {
   const properties = Object.entries(schema.properties)
     .filter(([, column]) => columns.has(column.name))
     .map(([key, column]) => [key, columnFields(column, rows)]);
   return {
     object: schema.object,
     id: schema.id,
-    title: schema.title.map(({ plain_text }) => ({ plain_text })),
+    title: titleShown ? schema.title.map(({ plain_text }) => ({ plain_text })) : [],
     properties: Object.fromEntries(properties),
   };
 }
@@ -263,8 +288,13 @@ export function createFixtureSanitizer(
   const schemas: Calls<Schema> = new Map();
   const inlineRows: Calls<Row[]> = new Map();
   const viewOrders: Calls<string[]> = new Map();
+  const blockLists: Calls<Block[]> = new Map();
+  const tableTitles = new Map<string, string>();
+  const shownParents = new Set<string>();
+  const recorded = new Set<string>();
 
   const sanitize = (method: Method, arg: string, value: unknown): unknown => {
+    recorded.add(`${method}:${idOf(arg)}`);
     const clean = scrub(value);
     switch (method) {
       case 'retrieveDatabase': {
@@ -304,6 +334,24 @@ export function createFixtureSanitizer(
         remember(viewOrders, arg, pageIds);
         return pageIds.filter((id) => keptRowIds.has(idOf(id)));
       }
+      case 'retrievePage':
+        shownParents.add(idOf((clean as Row).id));
+        return clean;
+      case 'listBlockChildren': {
+        // Every parent the site renders is registered before its children are requested.
+        if (!keptRowIds.has(idOf(arg)) && !shownParents.has(idOf(arg))) return [];
+        const blocks = clean as Block[];
+        for (const block of blocks) {
+          const original = block.type === 'synced_block' && block.synced_block.synced_from;
+          if (original) shownParents.add(idOf(original.block_id));
+          else if (RENDERS_CHILDREN.has(block.type)) shownParents.add(idOf(block.id));
+          if (block.type === 'child_database')
+            tableTitles.set(idOf(block.id), block.child_database.title);
+        }
+        remember(blockLists, arg, blocks);
+        // Table titles stay blank until prune knows which tables render.
+        return blocks.map(untitled);
+      }
       default:
         return clean;
     }
@@ -316,6 +364,22 @@ export function createFixtureSanitizer(
     const reference =
       databases.get(blockId)?.value.data_sources[0]?.id ?? sourceView?.data_source_id;
     return reference ? idOf(reference) : undefined;
+  };
+
+  // Keep in sync with when buildDatabaseNode skips a table; a 404 never reaches the sanitizer.
+  const rendersTable = (blockId: string): boolean => {
+    const source = sourceOf(blockId);
+    return (
+      source !== undefined &&
+      recorded.has(`retrieveDataSource:${source}`) &&
+      recorded.has(`queryDataSource:${source}`)
+    );
+  };
+
+  // Keep in sync with how buildDatabaseNode picks a table's title.
+  const showsSourceTitle = (blockId: string): boolean => {
+    const title = tableTitles.get(blockId);
+    return title === '' || title === 'Untitled';
   };
 
   // Keep in sync with how buildDatabaseNode picks columns and rows.
@@ -383,7 +447,11 @@ export function createFixtureSanitizer(
       const rows = [...kept.values()].map(({ row, columns }) => rowFields(row, columns));
       const columns = new Set(layouts.flatMap((layout) => [...layout.columns]));
       rewrite('queryDataSource', query, rows);
-      rewrite('retrieveDataSource', schemaCall, schemaFields(schema, columns, rows));
+      rewrite(
+        'retrieveDataSource',
+        schemaCall,
+        schemaFields(schema, columns, rows, owners.some(showsSourceTitle)),
+      );
 
       for (const layout of layouts) {
         const views = viewLists.get(layout.blockId);
@@ -399,6 +467,13 @@ export function createFixtureSanitizer(
           );
         if (layout.order) rewrite('queryViewPageIds', layout.order.call, layout.order.pageIds);
       }
+    }
+
+    for (const list of blockLists.values()) {
+      const blocks = list.value.map((block) =>
+        block.type === 'child_database' && !rendersTable(idOf(block.id)) ? untitled(block) : block,
+      );
+      rewrite('listBlockChildren', list, blocks);
     }
 
     await Promise.all(
