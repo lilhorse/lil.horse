@@ -22,6 +22,15 @@ const post = (overrides: Record<string, Record<string, unknown>> = {}, options =
     options,
   );
 
+const project = (overrides: Record<string, Record<string, unknown>> = {}) =>
+  page({
+    Name: prop.title('Site'),
+    Visible: prop.checkbox(true),
+    Description: prop.text('This site'),
+    Slug: prop.text('lil-horse'),
+    ...overrides,
+  });
+
 describe('parsePosts', () => {
   it('parses a published post with defaults', () => {
     const row = post({}, { cover: 'https://images.unsplash.com/photo' });
@@ -63,7 +72,13 @@ describe('parsePosts', () => {
     expect(error.message).toContain('"Hello World" must match');
   });
 
-  it('treats a missing Status as Draft and accepts a select-typed Status', () => {
+  it('accepts a valid unlisted post', () => {
+    const result = parsePosts([post({ Status: prop.status('Unlisted') })]);
+    expect(result.issues).toEqual([]);
+    expect(result.items.map((item) => item.status)).toEqual(['Unlisted']);
+  });
+
+  it('treats an empty Status as Draft and accepts a select-typed Status', () => {
     const result = parsePosts([
       post({ Status: prop.status(null), Slug: prop.text('wip') }),
       post({ Status: prop.select('Published') }),
@@ -75,6 +90,24 @@ describe('parsePosts', () => {
     ]);
   });
 
+  it('fails a post whose Status has the wrong type instead of skipping it as a draft', () => {
+    const result = parsePosts([post({ Status: prop.multiSelect(['Published']) })]);
+    expect(result.issues.map((issue) => issue.field)).toEqual(['Status']);
+    expect(result.items).toEqual([]);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('fails a post when the Status column is missing', () => {
+    const row = post();
+    delete row.properties.Status;
+    const result = parsePosts([row]);
+    expect(result.issues.map((issue) => `${issue.field}: ${issue.message}`)).toEqual([
+      'Status: column is missing',
+    ]);
+    expect(result.items).toEqual([]);
+    expect(result.warnings).toEqual([]);
+  });
+
   it('flags duplicate slugs on the second post', () => {
     const first = post();
     const second = post();
@@ -82,6 +115,51 @@ describe('parsePosts', () => {
     expect(issues).toHaveLength(1);
     expect(issues[0]?.pageId).toBe(second.id);
     expect(issues[0]?.message).toContain(first.id);
+  });
+
+  it('flags a duplicate slug even when the first post has other problems', () => {
+    const first = post({ Published: prop.date(null) });
+    const second = post();
+    const { issues } = parsePosts([first, second]);
+    expect(issues.map((issue) => [issue.pageId, issue.field])).toEqual([
+      [first.id, 'Published'],
+      [second.id, 'Slug'],
+    ]);
+    expect(issues[1]?.message).toContain(first.id);
+  });
+
+  it('keeps the slug for a live post over a draft and links the skipped draft', () => {
+    const draft = post({ Status: prop.status('Draft') });
+    const live = post();
+    const result = parsePosts([draft, live]);
+    expect(result.issues).toEqual([]);
+    expect(result.items.map((item) => item.id)).toEqual([live.id]);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toContain(`https://www.notion.so/${draft.id}`);
+    expect(result.warnings[0]).toContain(`already used by https://www.notion.so/${live.id}`);
+  });
+
+  it('flags a duplicate draft slug even when the first draft has other problems', () => {
+    const broken = post({ Status: prop.status('Draft'), Language: prop.select('fr') });
+    const copy = post({ Status: prop.status('Draft') });
+    const result = parsePosts([broken, copy]);
+    expect(result.issues).toEqual([]);
+    expect(result.items).toEqual([]);
+    expect(result.warnings).toHaveLength(2);
+    expect(result.warnings[0]).toContain(`https://www.notion.so/${broken.id}`);
+    expect(result.warnings[1]).toContain(`https://www.notion.so/${copy.id}`);
+    expect(result.warnings[1]).toContain(`already used by https://www.notion.so/${broken.id}`);
+  });
+
+  it('rethrows reader errors that are not property errors', () => {
+    const row = post();
+    // Non-enumerable by default, so readTitle skips it and only the Description read hits it.
+    Object.defineProperty(row.properties, 'Description', {
+      get() {
+        throw new Error('boom');
+      },
+    });
+    expect(() => parsePosts([row])).toThrow('boom');
   });
 
   it('skips broken drafts with a warning instead of failing', () => {
@@ -133,6 +211,39 @@ describe('parseProjects', () => {
       stack: ['Astro'],
     });
     expect(result.issues.map((issue) => issue.field)).toEqual(['Description', 'Slug']);
+  });
+
+  it('fails a project whose Visible has the wrong type instead of hiding it', () => {
+    const result = parseProjects([project({ Visible: prop.select('Yes') })]);
+    expect(result.issues.map((issue) => issue.field)).toEqual(['Visible']);
+    expect(result.items).toEqual([]);
+  });
+
+  it('fails a project when the Visible column is missing', () => {
+    const row = project();
+    delete row.properties.Visible;
+    const result = parseProjects([row]);
+    expect(result.issues.map((issue) => `${issue.field}: ${issue.message}`)).toEqual([
+      'Visible: column is missing',
+    ]);
+    expect(result.items).toEqual([]);
+  });
+
+  it('flags duplicate project slugs even when the first project has other problems', () => {
+    const first = project({ Description: prop.text('') });
+    const second = project();
+    const { issues } = parseProjects([first, second]);
+    expect(issues.map((issue) => [issue.pageId, issue.field])).toEqual([
+      [first.id, 'Description'],
+      [second.id, 'Slug'],
+    ]);
+    expect(issues[1]?.message).toContain(first.id);
+  });
+
+  it('rejects an unknown project status', () => {
+    const { issues } = parseProjects([project({ Status: prop.select('Paused') })]);
+    expect(issues.map((issue) => issue.field)).toEqual(['Status']);
+    expect(issues[0]?.message).toContain('(found Paused)');
   });
 });
 

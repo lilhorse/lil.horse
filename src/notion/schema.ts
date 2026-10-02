@@ -2,6 +2,7 @@ import type { PageObjectResponse } from '@notionhq/client';
 import { normalizeId, notionUrl } from './ids';
 import {
   coverUrl,
+  PropertyError,
   readCheckbox,
   readDate,
   readEmail,
@@ -86,34 +87,55 @@ function isOneOf<T extends string>(value: string, options: readonly T[]): value 
   return (options as readonly string[]).includes(value);
 }
 
+type ReportIssue = (field: string, message: string) => void;
+
 function rowContext(collection: CollectionName, row: PageObjectResponse) {
   const pageId = normalizeId(row.id);
   const title = readTitle(row.properties);
   const issues: ValidationIssue[] = [];
-  const issue = (field: string, message: string) => {
+  const issue: ReportIssue = (field, message) => {
     issues.push({ collection, pageId, title, field, message });
   };
   const read = <T>(field: string, reader: () => T, fallback: T): T => {
     try {
       return reader();
     } catch (error) {
-      issue(field, error instanceof Error ? error.message : String(error));
+      if (!(error instanceof PropertyError)) throw error;
+      issue(field, error.message);
       return fallback;
     }
   };
   return { pageId, title, issues, issue, read };
 }
 
+function claimSlug(
+  usedSlugs: Map<string, string>,
+  slug: string | null,
+  pageId: string,
+  issue: ReportIssue,
+): void {
+  if (!slug || !SLUG_PATTERN.test(slug)) return;
+  const owner = usedSlugs.get(slug);
+  if (owner) issue('Slug', `"${slug}" is already used by ${notionUrl(owner)}`);
+  else usedSlugs.set(slug, pageId);
+}
+
 export function parsePosts(rows: PageObjectResponse[]): ParseResult<ParsedPost> {
   const result: ParseResult<ParsedPost> = { items: [], issues: [], warnings: [] };
   const usedSlugs = new Map<string, string>();
-  const drafts: { row: PageObjectResponse; post: ParsedPost }[] = [];
+  const drafts: { post: ParsedPost; issues: ValidationIssue[]; issue: ReportIssue }[] = [];
 
   for (const row of rows) {
     const { pageId, title, issues, issue, read } = rowContext('posts', row);
     const props = row.properties;
+    if (props.Status === undefined) issue('Status', 'column is missing');
+    const status = read('Status', () => readOption(props, 'Status'), null);
+    if (issues.length > 0) {
+      result.issues.push(...issues);
+      continue;
+    }
     // A freshly created page has no Status yet; failing the production build on it would block every deploy.
-    const statusName = read('Status', () => readOption(props, 'Status'), null) ?? 'Draft';
+    const statusName = status ?? 'Draft';
     if (!isOneOf(statusName, POST_STATUSES)) {
       issue('Status', `must be one of ${POST_STATUSES.join(', ')} (found ${statusName})`);
       result.issues.push(...issues);
@@ -145,32 +167,26 @@ export function parsePosts(rows: PageObjectResponse[]): ParseResult<ParsedPost> 
     };
 
     if (statusName === 'Draft') {
-      if (issues.length > 0)
-        result.warnings.push(
-          `Draft "${title || pageId}" skipped: ${issues.map((i) => `${i.field} ${i.message}`).join('; ')}`,
-        );
-      else drafts.push({ row, post: parsed });
+      drafts.push({ post: parsed, issues, issue });
       continue;
     }
-    const owner = slug ? usedSlugs.get(slug) : undefined;
-    if (slug && owner) issue('Slug', `"${slug}" is already used by ${notionUrl(owner)}`);
+    claimSlug(usedSlugs, slug, pageId, issue);
     if (issues.length > 0) {
       result.issues.push(...issues);
       continue;
     }
-    usedSlugs.set(parsed.slug, pageId);
     result.items.push(parsed);
   }
 
-  for (const { post } of drafts) {
-    const owner = usedSlugs.get(post.slug);
-    if (owner) {
+  for (const { post, issues, issue } of drafts) {
+    claimSlug(usedSlugs, post.slug, post.id, issue);
+    if (issues.length > 0) {
+      const problems = issues.map((i) => `${i.field} ${i.message}`).join('; ');
       result.warnings.push(
-        `Draft "${post.title}" skipped: Slug "${post.slug}" is already used by ${notionUrl(owner)}`,
+        `Draft "${post.title || '(untitled)'}" (${notionUrl(post.id)}) skipped: ${problems}`,
       );
       continue;
     }
-    usedSlugs.set(post.slug, post.id);
     result.items.push(post);
   }
   return result;
@@ -182,17 +198,20 @@ export function parseProjects(rows: PageObjectResponse[]): ParseResult<ParsedPro
   for (const row of rows) {
     const { pageId, title, issues, issue, read } = rowContext('projects', row);
     const props = row.properties;
-    if (!read('Visible', () => readCheckbox(props, 'Visible'), false)) continue;
+    if (props.Visible === undefined) issue('Visible', 'column is missing');
+    if (!read('Visible', () => readCheckbox(props, 'Visible'), false)) {
+      result.issues.push(...issues);
+      continue;
+    }
     const slug = read('Slug', () => readText(props, 'Slug'), null);
     const description = read('Description', () => readText(props, 'Description'), null);
     const status = read('Status', () => readOption(props, 'Status'), null);
     if (!title) issue('Name', 'is required');
     if (!description) issue('Description', 'is required for visible projects');
     if (slug && !SLUG_PATTERN.test(slug)) issue('Slug', `"${slug}" must match ${SLUG_PATTERN}`);
-    const owner = slug ? usedSlugs.get(slug) : undefined;
-    if (slug && owner) issue('Slug', `"${slug}" is already used by ${notionUrl(owner)}`);
+    claimSlug(usedSlugs, slug, pageId, issue);
     if (status !== null && !isOneOf(status, PROJECT_STATUSES))
-      issue('Status', `must be one of ${PROJECT_STATUSES.join(', ')}`);
+      issue('Status', `must be one of ${PROJECT_STATUSES.join(', ')} (found ${status})`);
     const project: ParsedProject = {
       id: pageId,
       name: title,
@@ -212,7 +231,6 @@ export function parseProjects(rows: PageObjectResponse[]): ParseResult<ParsedPro
       result.issues.push(...issues);
       continue;
     }
-    if (slug) usedSlugs.set(slug, pageId);
     result.items.push(project);
   }
   return result;
