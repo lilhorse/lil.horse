@@ -215,6 +215,13 @@ export function readingMinutes(text: string): number {
   return Math.max(1, Math.ceil(words / 230 + cjk / 400));
 }
 
+// scx, not sc: the kana long-vowel mark U+30FC is Script=Common.
+const WORD_CHAR = /^[[\p{L}\p{N}\p{M}]--[\p{scx=Han}\p{scx=Hiragana}\p{scx=Katakana}]]/v;
+const JOINER = /^['\u{2019}.,-]$/u;
+const OPENER = /^[\p{Ps}\p{Pi}\p{Pd}"'#@$/\\]$/u;
+const TRAIL =
+  /^[\s,.;:!?/@\p{Ps}\p{Pi}\u{2026}\u{3001}\u{3002}\u{FF01}\u{FF0C}\u{FF1A}\u{FF1B}\u{FF1F}]$/u;
+
 export function excerpt(text: string, max = 160): string {
   const clean = text.replace(/\s+/g, ' ').trim();
   const chars = Array.from(
@@ -222,10 +229,16 @@ export function excerpt(text: string, max = 160): string {
     (s) => s.segment,
   );
   if (chars.length <= max) return clean;
-  const splitsWord = [chars[max - 2], chars[max - 1]].every((char) => /[A-Za-z0-9]/.test(char));
-  const space = chars.lastIndexOf(' ', max - 1);
-  const cut = chars
-    .slice(0, splitsWord && space > Math.max(0, max - 30) ? space : max - 1)
-    .join('');
-  return `${cut.replace(/[\s,.;:!?，。；：！？、]+$/, '')}…`;
+  const wordChar = (i: number) => WORD_CHAR.test(chars[i] ?? '');
+  const inWord = (i: number) =>
+    wordChar(i) || (JOINER.test(chars[i] ?? '') && wordChar(i - 1) && wordChar(i + 1));
+  let end = max - 1;
+  if (inWord(end - 1) && inWord(end)) {
+    let boundary = end - 2;
+    while (boundary >= 0 && inWord(boundary)) boundary--;
+    while (boundary >= 0 && OPENER.test(chars[boundary])) boundary--;
+    if (boundary >= 0 && boundary > max - 30) end = boundary + 1;
+  }
+  while (end > 0 && TRAIL.test(chars[end - 1])) end--;
+  return `${chars.slice(0, end).join('')}\u{2026}`;
 }

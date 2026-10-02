@@ -220,6 +220,109 @@ describe('AST helpers', () => {
     );
   });
 
+  it.each([
+    "don't",
+    'don\u{2019}t',
+    'r\u{E9}sum\u{E9}',
+    'caf\u{E9}',
+    '1,000',
+    '3.14',
+    'well-known',
+    '\u{D55C}\u{AD6D}\u{C5B4}',
+  ])('keeps or drops %s whole', (word) => {
+    const text = `and ${word}. More`;
+    for (let kept = 1; kept < word.length; kept++)
+      expect(excerpt(text, kept + 5)).toBe('and\u{2026}');
+    expect(excerpt(text, word.length + 5)).toBe(`and ${word}\u{2026}`);
+  });
+
+  it('backs off to the CJK character before a glued Latin word', () => {
+    const cjk = '\u{6211}'.repeat(157);
+    expect(excerpt(`${cjk}Astro`)).toBe(`${cjk}\u{2026}`);
+  });
+
+  it('hard-cuts a word that starts more than 30 graphemes before the cut', () => {
+    expect(excerpt(`and ${'a'.repeat(40)}`, 40)).toBe(`and ${'a'.repeat(35)}\u{2026}`);
+    const cjk = '\u{6211}'.repeat(120);
+    expect(excerpt(`${cjk}${'a'.repeat(60)}`)).toBe(`${cjk}${'a'.repeat(39)}\u{2026}`);
+  });
+
+  it('backs off only to a boundary less than 30 graphemes before the limit', () => {
+    const word = 'a'.repeat(40);
+    expect(excerpt(`${'\u{6211}'.repeat(12)}${word}`, 40)).toBe(`${'\u{6211}'.repeat(12)}\u{2026}`);
+    expect(excerpt(`${'\u{6211}'.repeat(11)}${word}`, 40)).toBe(
+      `${'\u{6211}'.repeat(11)}${'a'.repeat(28)}\u{2026}`,
+    );
+  });
+
+  it('keeps the katakana long-vowel mark with its word', () => {
+    const user = '\u{30E6}\u{30FC}\u{30B6}\u{30FC}';
+    expect(excerpt(`${user}ID more`, 5)).toBe(`${user}\u{2026}`);
+    expect(excerpt(`${user}ID more`, 6)).toBe(`${user}\u{2026}`);
+  });
+
+  it('drops an opening bracket or quote together with the word after it', () => {
+    expect(excerpt('see (supercalifragilistic) now', 12)).toBe('see\u{2026}');
+    expect(excerpt('he said "supercalifragilistic"', 14)).toBe('he said\u{2026}');
+    expect(excerpt('\u{6211}\u{5728}\u{300A}Hacker News\u{300B}', 6)).toBe(
+      '\u{6211}\u{5728}\u{2026}',
+    );
+  });
+
+  it.each([
+    ['I built it with Notion/', 'Astro', 'I built it with Notion'],
+    ['Thanks to @', 'supercalifragilistic', 'Thanks to'],
+    ['I tagged it #', 'webdevelopment', 'I tagged it'],
+    ['It costs $', '1,000', 'It costs'],
+    ['It was -', '15', 'It was'],
+    ['I like Astro\u{2014}', 'the', 'I like Astro'],
+    ['Read it at https://', 'lil.horse', 'Read it at https'],
+    ['\u{6807}\u{7B7E}\u{662F}#', 'webdevelopment', '\u{6807}\u{7B7E}\u{662F}'],
+    ['I wrapped it in $(', 'date', 'I wrapped it in'],
+    ['\u{4ED6}\u{8BF4}\u{2014}\u{2014}\u{201C}', 'Astro', '\u{4ED6}\u{8BF4}'],
+    ['Run "/', 'usr', 'Run'],
+    ['He replied "@', 'supercalifragilistic', 'He replied'],
+    ['Open C:\\Users\\', 'lilhorse', 'Open C:\\Users'],
+  ])('drops the punctuation glued to the front of a cut word in %s%s', (before, word, kept) => {
+    const text = `${before}${word} and more`;
+    for (let cut = 1; cut < word.length; cut++)
+      expect(excerpt(text, before.length + cut + 1)).toBe(`${kept}\u{2026}`);
+  });
+
+  it.each([
+    ['I moved the backend to (.', 'NET', 'I moved the backend to'],
+    ['\u{6700}\u{8FD1}\u{5728}\u{8BFB}\u{300A}', 'Designing', '\u{6700}\u{8FD1}\u{5728}\u{8BFB}'],
+    ['He said \u{201C}', 'word', 'He said'],
+    ['\u{7136}\u{540E}\u{2026}\u{2026}', 'Astro', '\u{7136}\u{540E}'],
+  ])('trims openers and ellipses off the end of %s%s', (before, word, kept) => {
+    const text = `${before}${word} and more`;
+    for (let cut = 0; cut < word.length; cut++)
+      expect(excerpt(text, before.length + cut + 1)).toBe(`${kept}\u{2026}`);
+  });
+
+  it('trims a slash or @ left right before the cut', () => {
+    expect(excerpt('I built it with Notion/Astro today', 24)).toBe(
+      'I built it with Notion\u{2026}',
+    );
+    expect(excerpt('Thanks to @supercalifragilistic', 12)).toBe('Thanks to\u{2026}');
+  });
+
+  it('keeps words joined by a slash when the cut lands right after them', () => {
+    const text = '\u{6211}\u{7528}\u{4E86}Notion/Astro\u{642D}\u{5EFA}\u{535A}\u{5BA2}';
+    expect(excerpt(text, 16)).toBe('\u{6211}\u{7528}\u{4E86}Notion/Astro\u{2026}');
+  });
+
+  it('keeps the # of C# when the cut lands right after it', () => {
+    expect(excerpt('I write C# daily', 11)).toBe('I write C#\u{2026}');
+    expect(excerpt('I write C# daily', 12)).toBe('I write C#\u{2026}');
+  });
+
+  it('never trims part of a grapheme off the end', () => {
+    const text = 'Total: \u{0600}. That is all';
+    expect(excerpt(text, 9)).toBe('Total: \u{0600}.\u{2026}');
+    expect(excerpt(text, 10)).toBe('Total: \u{0600}.\u{2026}');
+  });
+
   it('cuts excerpts at a word boundary', () => {
     expect(excerpt('short text')).toBe('short text');
     const long =
