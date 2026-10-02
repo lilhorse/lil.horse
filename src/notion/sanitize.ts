@@ -6,17 +6,21 @@ import type {
 } from '@notionhq/client';
 import type { NotionApi } from './api';
 import { writeFixture } from './fixture-api';
-import { normalizeId, parseId } from './ids';
+import { normalizeId, notionUrl, parseId } from './ids';
 import type { DatabaseDisplay } from './types';
 
 type Method = keyof NotionApi;
+type Database = DatabaseObjectResponse;
 type Schema = DataSourceObjectResponse;
+type Column = Schema['properties'][string];
 type View = DataSourceViewObjectResponse;
 type Row = PageObjectResponse;
+type Value = Row['properties'][string];
+type FileEntry = Extract<Value, { type: 'files' }>['files'][number];
 
 export interface FixtureSanitizer {
   (method: Method, arg: string, value: unknown): unknown;
-  /** Rewrites recorded inline tables down to the rows and columns the site renders. */
+  /** Writes the recorded inline tables, cut down to the rows and columns the site renders. */
   prune(dir: string): Promise<void>;
 }
 
@@ -85,32 +89,138 @@ function decode(value: string): string {
   }
 }
 
-// Filters can name people and emails, and the site never reads them.
-function withoutFilters(view: View): View {
-  const copy = { ...view };
-  delete copy.filter;
-  delete copy.quick_filters;
-  return copy;
+// Keep in sync with the fields src/notion/database.ts reads.
+const RENDERED_TYPES = new Set<string>([
+  'title',
+  'rich_text',
+  'number',
+  'select',
+  'status',
+  'multi_select',
+  'date',
+  'checkbox',
+  'url',
+  'email',
+  'files',
+  'created_time',
+  'last_edited_time',
+]);
+const IMAGE_FILE = /\.(png|jpe?g|gif|webp|avif|svg)(\?|#|$)/i;
+
+// `title` must stay, even empty: the SDK's isFullDatabase and isFullDataSource check for it.
+const databaseFields = (database: Database) =>
+  ({
+    object: database.object,
+    id: database.id,
+    title: [],
+    data_sources: database.data_sources.slice(0, 1).map(({ id }) => ({ id })),
+  }) as unknown as Database;
+
+const placeholderSchema = (schema: Schema) => ({
+  object: schema.object,
+  id: schema.id,
+  title: [],
+  properties: {},
+});
+
+function viewFields(view: View): View {
+  const { object, id, type, data_source_id, configuration } = view;
+  const columns =
+    configuration && 'properties' in configuration ? configuration.properties : undefined;
+  return {
+    object,
+    id,
+    type,
+    data_source_id,
+    ...(configuration && {
+      configuration: {
+        type: configuration.type,
+        ...(columns && {
+          properties: columns.map(({ property_id, visible }) => ({ property_id, visible })),
+        }),
+      },
+    }),
+  } as unknown as View;
 }
 
-function pick<T>(record: Record<string, T>, names: Set<string>): Record<string, T> {
-  return Object.fromEntries(Object.entries(record).filter(([name]) => names.has(name)));
+function isImage(file: FileEntry): boolean {
+  const url =
+    file.type === 'external' ? file.external.url : file.type === 'file' ? file.file.url : '';
+  return url !== '' && (IMAGE_FILE.test(file.name) || IMAGE_FILE.test(url));
 }
 
-// null keeps every column.
-type Columns = Set<string> | null;
+function shownValue(value: Value | undefined): Value | undefined {
+  if (!value || !RENDERED_TYPES.has(value.type)) return undefined;
+  return value.type === 'files' ? { ...value, files: value.files.filter(isImage) } : value;
+}
 
-const union = (a: Columns, b: Columns): Columns => a && b && new Set([...a, ...b]);
+function hasContent(value: Value | undefined): boolean {
+  const shown = shownValue(value);
+  const data = shown && (shown as unknown as Record<string, unknown>)[shown.type];
+  return Array.isArray(data) ? data.length > 0 : data !== undefined && data !== null && data !== '';
+}
 
-function pruneView(view: View, keeps: (propertyId: string) => boolean): View {
-  const copy = withoutFilters(view);
-  const configuration = copy.configuration;
-  if (configuration && 'properties' in configuration && configuration.properties)
-    copy.configuration = {
-      ...configuration,
-      properties: configuration.properties.filter((column) => keeps(column.property_id)),
-    };
-  return copy;
+function defaultColumns(schema: Schema, rows: Row[]): Set<string> {
+  const shown = Object.values(schema.properties).filter(
+    (column) =>
+      column.type === 'title' || rows.some((row) => hasContent(row.properties[column.name])),
+  );
+  return new Set(shown.map((column) => column.name));
+}
+
+function rowFields(row: Row, columns: Set<string>): Row {
+  const properties = Object.entries(row.properties).flatMap(([name, value]) => {
+    const shown = columns.has(name) ? shownValue(value) : undefined;
+    return shown ? [[name, shown] as const] : [];
+  });
+  return {
+    object: row.object,
+    id: row.id,
+    url: notionUrl(row.id),
+    properties: Object.fromEntries(properties),
+  } as Row;
+}
+
+function optionsOf(column: Column) {
+  if (column.type === 'select') return column.select.options;
+  if (column.type === 'multi_select') return column.multi_select.options;
+  if (column.type === 'status') return column.status.options;
+  return undefined;
+}
+
+function optionNames(value: Value | undefined): string[] {
+  if (value?.type === 'select') return value.select ? [value.select.name] : [];
+  if (value?.type === 'status') return value.status ? [value.status.name] : [];
+  if (value?.type === 'multi_select') return value.multi_select.map((option) => option.name);
+  return [];
+}
+
+function columnFields(column: Column, rows: Row[]) {
+  const { id, name, type } = column;
+  const options = optionsOf(column);
+  if (!options) return { id, name, type };
+  const used = new Set(rows.flatMap((row) => optionNames(row.properties[name])));
+  const kept = options.filter((option) => used.has(option.name));
+  return { id, name, type, [type]: { options: kept.map(({ name, color }) => ({ name, color })) } };
+}
+
+function schemaFields(schema: Schema, columns: Set<string>, rows: Row[]) {
+  const properties = Object.entries(schema.properties)
+    .filter(([, column]) => columns.has(column.name))
+    .map(([key, column]) => [key, columnFields(column, rows)]);
+  return {
+    object: schema.object,
+    id: schema.id,
+    title: schema.title.map(({ plain_text }) => ({ plain_text })),
+    properties: Object.fromEntries(properties),
+  };
+}
+
+function withColumns(view: View, keeps: (propertyId: string) => boolean): View {
+  const configuration = view.configuration;
+  if (!configuration || !('properties' in configuration) || !configuration.properties) return view;
+  const properties = configuration.properties.filter((column) => keeps(column.property_id));
+  return { ...view, configuration: { ...configuration, properties } };
 }
 
 // One ID can arrive in several spellings, and each spelling names its own fixture file.
@@ -127,7 +237,7 @@ function remember<T>(calls: Calls<T>, arg: string, value: T): void {
 }
 
 interface Layout {
-  columns: Columns;
+  columns: Set<string>;
   rows: Row[];
   order?: { call: Recorded<string[]>; pageIds: string[] };
 }
@@ -148,7 +258,7 @@ export function createFixtureSanitizer(
   ]);
   const rolesByDataSource = new Map<string, Role>();
   const keptRowIds = new Set<string>();
-  const databases: Calls<DatabaseObjectResponse> = new Map();
+  const databases: Calls<Database> = new Map();
   const viewLists: Calls<View[]> = new Map();
   const schemas: Calls<Schema> = new Map();
   const inlineRows: Calls<Row[]> = new Map();
@@ -158,28 +268,34 @@ export function createFixtureSanitizer(
     const clean = scrub(value);
     switch (method) {
       case 'retrieveDatabase': {
-        const database = clean as DatabaseObjectResponse;
+        const database = clean as Database;
         const role = rolesByDatabase.get(idOf(arg));
         if (role)
           for (const source of database.data_sources) rolesByDataSource.set(idOf(source.id), role);
-        remember(databases, arg, database);
-        return database;
+        const kept = role ? database : databaseFields(database);
+        remember(databases, arg, kept);
+        return kept;
       }
       case 'listViews': {
-        const views = (clean as View[]).map(withoutFilters);
+        const views = (clean as View[]).map(viewFields);
         remember(viewLists, arg, views);
         return views;
       }
-      case 'retrieveDataSource':
-        remember(schemas, arg, clean as Schema);
-        return clean;
+      // Other tables stay placeholders until prune, so a crash or a late write leaks nothing.
+      case 'retrieveDataSource': {
+        const schema = clean as Schema;
+        if (rolesByDataSource.has(idOf(arg))) return schema;
+        remember(schemas, arg, schema);
+        return placeholderSchema(schema);
+      }
       case 'queryDataSource': {
         const rows = clean as Row[];
         const role = rolesByDataSource.get(idOf(arg));
-        if (!role) remember(inlineRows, arg, rows);
-        const kept = role
-          ? rows.filter((row) => isPublicRow(role, row))
-          : rows.slice(0, maxInlineRows);
+        if (!role) {
+          remember(inlineRows, arg, rows);
+          return [];
+        }
+        const kept = rows.filter((row) => isPublicRow(role, row));
         for (const row of kept) keptRowIds.add(idOf(row.id));
         return kept;
       }
@@ -194,117 +310,94 @@ export function createFixtureSanitizer(
   };
 
   // Keep in sync with how buildDatabaseNode finds a block's data source.
-  const readsFrom = (blockId: string, dataSourceId: string): boolean => {
-    const sources = (databases.get(blockId)?.value.data_sources ?? []).map((source) => source.id);
+  const sourceOf = (blockId: string): string | undefined => {
     const views = viewLists.get(blockId)?.value ?? [];
     const sourceView = views.find((view) => view.type === 'table') ?? views[0];
-    if (sourceView?.data_source_id) sources.push(sourceView.data_source_id);
-    return sources.some((id) => idOf(id) === dataSourceId);
+    const reference =
+      databases.get(blockId)?.value.data_sources[0]?.id ?? sourceView?.data_source_id;
+    return reference ? idOf(reference) : undefined;
   };
 
   // Keep in sync with how buildDatabaseNode picks columns and rows.
   const layoutOf = (
-    blockId: string | undefined,
+    blockId: string,
     schema: Schema,
     rows: Row[],
     nameById: Map<string, string>,
   ): Layout => {
-    const title = Object.values(schema.properties).find((property) => property.type === 'title');
-    const withTitle = (names: string[]) => new Set(title ? [title.name, ...names] : names);
     const firstRows = rows.slice(0, maxInlineRows);
-    const display = blockId === undefined ? undefined : ids.databaseDisplay?.[blockId];
+    const display = ids.databaseDisplay?.[blockId];
     if (display) {
       const names = display.columns.map((column) => column.property);
-      // The site sorts rows by this column, so keep it even when it is not shown.
+      // The site sorts rows by this column, even when it is not shown.
       if (display.sort) names.push(display.sort.property);
-      return { columns: withTitle(names), rows: firstRows };
+      return { columns: new Set(names), rows: firstRows };
     }
-    const views = blockId === undefined ? [] : (viewLists.get(blockId)?.value ?? []);
-    const view = views.find((item) => item.type === 'table');
+    const view = viewLists.get(blockId)?.value.find((item) => item.type === 'table');
+    if (!view) return { columns: defaultColumns(schema, firstRows), rows: firstRows };
     const configured =
-      view?.configuration?.type === 'table' ? (view.configuration.properties ?? []) : [];
-    const columns =
-      configured.length === 0
-        ? null
-        : withTitle(
-            configured
-              .filter((column) => column.visible !== false)
-              .flatMap((column) => nameById.get(decode(column.property_id)) ?? []),
-          );
-    const order = view && viewOrders.get(idOf(view.id));
-    if (!order) return { columns, rows: firstRows };
+      view.configuration?.type === 'table' ? (view.configuration.properties ?? []) : [];
+    const shown = configured
+      .filter((column) => column.visible !== false)
+      .flatMap((column) => nameById.get(decode(column.property_id)) ?? []);
+    const order = viewOrders.get(idOf(view.id));
     const rowById = new Map(rows.map((row) => [idOf(row.id), row]));
-    const pageIds = order.value.filter((id) => rowById.has(idOf(id))).slice(0, maxInlineRows);
+    const pageIds = (order?.value ?? [])
+      .filter((id) => rowById.has(idOf(id)))
+      .slice(0, maxInlineRows);
+    const viewRows = pageIds.flatMap((id) => rowById.get(idOf(id)) ?? []);
     return {
-      columns,
-      rows: pageIds.flatMap((id) => rowById.get(idOf(id)) ?? []),
-      order: { call: order, pageIds },
+      columns: shown.length > 0 ? new Set(shown) : defaultColumns(schema, viewRows),
+      rows: viewRows,
+      order: order && { call: order, pageIds },
     };
   };
 
   const prune = async (dir: string): Promise<void> => {
     const pending = new Map<string, [Method, string, unknown]>();
-    const rewrite = (method: Method, call: Recorded<unknown> | undefined, value: unknown) => {
-      for (const arg of call?.args ?? []) pending.set(`${method}:${arg}`, [method, arg, value]);
+    const rewrite = (method: Method, call: Recorded<unknown>, value: unknown) => {
+      for (const arg of call.args) pending.set(`${method}:${arg}`, [method, arg, value]);
     };
-    const blockIds = new Set([...databases.keys(), ...viewLists.keys()]);
 
     for (const [dataSourceId, query] of inlineRows) {
       if (rolesByDataSource.has(dataSourceId)) continue;
       const schemaCall = schemas.get(dataSourceId);
-      if (!schemaCall) {
-        // Without a schema the site skips the table.
-        rewrite('queryDataSource', query, []);
-        continue;
-      }
+      const owners = [...databases.keys()].filter((blockId) => sourceOf(blockId) === dataSourceId);
+      // Nothing on the site shows this table, so its placeholders stay.
+      if (!schemaCall || owners.length === 0) continue;
       const schema = schemaCall.value;
       const nameById = new Map(
-        Object.values(schema.properties).map((property) => [decode(property.id), property.name]),
+        Object.values(schema.properties).map((column) => [decode(column.id), column.name]),
       );
-      const owners = [...blockIds].filter((blockId) => readsFrom(blockId, dataSourceId));
-      const layouts = (owners.length > 0 ? owners : [undefined]).map((blockId) => ({
+      const layouts = owners.map((blockId) => ({
         blockId,
         ...layoutOf(blockId, schema, query.value, nameById),
       }));
 
-      const kept = new Map<string, { row: Row; columns: Columns }>();
+      const kept = new Map<string, { row: Row; columns: Set<string> }>();
       for (const layout of layouts)
         for (const row of layout.rows) {
-          const seen = kept.get(idOf(row.id));
-          const columns = seen ? union(seen.columns, layout.columns) : layout.columns;
-          kept.set(idOf(row.id), { row, columns });
+          const seen = kept.get(idOf(row.id))?.columns ?? [];
+          kept.set(idOf(row.id), { row, columns: new Set([...seen, ...layout.columns]) });
         }
-      rewrite(
-        'queryDataSource',
-        query,
-        [...kept.values()].map(({ row, columns }) =>
-          columns ? { ...row, properties: pick(row.properties, columns) } : row,
-        ),
-      );
+      const rows = [...kept.values()].map(({ row, columns }) => rowFields(row, columns));
+      const columns = new Set(layouts.flatMap((layout) => [...layout.columns]));
+      rewrite('queryDataSource', query, rows);
+      rewrite('retrieveDataSource', schemaCall, schemaFields(schema, columns, rows));
 
-      const schemaColumns = layouts.reduce<Columns>(
-        (all, layout) => union(all, layout.columns),
-        new Set(),
-      );
-      if (schemaColumns)
-        rewrite('retrieveDataSource', schemaCall, {
-          ...schema,
-          properties: pick(schema.properties, schemaColumns),
-        });
-
-      for (const { blockId, columns, order } of layouts) {
-        const views = blockId === undefined ? undefined : viewLists.get(blockId);
+      for (const layout of layouts) {
+        const views = viewLists.get(layout.blockId);
         const keeps = (propertyId: string) => {
           const name = nameById.get(decode(propertyId));
-          return columns === null || (name !== undefined && columns.has(name));
+          return name !== undefined && layout.columns.has(name);
         };
         if (views)
           rewrite(
             'listViews',
             views,
-            views.value.map((view) => pruneView(view, keeps)),
+            views.value.map((view) => withColumns(view, keeps)),
           );
-        if (order) rewrite('queryViewPageIds', order.call, order.pageIds);
+        if (layout.order) rewrite('queryViewPageIds', layout.order.call, layout.order.pageIds);
       }
     }
 

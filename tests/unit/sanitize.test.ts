@@ -13,12 +13,17 @@ import { createFixtureApi, createRecordingApi } from '../../src/notion/fixture-a
 import { normalizeId } from '../../src/notion/ids';
 import { createFixtureSanitizer, scrub } from '../../src/notion/sanitize';
 import type { DatabaseDisplay, NotionSiteConfig } from '../../src/notion/types';
-import { database, dataSource, page, prop, tableView } from '../helpers/notion-factory';
+import { database, dataSource, page, prop, rt, tableView } from '../helpers/notion-factory';
 
 const POSTS = 'a'.repeat(32);
 const PROJECTS = 'b'.repeat(32);
 const PROFILE = 'c'.repeat(32);
 const ANONYMOUS = { object: 'user', id: '00000000-0000-0000-0000-000000000000' };
+const IDS = { postsDatabaseId: POSTS, projectsDatabaseId: PROJECTS, profileDatabaseId: PROFILE };
+const BLOCK = '1'.repeat(32);
+const DS = '2'.repeat(32);
+const LINKED = '3'.repeat(32);
+const POSTS_DS = 'd'.repeat(32);
 
 describe('scrub', () => {
   it('removes signatures, users, emails, people and request ids', () => {
@@ -121,7 +126,7 @@ describe('scrub', () => {
 });
 
 describe('createFixtureSanitizer', () => {
-  it('keeps only published posts, visible projects, and truncates inline databases', () => {
+  it('keeps only published posts and visible projects, and writes other tables as placeholders', () => {
     const sanitize = createFixtureSanitizer(
       { postsDatabaseId: POSTS, projectsDatabaseId: PROJECTS, profileDatabaseId: PROFILE },
       2,
@@ -152,34 +157,132 @@ describe('createFixtureSanitizer', () => {
       page({ Name: prop.title('2') }),
       page({ Name: prop.title('3') }),
     ];
-    const kept = sanitize('queryDataSource', 'f'.repeat(32), inline) as { id: string }[];
-    expect(kept).toHaveLength(2);
-    const keptIds = kept.map((row) => row.id);
-    const allIds = inline.map((row) => row.id);
-    expect(sanitize('queryViewPageIds', 'view', allIds)).toEqual(keptIds);
+    expect(sanitize('queryDataSource', 'f'.repeat(32), inline)).toEqual([]);
+    expect(
+      sanitize(
+        'queryViewPageIds',
+        'view',
+        inline.map((row) => row.id),
+      ),
+    ).toEqual([]);
   });
 
-  it('drops view filters as views are recorded', () => {
-    const sanitize = createFixtureSanitizer({
-      postsDatabaseId: POSTS,
-      projectsDatabaseId: PROJECTS,
-      profileDatabaseId: PROFILE,
-    });
-    const view = tableView('view', [{ property_id: 'title' }]);
-    const filtered = {
-      ...view,
-      filter: { property: 'Owner', people: { contains: 'real-user' } },
-      quick_filters: { Owner: { people: { contains: 'real-user' } } },
+  it('records views with only the fields the site reads', () => {
+    const sanitize = createFixtureSanitizer(IDS);
+    const views = [
+      {
+        object: 'view',
+        id: 'view-1',
+        parent: { type: 'database_id', database_id: BLOCK },
+        name: 'Reading list',
+        type: 'table',
+        url: 'https://www.notion.so/Reading-list-view1',
+        data_source_id: DS,
+        filter: { property: 'Note', rich_text: { contains: 'secret' } },
+        quick_filters: { Note: { rich_text: { contains: 'secret' } } },
+        sorts: [{ property: 'Note', direction: 'ascending' }],
+        configuration: {
+          type: 'table',
+          properties: [
+            { property_id: 'title', property_name: 'Name', visible: true, width: 280 },
+            { property_id: 'note', property_name: 'Note', visible: false, wrap: true },
+          ],
+          group_by: {
+            type: 'text',
+            property_id: 'note',
+            property_name: 'Note',
+            group_by: 'exact',
+            sort: { type: 'ascending' },
+          },
+        },
+      },
+      {
+        object: 'view',
+        id: 'view-2',
+        name: 'Schedule',
+        type: 'timeline',
+        data_source_id: DS,
+        configuration: {
+          type: 'timeline',
+          date_property_id: 'due',
+          date_property_name: 'Note due',
+          properties: [{ property_id: 'note', property_name: 'Note' }],
+          table_properties: [{ property_id: 'note', property_name: 'Note' }],
+        },
+      },
+      {
+        object: 'view',
+        id: 'view-3',
+        name: 'Ratings',
+        type: 'chart',
+        data_source_id: DS,
+        configuration: {
+          type: 'chart',
+          chart_type: 'bar',
+          x_axis: {
+            type: 'text',
+            property_id: 'note',
+            property_name: 'Note',
+            group_by: 'exact',
+            sort: { type: 'manual' },
+          },
+        },
+      },
+    ];
+    const recorded = sanitize('listViews', BLOCK, views);
+    expect(recorded).toEqual([
+      {
+        object: 'view',
+        id: 'view-1',
+        type: 'table',
+        data_source_id: DS,
+        configuration: {
+          type: 'table',
+          properties: [
+            { property_id: 'title', visible: true },
+            { property_id: 'note', visible: false },
+          ],
+        },
+      },
+      {
+        object: 'view',
+        id: 'view-2',
+        type: 'timeline',
+        data_source_id: DS,
+        configuration: { type: 'timeline', properties: [{ property_id: 'note' }] },
+      },
+      {
+        object: 'view',
+        id: 'view-3',
+        type: 'chart',
+        data_source_id: DS,
+        configuration: { type: 'chart' },
+      },
+    ]);
+    expect(JSON.stringify(recorded)).not.toMatch(/Note|secret|Reading|Schedule|Ratings/);
+  });
+
+  it('records other databases with only the data source the site reads', () => {
+    const sanitize = createFixtureSanitizer(IDS);
+    const posts = database(POSTS, POSTS_DS);
+    expect(sanitize('retrieveDatabase', POSTS, posts)).toEqual(posts);
+    const inline = {
+      ...database(BLOCK, DS, 'Private plans'),
+      description: [rt('Secret notes')],
+      url: `https://www.notion.so/Private-plans-${BLOCK}`,
+      data_sources: [
+        { id: DS, name: 'Private plans' },
+        { id: '5'.repeat(32), name: 'Archive' },
+      ],
     };
-    expect(sanitize('listViews', 'f'.repeat(32), [filtered])).toEqual([view]);
+    expect(sanitize('retrieveDatabase', BLOCK, inline)).toEqual({
+      object: 'database',
+      id: BLOCK,
+      title: [],
+      data_sources: [{ id: DS }],
+    });
   });
 });
-
-const IDS = { postsDatabaseId: POSTS, projectsDatabaseId: PROJECTS, profileDatabaseId: PROFILE };
-const BLOCK = '1'.repeat(32);
-const DS = '2'.repeat(32);
-const LINKED = '3'.repeat(32);
-const POSTS_DS = 'd'.repeat(32);
 
 interface FakeData {
   databases?: Record<string, DatabaseObjectResponse>;
@@ -233,8 +336,9 @@ async function record(
 ) {
   const dir = await mkdtemp(join(tmpdir(), 'fixtures-'));
   const sanitize = createFixtureSanitizer(config, maxInlineRows);
-  await render(createRecordingApi(fakeApi(data), dir, sanitize));
-  return { dir, sanitize, replay: createFixtureApi(dir) };
+  const api = createRecordingApi(fakeApi(data), dir, sanitize);
+  await render(api);
+  return { dir, sanitize, api, replay: createFixtureApi(dir) };
 }
 
 async function snapshot(dir: string): Promise<Record<string, string>> {
@@ -243,6 +347,8 @@ async function snapshot(dir: string): Promise<Record<string, string>> {
     await Promise.all(files.map(async (file) => [file, await readFile(join(dir, file), 'utf8')])),
   );
 }
+
+const everything = async (dir: string) => Object.values(await snapshot(dir)).join('\n');
 
 function movies() {
   const schema = dataSource(DS, {
@@ -260,6 +366,43 @@ function movies() {
     }),
   );
   return { schema, rows };
+}
+
+function schemaOf(
+  properties: Record<string, Record<string, unknown>>,
+  fields: Record<string, unknown> = {},
+): DataSourceObjectResponse {
+  return {
+    object: 'data_source',
+    id: DS,
+    title: [],
+    ...fields,
+    properties: Object.fromEntries(
+      Object.entries(properties).map(([name, config]) => [
+        name,
+        { name, description: null, ...config },
+      ]),
+    ),
+  } as unknown as DataSourceObjectResponse;
+}
+
+// One inline table whose table view shows these property IDs and lists every row.
+function showing(
+  schema: DataSourceObjectResponse,
+  rows: PageObjectResponse[],
+  propertyIds: string[],
+): FakeData {
+  const view = tableView(
+    'view-1',
+    propertyIds.map((id) => ({ property_id: id })),
+  );
+  return {
+    databases: { [BLOCK]: database(BLOCK, DS) },
+    dataSources: { [DS]: schema },
+    rows: { [DS]: rows },
+    views: { [BLOCK]: [{ ...view, data_source_id: DS }] },
+    orders: { 'view-1': rows.map((row) => row.id) },
+  };
 }
 
 const names = (record: Record<string, unknown>) => Object.keys(record);
@@ -303,9 +446,42 @@ describe('FixtureSanitizer.prune', () => {
       properties: [{ property_id: 'title' }, { property_id: ';KhU' }],
     });
     expect(await replay.queryViewPageIds('view-1')).toEqual([charlie.id, alpha.id]);
-    const everything = Object.values(await snapshot(dir)).join('\n');
+    const recorded = await everything(dir);
     for (const hidden of ['Bravo', 'Delta', 'Note', 'Watched'])
-      expect(everything).not.toContain(hidden);
+      expect(recorded).not.toContain(hidden);
+  });
+
+  it('writes placeholders while recording, the pruned table at prune, and placeholders again on a late write', async () => {
+    const { schema, rows } = movies();
+    const [alpha] = rows;
+    const data = showing(schema, rows, ['title']);
+    data.orders = { 'view-1': [alpha.id] };
+    const { dir, sanitize, api, replay } = await record(data, (api) =>
+      renderInlineTable(api, BLOCK),
+    );
+    const placeholder = { object: 'data_source', id: DS, title: [], properties: {} };
+    const table = async () => ({
+      rows: await replay.queryDataSource(DS),
+      schema: await replay.retrieveDataSource(DS),
+      order: await replay.queryViewPageIds('view-1'),
+    });
+
+    expect(await table()).toEqual({ rows: [], schema: placeholder, order: [] });
+
+    await sanitize.prune(dir);
+    const pruned = await table();
+    expect(pruned.rows.map((row) => [row.id, names(row.properties)])).toEqual([
+      [alpha.id, ['Name']],
+    ]);
+    expect(names(pruned.schema.properties)).toEqual(['Name']);
+    expect(pruned.order).toEqual([alpha.id]);
+
+    await Promise.all([
+      api.retrieveDataSource(DS),
+      api.queryDataSource(DS),
+      api.queryViewPageIds('view-1'),
+    ]);
+    expect(await table()).toEqual({ rows: [], schema: placeholder, order: [] });
   });
 
   it('picks view rows from the whole table, not just the rows kept while recording', async () => {
@@ -331,7 +507,7 @@ describe('FixtureSanitizer.prune', () => {
     expect(await replay.queryViewPageIds('view-1')).toEqual([delta.id, charlie.id]);
   });
 
-  it('keeps the configured columns, the sort column and the title when the site configures the table', async () => {
+  it('keeps exactly the configured columns and the sort column when the site configures the table', async () => {
     const { schema, rows } = movies();
     const config: NotionSiteConfig = {
       ...IDS,
@@ -356,14 +532,47 @@ describe('FixtureSanitizer.prune', () => {
 
     const kept = await replay.queryDataSource(DS);
     expect(kept.map((row) => row.id)).toEqual(rows.map((row) => row.id));
-    expect(kept.map((row) => names(row.properties))).toEqual(
-      rows.map(() => ['Name', 'Rating', 'Watched']),
+    expect(kept.map((row) => names(row.properties))).toEqual(rows.map(() => ['Rating', 'Watched']));
+    expect(names((await replay.retrieveDataSource(DS)).properties)).toEqual(['Rating', 'Watched']);
+    expect(await everything(dir)).not.toMatch(/Alpha|Bravo|Charlie|Delta/);
+  });
+
+  it('keeps the title and the non-empty columns when no table view shows the table', async () => {
+    const { schema } = movies();
+    const rows = ['Alpha', 'Bravo'].map((name) =>
+      page({
+        Name: prop.title(name),
+        Rating: prop.select(null),
+        Watched: prop.date('2024-01-01'),
+        Note: prop.text(''),
+      }),
     );
-    expect(names((await replay.retrieveDataSource(DS)).properties)).toEqual([
-      'Name',
-      'Rating',
-      'Watched',
+    const board = {
+      object: 'view',
+      id: 'board-1',
+      type: 'board',
+      data_source_id: DS,
+      configuration: {
+        type: 'board',
+        properties: [{ property_id: ';KhU' }, { property_id: 'note' }],
+      },
+    } as unknown as DataSourceViewObjectResponse;
+    const { dir, sanitize, replay } = await record(
+      {
+        databases: { [BLOCK]: database(BLOCK, DS) },
+        dataSources: { [DS]: schema },
+        rows: { [DS]: rows },
+        views: { [BLOCK]: [board] },
+      },
+      (api) => renderInlineTable(api, BLOCK),
+    );
+    await sanitize.prune(dir);
+
+    expect((await replay.queryDataSource(DS)).map((row) => names(row.properties))).toEqual([
+      ['Name', 'Watched'],
+      ['Name', 'Watched'],
     ]);
+    expect(names((await replay.retrieveDataSource(DS)).properties)).toEqual(['Name', 'Watched']);
   });
 
   it('follows a linked view to the data source its table view points at', async () => {
@@ -396,6 +605,52 @@ describe('FixtureSanitizer.prune', () => {
       type: 'table',
       properties: [{ property_id: 'title' }],
     });
+  });
+
+  it('reads a multi-source database from its first data source only', async () => {
+    const FIRST = '5'.repeat(32);
+    const { schema, rows } = movies();
+    const [, bravo] = rows;
+    const first = dataSource(FIRST, { Title: { id: 'title', type: 'title' } });
+    const firstRows = [page({ Title: prop.title('First source') })];
+    const { dir, sanitize, replay } = await record(
+      {
+        databases: {
+          [BLOCK]: {
+            ...database(BLOCK, FIRST),
+            data_sources: [
+              { id: FIRST, name: 'First' },
+              { id: DS, name: 'Second' },
+            ],
+          },
+          [LINKED]: { ...database(LINKED, DS, 'Untitled'), data_sources: [] },
+        },
+        dataSources: { [FIRST]: first, [DS]: schema },
+        rows: { [FIRST]: firstRows, [DS]: rows },
+        views: {
+          [BLOCK]: [],
+          [LINKED]: [
+            {
+              ...tableView('linked-view', [{ property_id: 'title' }, { property_id: ';KhU' }]),
+              data_source_id: DS,
+            },
+          ],
+        },
+        orders: { 'linked-view': [bravo.id] },
+      },
+      async (api) => {
+        await renderInlineTable(api, BLOCK);
+        await renderInlineTable(api, LINKED);
+      },
+    );
+    await sanitize.prune(dir);
+
+    expect(
+      (await replay.queryDataSource(DS)).map((row) => [row.id, names(row.properties)]),
+    ).toEqual([[bravo.id, ['Name', 'Rating']]]);
+    expect(names((await replay.retrieveDataSource(DS)).properties)).toEqual(['Name', 'Rating']);
+    expect((await replay.queryDataSource(FIRST)).map((row) => row.id)).toEqual([firstRows[0]?.id]);
+    expect(await everything(dir)).not.toMatch(/Alpha|Charlie|Delta|Note|Watched/);
   });
 
   it('keeps, per row, the columns of every block that shows that row', async () => {
@@ -448,6 +703,192 @@ describe('FixtureSanitizer.prune', () => {
       [delta.id, ['Name', 'Rating', 'Note']],
     ]);
     expect(names((await replay.retrieveDataSource(DS)).properties)).toEqual(all);
+  });
+
+  it('keeps only the row fields the site reads, with a Notion URL that carries no title', async () => {
+    const { schema, rows } = movies();
+    const [alpha] = rows;
+    const decorated = rows.map((row) => ({
+      ...row,
+      url: `https://www.notion.so/Secret-title-${row.id}`,
+      public_url: 'https://lil.notion.site/Secret-title',
+      icon: { type: 'external', external: { url: 'https://example.com/secret-icon.png' } },
+      cover: { type: 'external', external: { url: 'https://example.com/secret-cover.png' } },
+    })) as PageObjectResponse[];
+    const data = showing(schema, decorated, [';KhU']);
+    data.orders = { 'view-1': [alpha.id] };
+    const { dir, sanitize, replay } = await record(data, (api) => renderInlineTable(api, BLOCK));
+    await sanitize.prune(dir);
+
+    expect(await replay.queryDataSource(DS)).toEqual([
+      {
+        object: 'page',
+        id: alpha.id,
+        url: `https://www.notion.so/${normalizeId(alpha.id)}`,
+        properties: { Rating: alpha.properties.Rating },
+      },
+    ]);
+    expect(await everything(dir)).not.toMatch(/secret|alpha/i);
+  });
+
+  it('commits no values for formula, rollup, relation and other columns the site leaves empty', async () => {
+    const schema = schemaOf({
+      Name: { id: 'title', type: 'title', title: {} },
+      Score: { id: 'score', type: 'formula', formula: { expression: 'prop("Secret") * 2' } },
+      Total: {
+        id: 'total',
+        type: 'rollup',
+        rollup: {
+          relation_property_name: 'Links',
+          rollup_property_name: 'Secret',
+          function: 'show_original',
+        },
+      },
+      Links: {
+        id: 'links',
+        type: 'relation',
+        relation: {
+          data_source_id: 'private-source',
+          database_id: 'private-database',
+          type: 'dual_property',
+          dual_property: { synced_property_id: 'back', synced_property_name: 'Backlink' },
+        },
+      },
+      Code: { id: 'code', type: 'unique_id', unique_id: { prefix: 'SECRET' } },
+      Ask: { id: 'ask', type: 'button', button: {} },
+      Files: { id: 'files', type: 'files', files: {} },
+    });
+    const row = page({
+      Name: prop.title('Kept'),
+      Score: { type: 'formula', formula: { type: 'string', string: 'secret output' } },
+      Total: {
+        type: 'rollup',
+        rollup: { type: 'array', array: [prop.text('secret rollup')], function: 'show_original' },
+      },
+      Links: { type: 'relation', relation: [{ id: 'private-page' }], has_more: false },
+      Code: { type: 'unique_id', unique_id: { prefix: 'SECRET', number: 7 } },
+      Ask: { type: 'button', button: {} },
+      Files: prop.files(['https://example.com/cover.png', 'https://example.com/secret-plan.pdf']),
+    });
+    const { dir, sanitize, replay } = await record(
+      showing(schema, [row], ['title', 'score', 'total', 'links', 'code', 'ask', 'files']),
+      (api) => renderInlineTable(api, BLOCK),
+    );
+    await sanitize.prune(dir);
+
+    const [kept] = await replay.queryDataSource(DS);
+    expect(kept?.properties).toEqual({
+      Name: row.properties.Name,
+      Files: {
+        id: 'p6',
+        type: 'files',
+        files: [
+          {
+            type: 'external',
+            name: 'cover.png',
+            external: { url: 'https://example.com/cover.png' },
+          },
+        ],
+      },
+    });
+    expect((await replay.retrieveDataSource(DS)).properties).toEqual({
+      Name: { id: 'title', name: 'Name', type: 'title' },
+      Score: { id: 'score', name: 'Score', type: 'formula' },
+      Total: { id: 'total', name: 'Total', type: 'rollup' },
+      Links: { id: 'links', name: 'Links', type: 'relation' },
+      Code: { id: 'code', name: 'Code', type: 'unique_id' },
+      Ask: { id: 'ask', name: 'Ask', type: 'button' },
+      Files: { id: 'files', name: 'Files', type: 'files' },
+    });
+    expect(await everything(dir)).not.toMatch(/secret|private|backlink/i);
+  });
+
+  it('keeps only the options the kept rows use, and no descriptions', async () => {
+    const option = (name: string, color: string) => ({
+      id: `option-${name}`,
+      name,
+      color,
+      description: `About ${name}`,
+    });
+    const schema = schemaOf(
+      {
+        Name: { id: 'title', type: 'title', title: {}, description: 'Book title' },
+        Rating: {
+          id: 'rating',
+          type: 'select',
+          select: { options: [option('5', 'green'), option('Hidden', 'red')] },
+        },
+        Tags: {
+          id: 'tags',
+          type: 'multi_select',
+          multi_select: { options: [option('fiction', 'blue'), option('Unused', 'gray')] },
+        },
+        State: {
+          id: 'state',
+          type: 'status',
+          status: {
+            options: [option('Done', 'green'), option('Abandoned', 'red')],
+            groups: [
+              {
+                id: 'group',
+                name: 'Complete',
+                color: 'green',
+                option_ids: ['option-Done', 'option-Abandoned'],
+              },
+            ],
+          },
+        },
+      },
+      { title: [rt('Reading list')], description: [rt('Private notes')] },
+    );
+    const [dune, unread] = [
+      page({
+        Name: prop.title('Dune'),
+        Rating: prop.select('5'),
+        Tags: prop.multiSelect(['fiction']),
+        State: prop.status('Done'),
+      }),
+      page({
+        Name: prop.title('Unread'),
+        Rating: prop.select('Hidden'),
+        Tags: prop.multiSelect(['Unused']),
+        State: prop.status('Abandoned'),
+      }),
+    ];
+    const data = showing(schema, [dune, unread], ['title', 'rating', 'tags', 'state']);
+    data.orders = { 'view-1': [dune.id] };
+    const { dir, sanitize, replay } = await record(data, (api) => renderInlineTable(api, BLOCK));
+    await sanitize.prune(dir);
+
+    expect(await replay.retrieveDataSource(DS)).toEqual({
+      object: 'data_source',
+      id: DS,
+      title: [{ plain_text: 'Reading list' }],
+      properties: {
+        Name: { id: 'title', name: 'Name', type: 'title' },
+        Rating: {
+          id: 'rating',
+          name: 'Rating',
+          type: 'select',
+          select: { options: [{ name: '5', color: 'green' }] },
+        },
+        Tags: {
+          id: 'tags',
+          name: 'Tags',
+          type: 'multi_select',
+          multi_select: { options: [{ name: 'fiction', color: 'blue' }] },
+        },
+        State: {
+          id: 'state',
+          name: 'State',
+          type: 'status',
+          status: { options: [{ name: 'Done', color: 'green' }] },
+        },
+      },
+    });
+    expect(await everything(dir)).not.toMatch(
+      /Unread|Hidden|Unused|Abandoned|About|Private|Book title|Complete/,
+    );
   });
 
   it('leaves the main data sources untouched, even where a linked view hides part of one', async () => {
