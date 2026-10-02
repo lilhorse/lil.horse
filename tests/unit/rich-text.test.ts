@@ -76,6 +76,24 @@ describe('toRichText', () => {
     });
     expect(linkMention).toMatchObject({ kind: 'text', text: 'lilhorse', href: url, pageId: null });
   });
+
+  it('reads page ids only from link mentions of Notion pages', () => {
+    const linkMention = (href: string, text: string) => ({
+      ...mention({ type: 'link_mention', link_mention: { href } }, text),
+      href,
+    });
+    const [notionPage, github] = toRichText([
+      linkMention(`https://someone.notion.site/Title-${ID}`, 'Title'),
+      linkMention('https://github.com/x', 'x'),
+    ]);
+    expect(notionPage).toMatchObject({ kind: 'text', text: 'Title', pageId: ID });
+    expect(github).toMatchObject({
+      kind: 'text',
+      text: 'x',
+      href: 'https://github.com/x',
+      pageId: null,
+    });
+  });
 });
 
 describe('helpers', () => {

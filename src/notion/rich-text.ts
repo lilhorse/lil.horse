@@ -49,7 +49,13 @@ function toSpan(item: RichTextItemResponse): RichTextSpan {
         pageId: parseId(value.database.id),
       };
     }
-    return { kind: 'text', text: item.plain_text, annotations, href: item.href, pageId: null };
+    return {
+      kind: 'text',
+      text: item.plain_text,
+      annotations,
+      href: item.href,
+      pageId: pageIdFromHref(item.href),
+    };
   }
   const href = item.text.link?.url ?? item.href ?? null;
   return { kind: 'text', text: item.text.content, annotations, href, pageId: pageIdFromHref(href) };
