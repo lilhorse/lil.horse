@@ -1,16 +1,20 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createNotionApi, isNotFoundError, NOTION_VERSION } from '../../src/notion/api';
 import { RateLimiter } from '../../src/notion/rate-limit';
 import { block, page } from '../helpers/notion-factory';
 
-function jsonResponse(body: unknown, status = 200): Response {
+function jsonResponse(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...headers },
   });
 }
 
 describe('createNotionApi', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('pins the Notion-Version header, follows cursors and drops trashed blocks', async () => {
     const requests: { url: string; version: string | null }[] = [];
     const responses = [
@@ -115,6 +119,55 @@ describe('createNotionApi', () => {
       (await api.listBlockChildren('71d7802a0abf4857a535dfd861d8491e')).map((item) => item.id),
     ).toEqual(['a']);
     expect(methods).toEqual(['POST', 'POST', 'GET', 'GET']);
+  });
+
+  it('retries when the connection drops', async () => {
+    let calls = 0;
+    const fakeFetch = (async () => {
+      calls += 1;
+      if (calls === 1) throw new TypeError('fetch failed');
+      return jsonResponse(page({}, { id: 'p' }));
+    }) as typeof fetch;
+    const api = createNotionApi({
+      token: 'secret',
+      fetch: fakeFetch,
+      limiter: new RateLimiter({ concurrency: 1, minIntervalMs: 0 }),
+      retryDelayMs: 0,
+    });
+
+    await expect(api.retrievePage('71d7802a0abf4857a535dfd861d8491e')).resolves.toMatchObject({
+      id: 'p',
+    });
+    expect(calls).toBe(2);
+  });
+
+  it('waits for Retry-After before retrying a 429', async () => {
+    vi.useFakeTimers();
+    let calls = 0;
+    const fakeFetch = (async () => {
+      calls += 1;
+      if (calls === 1) {
+        return jsonResponse(
+          { object: 'error', status: 429, code: 'rate_limited', message: 'slow down' },
+          429,
+          { 'retry-after': '2' },
+        );
+      }
+      return jsonResponse(page({}, { id: 'p' }));
+    }) as typeof fetch;
+    const api = createNotionApi({
+      token: 'secret',
+      fetch: fakeFetch,
+      limiter: new RateLimiter({ concurrency: 1, minIntervalMs: 0 }),
+      retryDelayMs: 0,
+    });
+
+    const result = api.retrievePage('71d7802a0abf4857a535dfd861d8491e');
+    await vi.advanceTimersByTimeAsync(1_999);
+    expect(calls).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(calls).toBe(2);
+    await expect(result).resolves.toMatchObject({ id: 'p' });
   });
 
   it('gives up after five retries and never retries client errors', async () => {

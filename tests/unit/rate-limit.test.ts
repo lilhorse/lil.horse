@@ -1,30 +1,34 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RateLimiter } from '../../src/notion/rate-limit';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('RateLimiter', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('caps concurrency and spaces request starts', async () => {
+    vi.useFakeTimers();
     const limiter = new RateLimiter({ concurrency: 2, minIntervalMs: 25 });
     const starts: number[] = [];
     let running = 0;
     let peak = 0;
-    await Promise.all(
+    const done = Promise.all(
       Array.from({ length: 6 }, () =>
         limiter.schedule(async () => {
           starts.push(Date.now());
           running += 1;
           peak = Math.max(peak, running);
-          await sleep(40);
+          await sleep(100);
           running -= 1;
         }),
       ),
     );
-    expect(peak).toBeLessThanOrEqual(2);
-    const sorted = [...starts].sort((a, b) => a - b);
-    for (let index = 1; index < sorted.length; index += 1) {
-      expect(sorted[index] - sorted[index - 1]).toBeGreaterThanOrEqual(20);
-    }
+    await vi.runAllTimersAsync();
+    await done;
+    expect(peak).toBe(2);
+    expect(starts.map((start) => start - starts[0])).toEqual([0, 25, 100, 125, 200, 225]);
   });
 
   it('frees the slot when a task throws', async () => {

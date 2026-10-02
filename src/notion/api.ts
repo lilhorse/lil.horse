@@ -57,7 +57,10 @@ export function isNotFoundError(error: unknown): boolean {
 
 function isTransientError(error: unknown): boolean {
   if (isHTTPResponseError(error)) return error.status === 429 || error.status >= 500;
-  return isNotionClientError(error) && error.code === ClientErrorCode.RequestTimeout;
+  // fetch rejects with TypeError when the connection drops; every call here is a read.
+  return isNotionClientError(error)
+    ? error.code === ClientErrorCode.RequestTimeout
+    : error instanceof TypeError;
 }
 
 function retryDelay(error: unknown, attempt: number, baseDelayMs: number): number {
