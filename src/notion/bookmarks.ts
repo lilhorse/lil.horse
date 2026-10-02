@@ -78,7 +78,7 @@ function iconLinks(html: string, baseUrl: string): string[] {
   return icons;
 }
 
-export function parseHead(html: string, baseUrl: string) {
+function scanHead(html: string, baseUrl: string) {
   const meta = new Map<string, string>();
   for (const tag of html.match(/<meta\b[^>]*>/gi) ?? []) {
     const attrs = attributes(tag);
@@ -86,17 +86,25 @@ export function parseHead(html: string, baseUrl: string) {
     if (key && attrs.content !== undefined && !meta.has(key)) meta.set(key, attrs.content.trim());
   }
   const titleTag = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1];
+  const icons = iconLinks(html, baseUrl);
   return {
-    title:
-      meta.get('og:title') ||
-      meta.get('twitter:title') ||
-      (titleTag ? decodeEntities(titleTag).trim() : null) ||
-      null,
-    description: meta.get('og:description') || meta.get('description') || null,
-    siteName: meta.get('og:site_name') || null,
-    image: httpUrl(meta.get('og:image') || meta.get('twitter:image'), baseUrl),
-    icon: iconLinks(html, baseUrl).at(0) ?? null,
+    head: {
+      title:
+        meta.get('og:title') ||
+        meta.get('twitter:title') ||
+        (titleTag ? decodeEntities(titleTag).trim() : null) ||
+        null,
+      description: meta.get('og:description') || meta.get('description') || null,
+      siteName: meta.get('og:site_name') || null,
+      image: httpUrl(meta.get('og:image') || meta.get('twitter:image'), baseUrl),
+      icon: icons.at(0) ?? null,
+    },
+    icons,
   };
+}
+
+export function parseHead(html: string, baseUrl: string) {
+  return scanHead(html, baseUrl).head;
 }
 
 function charsetParam(value: string | null | undefined): string | undefined {
@@ -110,6 +118,16 @@ function decoderFor(label: string | undefined): TextDecoder | null {
   } catch {
     return null;
   }
+}
+
+const CP1252_C1 = '€\u0081‚ƒ„…†‡ˆ‰Š‹Œ\u008dŽ\u008f\u0090‘’“”•–—˜™š›œ\u009džŸ';
+
+function decodeWith(decoder: TextDecoder, bytes: Uint8Array): string {
+  const text = decoder.decode(bytes);
+  // Node's windows-1252 decoder leaves 0x80–0x9F as C1 controls.
+  return decoder.encoding === 'windows-1252'
+    ? text.replace(/[\u0080-\u009f]/g, (char) => CP1252_C1[char.charCodeAt(0) - 0x80])
+    : text;
 }
 
 function metaCharset(bytes: Uint8Array): string | undefined {
@@ -130,10 +148,10 @@ function decodeHtml(bytes: Uint8Array, contentType: string | null): string {
   if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf)
     return new TextDecoder().decode(bytes);
   const declared = decoderFor(charsetParam(contentType));
-  if (declared) return declared.decode(bytes);
+  if (declared) return decodeWith(declared, bytes);
   const sniffed = decoderFor(metaCharset(bytes));
   // An ASCII-compatible prescan found the label, so the page can't really be UTF-16.
-  if (sniffed && !sniffed.encoding.startsWith('utf-16')) return sniffed.decode(bytes);
+  if (sniffed && !sniffed.encoding.startsWith('utf-16')) return decodeWith(sniffed, bytes);
   return new TextDecoder().decode(bytes);
 }
 
@@ -164,12 +182,29 @@ function redact(url: string): string {
 
 function reason(error: unknown): string {
   if (!(error instanceof Error)) return String(error);
-  return error.cause instanceof Error ? `${error.message} (${error.cause.message})` : error.message;
+  const { cause } = error;
+  if (!(cause instanceof Error)) return error.message;
+  // Node's dual-stack connect failure is an AggregateError with an empty message.
+  const detail =
+    cause.message || ('code' in cause && typeof cause.code === 'string' ? cause.code : '');
+  return detail ? `${error.message} (${detail})` : error.message;
 }
 
 interface CachedBookmark {
   fetchedAt: number;
   meta: BookmarkMeta;
+}
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+const isText = (value: unknown) => value === null || typeof value === 'string';
+const isRef = (value: unknown) =>
+  value === null || (isObject(value) && typeof value.key === 'string');
+
+function isCachedBookmark(value: unknown): value is CachedBookmark {
+  if (!isObject(value) || !Number.isFinite(value.fetchedAt) || !isObject(value.meta)) return false;
+  const { title, description, siteName, image, icon } = value.meta;
+  return isText(title) && isText(description) && isText(siteName) && isRef(image) && isRef(icon);
 }
 
 export interface BookmarkFetcherOptions {
@@ -220,7 +255,7 @@ export class BookmarkFetcher {
       `${createHash('sha256').update(url).digest('hex').slice(0, 16)}.json`,
     );
     const cached = await this.#read(file);
-    const missing = (ref: MediaRef | null) => ref !== null && !this.#media.has(ref.key);
+    const missing = (ref: MediaRef | null) => ref != null && !this.#media.has(ref.key);
     if (
       cached &&
       this.#now() - cached.fetchedAt < this.#ttlMs &&
@@ -267,9 +302,7 @@ export class BookmarkFetcher {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const contentType = response.headers.get('content-type');
     if (!contentType?.includes('html')) throw new Error('not an HTML page');
-    const html = decodeHtml(await readHtmlBytes(response), contentType);
-    const base = response.url || url;
-    return { head: parseHead(html, base), icons: iconLinks(html, base) };
+    return scanHead(decodeHtml(await readHtmlBytes(response), contentType), response.url || url);
   }
 
   async #download(
@@ -292,7 +325,8 @@ export class BookmarkFetcher {
 
   async #read(file: string): Promise<CachedBookmark | null> {
     try {
-      return JSON.parse(await readFile(file, 'utf8')) as CachedBookmark;
+      const cached: unknown = JSON.parse(await readFile(file, 'utf8'));
+      return isCachedBookmark(cached) ? cached : null;
     } catch {
       return null;
     }

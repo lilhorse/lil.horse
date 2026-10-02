@@ -1,8 +1,8 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   BookmarkFetcher,
   parseHead,
@@ -72,6 +72,20 @@ const CHARSET_PAGES = [
   },
 ];
 
+const CP1252_TITLE = Buffer.from('Caf\xe9 \x93q\x94', 'latin1');
+const CP1252_PAGES = [
+  {
+    name: 'windows-1252 declared in the header',
+    type: 'text/html; charset=windows-1252',
+    body: bytes('<title>', CP1252_TITLE, '</title>'),
+  },
+  {
+    name: 'ISO-8859-1 declared by meta charset',
+    type: 'text/html',
+    body: bytes('<meta charset="iso-8859-1"><title>', CP1252_TITLE, '</title>'),
+  },
+];
+
 const PAGES = new Map<string, { type: string; body: string | Buffer }>([
   ['/article', { type: 'text/html; charset=utf-8', body: HTML }],
   ['/plain', { type: 'text/html', body: '<title>Plain</title>' }],
@@ -111,7 +125,22 @@ const PAGES = new Map<string, { type: string; body: string | Buffer }>([
   ],
   ['/not-an-image.png', { type: 'image/png', body: 'not an image' }],
   ...CHARSET_PAGES.map(({ type, body }, index) => [`/charset/${index}`, { type, body }] as const),
+  ...CP1252_PAGES.map(({ type, body }, index) => [`/cp1252/${index}`, { type, body }] as const),
 ]);
+
+const CACHED = { title: 'Cached', description: null, siteName: null, image: null, icon: null };
+const MALFORMED_CACHE: Record<string, unknown> = {
+  'no meta': { fetchedAt: 0 },
+  'meta without image or icon': {
+    fetchedAt: 0,
+    meta: { title: 'Cached', description: null, siteName: null },
+  },
+  'an image without a key': { fetchedAt: 0, meta: { ...CACHED, image: { src: '/_media/a.png' } } },
+  'an icon that is not an object': { fetchedAt: 0, meta: { ...CACHED, icon: '/_media/icon.png' } },
+  'a fetchedAt that is not a number': { fetchedAt: '0', meta: CACHED },
+  'a title that is not text': { fetchedAt: 0, meta: { ...CACHED, title: 5 } },
+  'no object at all': 5,
+};
 
 let server: TestServer;
 let failing = false;
@@ -251,6 +280,28 @@ describe('BookmarkFetcher', () => {
     }
   });
 
+  for (const [index, [shape, entry]] of Object.entries(MALFORMED_CACHE).entries())
+    it(`treats a cache entry with ${shape} as a miss`, async () => {
+      const { dir, fetcher: subject } = await setup();
+      const path = `/plain?malformed=${index}`;
+      await subject.get(`${server.url}${path}`);
+      const files = (await readdir(dir)).filter((name) => name.endsWith('.json'));
+      expect(files).toHaveLength(1);
+      const corrupt = () => writeFile(join(dir, files[0]), JSON.stringify(entry));
+
+      await corrupt();
+      await expect(subject.get(`${server.url}${path}`)).resolves.toMatchObject({ title: 'Plain' });
+      expect(server.hits.get(path)).toBe(2);
+
+      await corrupt();
+      failing = true;
+      try {
+        await expect(subject.get(`${server.url}${path}`)).resolves.toBeNull();
+      } finally {
+        failing = false;
+      }
+    });
+
   it('shares one fetch between concurrent calls for the same URL', async () => {
     const { fetcher: subject } = await setup();
     const url = `${server.url}/article?concurrent=1`;
@@ -279,6 +330,12 @@ describe('BookmarkFetcher', () => {
       expect((await subject.get(`${server.url}/charset/${index}`))?.title).toBe('中文标题');
     });
 
+  for (const [index, { name }] of CP1252_PAGES.entries())
+    it(`decodes curly quotes from ${name}`, async () => {
+      const { fetcher: subject } = await setup();
+      expect((await subject.get(`${server.url}/cp1252/${index}`))?.title).toBe('Café “q”');
+    });
+
   it('drops text that is still garbled after decoding', async () => {
     const { fetcher: subject } = await setup();
     expect(await subject.get(`${server.url}/mislabelled`)).toMatchObject({
@@ -299,6 +356,20 @@ describe('BookmarkFetcher', () => {
     expect(meta?.icon?.fileName).toBe('favicon.png');
     expect(server.hits.get('/not-an-image.png')).toBe(1);
     expect(warnings).toEqual([]);
+  });
+
+  it('scans link tags once per fetched page', async () => {
+    const { fetcher: subject } = await setup();
+    const match = vi.spyOn(String.prototype, 'match');
+    try {
+      await subject.get(`${server.url}/article?scans=1`);
+      const linkScans = match.mock.calls.filter(
+        ([pattern]) => pattern instanceof RegExp && pattern.source.startsWith('<link'),
+      );
+      expect(linkScans.length).toBe(1);
+    } finally {
+      match.mockRestore();
+    }
   });
 
   it('warns about images it cannot use, without their query strings', async () => {
@@ -367,6 +438,14 @@ describe('BookmarkFetcher', () => {
     const { fetcher: subject, warnings } = await setup();
     expect(await subject.get(`${closed.url}/page`)).toBeNull();
     expect(warnings.join('\n')).toMatch(/fetch failed.*ECONNREFUSED/);
+  });
+
+  it('names the error code when every address of a host refuses the connection', async () => {
+    const closed = await startServer(() => undefined);
+    await closed.close();
+    const { fetcher: subject, warnings } = await setup();
+    expect(await subject.get(`${closed.url.replace('127.0.0.1', 'localhost')}/page`)).toBeNull();
+    expect(warnings.join('\n')).toMatch(/fetch failed \(.*ECONNREFUSED/);
   });
 
   it('only fetches http and https URLs', async () => {
