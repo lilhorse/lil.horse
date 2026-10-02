@@ -31,6 +31,11 @@ export async function startServer(
     url: `http://127.0.0.1:${port}`,
     hits,
     errors,
-    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.close(() => resolve());
+        // close() waits on sockets that have sent no request, like one fetch opens after an abort.
+        server.closeAllConnections();
+      }),
   };
 }

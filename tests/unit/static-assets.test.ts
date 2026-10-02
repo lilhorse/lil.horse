@@ -1,15 +1,15 @@
 import { existsSync, fstatSync, readdirSync, statSync } from 'node:fs';
-import { chmod, mkdir, mkdtemp, readdir, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import { get } from 'node:http';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import katex from 'katex';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { copyKatex, copyMedia, serveFrom } from '../../integrations/static-assets';
 import { startServer, type TestServer } from '../helpers/http';
+import { tempDir } from '../helpers/temp-dir';
 
 async function mediaCache(keys: string[]): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), 'assets-'));
+  const root = await tempDir('assets-');
   for (const key of keys) {
     await mkdir(join(root, 'media', key), { recursive: true });
     await writeFile(join(root, 'media', key, 'meta.json'), '{}');
@@ -48,7 +48,7 @@ describe('copyMedia', () => {
 
 describe('copyKatex', () => {
   it('copies the stylesheet and fonts under a versioned folder', async () => {
-    const out = await mkdtemp(join(tmpdir(), 'katex-'));
+    const out = await tempDir('katex-');
     await copyKatex(out);
     expect(existsSync(join(out, katex.version, 'katex.min.css'))).toBe(true);
     expect(
@@ -88,11 +88,12 @@ function isOpen(file: string): boolean {
 }
 
 describe('serveFrom', () => {
+  let dir: string;
   let root: string;
   let server: TestServer;
 
   beforeAll(async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'serve-'));
+    dir = await tempDir('serve-', { removeAfterTest: false });
     root = join(dir, 'media');
     await mkdir(join(root, 'k'), { recursive: true });
     await mkdir(join(dir, 'media-evil'));
@@ -106,7 +107,10 @@ describe('serveFrom', () => {
     );
   });
 
-  afterAll(() => server.close());
+  afterAll(async () => {
+    await server?.close();
+    if (dir) await rm(dir, { recursive: true, force: true });
+  });
 
   const next = { status: 404 };
   it.each([

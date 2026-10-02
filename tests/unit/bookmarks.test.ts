@@ -1,5 +1,4 @@
-import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -10,6 +9,7 @@ import {
 } from '../../src/notion/bookmarks';
 import { MediaStore } from '../../src/notion/media';
 import { startServer, type TestServer } from '../helpers/http';
+import { tempDir } from '../helpers/temp-dir';
 
 const HTML = `<!doctype html><html><head>
 <meta content="An &amp; B" property="og:title">
@@ -144,7 +144,6 @@ const MALFORMED_CACHE: Record<string, unknown> = {
 
 let server: TestServer;
 let failing = false;
-const dirs: string[] = [];
 
 beforeAll(async () => {
   const png = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#000000' } })
@@ -169,19 +168,10 @@ beforeAll(async () => {
   });
 });
 
-afterAll(async () => {
-  await server.close();
-  await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
-});
-
-async function tempDir(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), 'bookmarks-'));
-  dirs.push(dir);
-  return dir;
-}
+afterAll(() => server?.close());
 
 async function setup(options: Partial<BookmarkFetcherOptions> = {}) {
-  const dir = options.cacheDir ?? (await tempDir());
+  const dir = options.cacheDir ?? (await tempDir('bookmarks-'));
   const warnings: string[] = [];
   const media = new MediaStore({ cacheDir: join(dir, 'media'), retries: 0 });
   const fetcher = new BookmarkFetcher({
@@ -388,7 +378,7 @@ describe('BookmarkFetcher', () => {
   });
 
   it('returns fetched metadata even when it cannot be cached', async () => {
-    const blocked = join(await tempDir(), 'blocked');
+    const blocked = join(await tempDir('bookmarks-'), 'blocked');
     await writeFile(blocked, '');
     const { fetcher: subject, warnings } = await setup({ cacheDir: blocked });
     expect((await subject.get(`${server.url}/plain?uncached=1`))?.title).toBe('Plain');
@@ -396,7 +386,7 @@ describe('BookmarkFetcher', () => {
   });
 
   it('keeps the defaults for options passed as undefined', async () => {
-    const dir = await tempDir();
+    const dir = await tempDir('bookmarks-');
     const subject = new BookmarkFetcher({
       cacheDir: dir,
       media: new MediaStore({ cacheDir: join(dir, 'media'), retries: 0 }),

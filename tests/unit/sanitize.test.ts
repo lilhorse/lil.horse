@@ -1,5 +1,4 @@
-import { mkdtemp, readdir, readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type {
   BlockObjectResponse,
@@ -24,6 +23,7 @@ import {
   rt,
   tableView,
 } from '../helpers/notion-factory';
+import { tempDir } from '../helpers/temp-dir';
 
 const POSTS = 'a'.repeat(32);
 const PROJECTS = 'b'.repeat(32);
@@ -384,7 +384,7 @@ async function record(
   config: Parameters<typeof createFixtureSanitizer>[0] = IDS,
   maxInlineRows?: number,
 ) {
-  const dir = await mkdtemp(join(tmpdir(), 'fixtures-'));
+  const dir = await tempDir('fixtures-');
   const sanitize = createFixtureSanitizer(config, maxInlineRows);
   const api = createRecordingApi(fakeApi(data), dir, sanitize);
   await render(api);

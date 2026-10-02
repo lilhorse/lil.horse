@@ -1,13 +1,12 @@
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { BookmarkFetcher } from '../../src/notion/bookmarks';
 import { MediaStore } from '../../src/notion/media';
 import { buildPageContent } from '../../src/notion/page-content';
 import { placeholderFetch } from '../../src/notion/placeholder-fetch';
 import { FakeNotionApi } from '../helpers/fake-api';
 import { block, database, dataSource, nextId, page, prop, rt } from '../helpers/notion-factory';
+import { tempDir } from '../helpers/temp-dir';
 
 const noMedia = {
   media: {} as MediaStore,
@@ -15,18 +14,6 @@ const noMedia = {
   databaseDisplay: {},
   warn: () => undefined,
 };
-
-const dirs: string[] = [];
-
-afterAll(async () => {
-  await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
-});
-
-async function tempDir(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), 'content-'));
-  dirs.push(dir);
-  return dir;
-}
 
 describe('buildPageContent', () => {
   it('never gives a heading the id the layout uses for <main>', async () => {
@@ -90,7 +77,7 @@ describe('buildPageContent', () => {
   });
 
   it('assembles blocks, headings, media and inline database sources for one page', async () => {
-    const dir = await tempDir();
+    const dir = await tempDir('content-');
     const media = new MediaStore({ cacheDir: join(dir, 'media'), fetch: placeholderFetch });
     const bookmarks = new BookmarkFetcher({
       cacheDir: join(dir, 'bookmarks'),

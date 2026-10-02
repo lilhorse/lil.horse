@@ -1,9 +1,8 @@
 import { existsSync } from 'node:fs';
-import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import sharp from 'sharp';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   MediaDownloadError,
   MediaStore,
@@ -11,19 +10,14 @@ import {
   mediaCacheKey,
 } from '../../src/notion/media';
 import { startServer, type TestServer } from '../helpers/http';
+import { tempDir } from '../helpers/temp-dir';
 
 let server: TestServer;
 let flakyCalls = 0;
 let throttledCalls = 0;
 let endlessFinished = false;
+let endlessClosed = false;
 const files = new Map<string, { type: string; body: Buffer }>();
-const tempDirs: string[] = [];
-
-async function tempDir(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), 'media-'));
-  tempDirs.push(dir);
-  return dir;
-}
 
 const solid = (width: number, height: number, background: string, channels: 3 | 4 = 3) =>
   sharp({ create: { width, height, channels, background } });
@@ -112,7 +106,10 @@ beforeAll(async () => {
         endlessFinished = true;
         response.end(Buffer.alloc(1024));
       }, 1000);
-      response.on('close', () => clearTimeout(timer));
+      response.on('close', () => {
+        endlessClosed = true;
+        clearTimeout(timer);
+      });
     } else {
       const file =
         files.get(path) ?? (/^\/(names|image)\//.test(path) ? files.get('/small.png') : undefined);
@@ -123,12 +120,11 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await server.close();
-  await Promise.all(tempDirs.map((dir) => rm(dir, { recursive: true, force: true })));
-  expect(server.errors).toEqual([]);
+  await server?.close();
+  expect(server?.errors ?? []).toEqual([]);
 });
 
-const store = async () => new MediaStore({ cacheDir: await tempDir(), retryDelayMs: 1 });
+const store = async () => new MediaStore({ cacheDir: await tempDir('media-'), retryDelayMs: 1 });
 
 const failureOf = (promise: Promise<unknown>) =>
   promise.then(
@@ -202,7 +198,7 @@ describe('MediaStore', () => {
   });
 
   it('reuses the cache across store instances without downloading again', async () => {
-    const dir = await tempDir();
+    const dir = await tempDir('media-');
     await new MediaStore({ cacheDir: dir }).ensure(`${server.url}/same.png`, { kind: 'image' });
     await new MediaStore({ cacheDir: dir }).ensure(`${server.url}/same.png`, { kind: 'image' });
     expect(server.hits.get('/same.png')).toBe(1);
@@ -325,7 +321,7 @@ describe('MediaStore', () => {
   });
 
   it('names the source of an undecodable image and leaves no partial entry', async () => {
-    const dir = await tempDir();
+    const dir = await tempDir('media-');
     const media = new MediaStore({ cacheDir: dir, retryDelayMs: 1 });
     for (const path of ['/fake.png', '/truncated.jpg']) {
       const error = await failureOf(
@@ -338,7 +334,7 @@ describe('MediaStore', () => {
   });
 
   it('rebuilds entries written by an older cache version', async () => {
-    const dir = await tempDir();
+    const dir = await tempDir('media-');
     const url = `${server.url}/versioned.png`;
     const ref = await new MediaStore({ cacheDir: dir }).ensure(url, { kind: 'image' });
     const entry = join(dir, ref.key);
@@ -357,7 +353,7 @@ describe('MediaStore', () => {
   });
 
   it('lets several stores fill one cache directory at once', async () => {
-    const dir = await tempDir();
+    const dir = await tempDir('media-');
     const url = `${server.url}/small.png?shared=1`;
     const refs = await Promise.all(
       [1, 2, 3].map(() => new MediaStore({ cacheDir: dir }).ensure(url, { kind: 'image' })),
@@ -392,7 +388,11 @@ describe('MediaStore', () => {
   });
 
   it('fails loudly on oversized or missing files', async () => {
-    const tiny = new MediaStore({ cacheDir: await tempDir(), maxBytes: 100, retryDelayMs: 1 });
+    const tiny = new MediaStore({
+      cacheDir: await tempDir('media-'),
+      maxBytes: 100,
+      retryDelayMs: 1,
+    });
     await expect(tiny.ensure(`${server.url}/photo.png`, { kind: 'image' })).rejects.toBeInstanceOf(
       MediaTooLargeError,
     );
@@ -403,10 +403,15 @@ describe('MediaStore', () => {
   });
 
   it('stops reading a body without a length once it passes the cap', async () => {
-    const tiny = new MediaStore({ cacheDir: await tempDir(), maxBytes: 100, retryDelayMs: 1 });
+    const tiny = new MediaStore({
+      cacheDir: await tempDir('media-'),
+      maxBytes: 100,
+      retryDelayMs: 1,
+    });
     await expect(
       tiny.ensure(`${server.url}/endless.png`, { kind: 'image' }),
     ).rejects.toBeInstanceOf(MediaTooLargeError);
+    await vi.waitFor(() => expect(endlessClosed).toBe(true));
     expect(endlessFinished).toBe(false);
   });
 });
