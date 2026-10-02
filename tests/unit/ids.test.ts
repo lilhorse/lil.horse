@@ -12,6 +12,11 @@ describe('parseId', () => {
     [`https://www.notion.so/lilhorse/Hello-World-${ID}?pvs=4`, ID],
     [`https://www.notion.so/Page-${ID}#block-1`, ID],
     [`https://lilhorse.notion.site/Deadbeef-${ID}`, ID],
+    [`https://www.notion.so/lilhorse/${'b'.repeat(32)}?v=${'c'.repeat(32)}&p=${ID}&pm=s`, ID],
+    [`www.notion.so/lilhorse/${ID}?v=${'c'.repeat(32)}`, ID],
+    [`${ID}?v=${'c'.repeat(32)}`, ID],
+    [`notion.so/Page-${ID}#${'d'.repeat(32)}`, ID],
+    [`https://www.notion.so/%E4%BD%A0%E5%A5%BD-${ID}`, ID],
   ])('parses %s', (input, expected) => {
     expect(parseId(input)).toBe(expected);
   });
