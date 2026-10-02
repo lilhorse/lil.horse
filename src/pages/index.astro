@@ -1,16 +1,19 @@
 ---
 import { getCollection } from 'astro:content';
 
-const entries = await getCollection('smoke');
-const title: string = entries[0]?.data.title ?? 'missing';
+const posts = await getCollection('posts');
 ---
 
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>{title}</title>
+    <title>lil.horse</title>
   </head>
   <body>
-    <h1>{title}</h1>
+    <ul>
+      {posts.map((post) => (
+        <li>{post.data.title}</li>
+      ))}
+    </ul>
   </body>
 </html>

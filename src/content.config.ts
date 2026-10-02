@@ -1,19 +1,17 @@
 import { defineCollection } from 'astro:content';
 import { z } from 'astro/zod';
-
-interface SmokeEntry {
-  title: string;
-}
+import { notionLoader } from './notion/loaders';
+import type { PostEntry, ProfileEntry, ProjectEntry, StandalonePageEntry } from './notion/types';
 
 export const collections = {
-  smoke: defineCollection({
-    loader: {
-      name: 'smoke',
-      load: async ({ store }) => {
-        store.clear();
-        store.set({ id: 'one', data: { title: 'Smoke entry' } });
-      },
-    },
-    schema: z.custom<SmokeEntry>(),
+  posts: defineCollection({ loader: notionLoader('posts'), schema: z.custom<PostEntry>() }),
+  projects: defineCollection({
+    loader: notionLoader('projects'),
+    schema: z.custom<ProjectEntry>(),
+  }),
+  profile: defineCollection({ loader: notionLoader('profile'), schema: z.custom<ProfileEntry>() }),
+  pages: defineCollection({
+    loader: notionLoader('pages'),
+    schema: z.custom<StandalonePageEntry>(),
   }),
 };
