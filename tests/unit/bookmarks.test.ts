@@ -1,9 +1,13 @@
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { BookmarkFetcher, parseHead } from '../../src/notion/bookmarks';
+import {
+  BookmarkFetcher,
+  parseHead,
+  type BookmarkFetcherOptions,
+} from '../../src/notion/bookmarks';
 import { MediaStore } from '../../src/notion/media';
 import { startServer, type TestServer } from '../helpers/http';
 
@@ -16,8 +20,102 @@ const HTML = `<!doctype html><html><head>
 <title>Fallback title</title>
 </head><body></body></html>`;
 
+const BASE = 'https://example.com/post/1';
+const GBK_TITLE = Buffer.from([0xd6, 0xd0, 0xce, 0xc4, 0xb1, 0xea, 0xcc, 0xe2]);
+const bytes = (...parts: (string | Buffer)[]) =>
+  Buffer.concat(parts.map((part) => (typeof part === 'string' ? Buffer.from(part) : part)));
+
+const CHARSET_PAGES = [
+  {
+    name: 'GBK declared in the header',
+    type: 'text/html; charset=gbk',
+    body: bytes('<title>', GBK_TITLE, '</title>'),
+  },
+  {
+    name: 'GB2312 declared by http-equiv',
+    type: 'text/html',
+    body: bytes(
+      '<meta http-equiv="Content-Type" content="text/html; charset=gb2312"><title>',
+      GBK_TITLE,
+      '</title>',
+    ),
+  },
+  {
+    name: 'GBK declared by meta charset',
+    type: 'text/html',
+    body: bytes('<meta charset="gbk"><title>', GBK_TITLE, '</title>'),
+  },
+  {
+    name: 'UTF-8 with no declared charset',
+    type: 'text/html',
+    body: bytes('<title>中文标题</title>'),
+  },
+  {
+    name: 'UTF-8 with a BOM and a wrong header charset',
+    type: 'text/html; charset=gbk',
+    body: bytes(Buffer.from([0xef, 0xbb, 0xbf]), '<title>中文标题</title>'),
+  },
+  {
+    name: 'UTF-8 with an unknown header charset',
+    type: 'text/html; charset=bogus',
+    body: bytes('<title>中文标题</title>'),
+  },
+  {
+    name: 'GBK declared by meta charset under an unknown header charset',
+    type: 'text/html; charset=bogus',
+    body: bytes('<meta charset="gbk"><title>', GBK_TITLE, '</title>'),
+  },
+  {
+    name: 'UTF-8 that a meta tag calls UTF-16',
+    type: 'text/html',
+    body: bytes('<meta charset="utf-16"><title>中文标题</title>'),
+  },
+];
+
+const PAGES = new Map<string, { type: string; body: string | Buffer }>([
+  ['/article', { type: 'text/html; charset=utf-8', body: HTML }],
+  ['/plain', { type: 'text/html', body: '<title>Plain</title>' }],
+  [
+    '/broken-image',
+    {
+      type: 'text/html',
+      body: '<meta property="og:image" content="/missing.png?token=secret"><link rel="icon" href="/not-an-image.png?token=secret"><link rel="apple-touch-icon" href="/missing-icon.png"><link rel="shortcut icon" href="/missing-icon.png"><title>Broken</title>',
+    },
+  ],
+  [
+    '/icons',
+    {
+      type: 'text/html',
+      body: '<link rel="icon" href="/not-an-image.png"><link rel="icon" href="/favicon.png"><title>Icons</title>',
+    },
+  ],
+  [
+    '/keywords',
+    {
+      type: 'text/html',
+      body: '<meta name="keywords" content="x &#x110000; y"><title>Keywords</title>',
+    },
+  ],
+  [
+    '/mislabelled',
+    {
+      type: 'text/html; charset=utf-8',
+      body: bytes(
+        '<title>',
+        GBK_TITLE,
+        '</title><meta name="description" content="',
+        GBK_TITLE,
+        '"><meta property="og:site_name" content="Readable">',
+      ),
+    },
+  ],
+  ['/not-an-image.png', { type: 'image/png', body: 'not an image' }],
+  ...CHARSET_PAGES.map(({ type, body }, index) => [`/charset/${index}`, { type, body }] as const),
+]);
+
 let server: TestServer;
 let failing = false;
+const dirs: string[] = [];
 
 beforeAll(async () => {
   const png = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#000000' } })
@@ -25,15 +123,13 @@ beforeAll(async () => {
     .toBuffer();
   server = await startServer((request, response) => {
     const path = (request.url ?? '').split('?')[0];
+    const page = PAGES.get(path);
     if (failing) {
       response.statusCode = 500;
       response.end();
-    } else if (path === '/article') {
-      response.setHeader('content-type', 'text/html; charset=utf-8');
-      response.end(HTML);
-    } else if (path === '/broken-image') {
-      response.setHeader('content-type', 'text/html');
-      response.end('<meta property="og:image" content="/missing.png"><title>Broken</title>');
+    } else if (page) {
+      response.setHeader('content-type', page.type);
+      response.end(page.body);
     } else if (path === '/cover.png' || path === '/favicon.png') {
       response.setHeader('content-type', 'image/png');
       response.end(png);
@@ -44,25 +140,34 @@ beforeAll(async () => {
   });
 });
 
-afterAll(() => server.close());
+afterAll(async () => {
+  await server.close();
+  await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
+});
 
-async function fetcher(now: () => number, warnings: string[] = [], cacheDir?: string) {
-  const dir = cacheDir ?? (await mkdtemp(join(tmpdir(), 'bookmarks-')));
+async function tempDir(): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), 'bookmarks-'));
+  dirs.push(dir);
+  return dir;
+}
+
+async function setup(options: Partial<BookmarkFetcherOptions> = {}) {
+  const dir = options.cacheDir ?? (await tempDir());
+  const warnings: string[] = [];
   const media = new MediaStore({ cacheDir: join(dir, 'media'), retries: 0 });
-  return {
-    dir,
-    fetcher: new BookmarkFetcher({
-      cacheDir: dir,
-      media,
-      now,
-      warn: (message) => warnings.push(message),
-    }),
-  };
+  const fetcher = new BookmarkFetcher({
+    cacheDir: dir,
+    media,
+    now: () => 0,
+    warn: (message) => warnings.push(message),
+    ...options,
+  });
+  return { dir, media, warnings, fetcher };
 }
 
 describe('parseHead', () => {
   it('prefers Open Graph values, decodes entities and resolves relative URLs', () => {
-    expect(parseHead(HTML, 'https://example.com/post/1')).toEqual({
+    expect(parseHead(HTML, BASE)).toEqual({
       title: 'An & B',
       description: 'Plain "description"',
       siteName: 'Example',
@@ -70,17 +175,47 @@ describe('parseHead', () => {
       icon: 'https://example.com/favicon.png',
     });
   });
+
+  it('decodes common named entities', () => {
+    const html =
+      '<title>A &mdash; B &ndash; C &hellip; &lsquo;s&rsquo; &ldquo;q&rdquo; &laquo;r&raquo; &middot; &copy; &reg; &trade;&nbsp;x</title>';
+    expect(parseHead(html, BASE).title).toBe('A — B – C … ‘s’ “q” «r» · © ® ™\u00a0x');
+  });
+
+  it('leaves names that only exist on Object.prototype literal', () => {
+    expect(parseHead('<title>Q &constructor; R</title>', BASE).title).toBe('Q &constructor; R');
+  });
+
+  it('replaces out-of-range numeric entities instead of throwing', () => {
+    expect(parseHead('<title>a&#x110000;b&#0;c&#65;</title>', BASE).title).toBe('a\ufffdb\ufffdcA');
+  });
+
+  it('keeps only http and https image and icon URLs', () => {
+    const html =
+      '<meta property="og:image" content="file:///etc/passwd"><link rel="icon" href="javascript:alert(1)"><link rel="icon" href="data:image/png;base64,AAAA"><link rel="icon" href="/icon.png">';
+    expect(parseHead(html, BASE)).toMatchObject({
+      image: null,
+      icon: 'https://example.com/icon.png',
+    });
+  });
+
+  it('parses a very long attribute name in linear time', () => {
+    const started = performance.now();
+    parseHead(`<meta ${'a'.repeat(160_000)}>`, BASE);
+    expect(performance.now() - started).toBeLessThan(500);
+  });
 });
 
 describe('BookmarkFetcher', () => {
   it('fetches, downloads images and caches until the TTL expires', async () => {
     let clock = 0;
-    const { dir, fetcher: first } = await fetcher(() => clock);
+    const { dir, fetcher: first } = await setup({ now: () => clock });
     const meta = await first.get(`${server.url}/article`);
     expect(meta?.title).toBe('An & B');
     expect(meta?.image?.width).toBe(64);
+    expect(meta?.icon).toMatchObject({ fileName: 'favicon.png', width: 64 });
 
-    const { fetcher: second } = await fetcher(() => clock, [], dir);
+    const { fetcher: second } = await setup({ now: () => clock, cacheDir: dir });
     await second.get(`${server.url}/article`);
     expect(server.hits.get('/article')).toBe(1);
 
@@ -90,24 +225,203 @@ describe('BookmarkFetcher', () => {
   });
 
   it('degrades instead of failing', async () => {
-    const warnings: string[] = [];
-    const { fetcher: subject } = await fetcher(() => 0, warnings);
+    const { fetcher: subject, warnings } = await setup();
     const broken = await subject.get(`${server.url}/broken-image`);
     expect(broken).toMatchObject({ title: 'Broken', image: null });
 
     failing = true;
-    expect(await subject.get(`${server.url}/never-cached`)).toBeNull();
+    try {
+      expect(await subject.get(`${server.url}/never-cached`)).toBeNull();
+    } finally {
+      failing = false;
+    }
     expect(warnings.some((warning) => warning.includes('/never-cached'))).toBe(true);
-    failing = false;
   });
 
   it('serves stale metadata when a refresh fails', async () => {
     let clock = 0;
-    const { fetcher: subject } = await fetcher(() => clock);
+    const { fetcher: subject } = await setup({ now: () => clock });
     await subject.get(`${server.url}/article?stale=1`);
     clock = 30 * 24 * 60 * 60 * 1000;
     failing = true;
-    expect((await subject.get(`${server.url}/article?stale=1`))?.title).toBe('An & B');
-    failing = false;
+    try {
+      expect((await subject.get(`${server.url}/article?stale=1`))?.title).toBe('An & B');
+    } finally {
+      failing = false;
+    }
+  });
+
+  it('shares one fetch between concurrent calls for the same URL', async () => {
+    const { fetcher: subject } = await setup();
+    const url = `${server.url}/article?concurrent=1`;
+    const results = await Promise.all([subject.get(url), subject.get(url)]);
+    expect(results.map((meta) => meta?.title)).toEqual(['An & B', 'An & B']);
+    expect(server.hits.get('/article?concurrent=1')).toBe(1);
+  });
+
+  it('lets fetchers that share a cache directory write at the same time', async () => {
+    const { dir, media, warnings, fetcher: first } = await setup();
+    const second = new BookmarkFetcher({
+      cacheDir: dir,
+      media,
+      now: () => 0,
+      warn: (message) => warnings.push(message),
+    });
+    const url = `${server.url}/article?shared=1`;
+    const results = await Promise.all([first.get(url), second.get(url)]);
+    expect(results.map((meta) => meta?.title)).toEqual(['An & B', 'An & B']);
+    expect(warnings).toEqual([]);
+  });
+
+  for (const [index, { name }] of CHARSET_PAGES.entries())
+    it(`decodes ${name}`, async () => {
+      const { fetcher: subject } = await setup();
+      expect((await subject.get(`${server.url}/charset/${index}`))?.title).toBe('中文标题');
+    });
+
+  it('drops text that is still garbled after decoding', async () => {
+    const { fetcher: subject } = await setup();
+    expect(await subject.get(`${server.url}/mislabelled`)).toMatchObject({
+      title: null,
+      description: null,
+      siteName: 'Readable',
+    });
+  });
+
+  it('keeps the bookmark when a meta tag has an out-of-range numeric entity', async () => {
+    const { fetcher: subject } = await setup();
+    expect((await subject.get(`${server.url}/keywords`))?.title).toBe('Keywords');
+  });
+
+  it('falls back to the next icon when one cannot be decoded', async () => {
+    const { fetcher: subject, warnings } = await setup();
+    const meta = await subject.get(`${server.url}/icons`);
+    expect(meta?.icon?.fileName).toBe('favicon.png');
+    expect(server.hits.get('/not-an-image.png')).toBe(1);
+    expect(warnings).toEqual([]);
+  });
+
+  it('warns about images it cannot use, without their query strings', async () => {
+    const { fetcher: subject, warnings } = await setup();
+    const iconHits = server.hits.get('/missing-icon.png') ?? 0;
+    expect(await subject.get(`${server.url}/broken-image`)).toMatchObject({
+      image: null,
+      icon: null,
+    });
+    expect(server.hits.get('/missing-icon.png')).toBe(iconHits + 1);
+    expect(warnings).toHaveLength(2);
+    expect(warnings[0]).toContain(`${server.url}/missing.png`);
+    expect(warnings[1]).toContain(`${server.url}/not-an-image.png`);
+    expect(warnings[1]).toContain(`${server.url}/missing-icon.png`);
+    expect(warnings.join('\n')).not.toContain('secret');
+  });
+
+  it('returns fetched metadata even when it cannot be cached', async () => {
+    const blocked = join(await tempDir(), 'blocked');
+    await writeFile(blocked, '');
+    const { fetcher: subject, warnings } = await setup({ cacheDir: blocked });
+    expect((await subject.get(`${server.url}/plain?uncached=1`))?.title).toBe('Plain');
+    expect(warnings.join('\n')).toMatch(/could not cache/i);
+  });
+
+  it('keeps the defaults for options passed as undefined', async () => {
+    const dir = await tempDir();
+    const subject = new BookmarkFetcher({
+      cacheDir: dir,
+      media: new MediaStore({ cacheDir: join(dir, 'media'), retries: 0 }),
+      fetch: undefined,
+      ttlMs: undefined,
+      now: undefined,
+      timeoutMs: undefined,
+      warn: undefined,
+    });
+    const url = `${server.url}/plain?defaults=1`;
+    expect((await subject.get(url))?.title).toBe('Plain');
+    await subject.get(url);
+    expect(server.hits.get('/plain?defaults=1')).toBe(1);
+    await expect(subject.get(`${server.url}/missing-page`)).resolves.toBeNull();
+  });
+
+  it('refetches when cached images are gone from the media store', async () => {
+    const { dir, media, fetcher: subject } = await setup();
+    const url = `${server.url}/article?media=1`;
+    await subject.get(url);
+    await rm(join(dir, 'media'), { recursive: true, force: true });
+
+    const meta = await subject.get(url);
+    expect(server.hits.get('/article?media=1')).toBe(2);
+    expect(meta?.image && media.has(meta.image.key)).toBe(true);
+
+    await rm(join(dir, 'media'), { recursive: true, force: true });
+    failing = true;
+    try {
+      expect(await subject.get(url)).toMatchObject({ title: 'An & B', image: null, icon: null });
+    } finally {
+      failing = false;
+    }
+  });
+
+  it('reports the cause of a network failure', async () => {
+    const closed = await startServer(() => undefined);
+    await closed.close();
+    const { fetcher: subject, warnings } = await setup();
+    expect(await subject.get(`${closed.url}/page`)).toBeNull();
+    expect(warnings.join('\n')).toMatch(/fetch failed.*ECONNREFUSED/);
+  });
+
+  it('only fetches http and https URLs', async () => {
+    const requested: string[] = [];
+    const { fetcher: subject, warnings } = await setup({
+      fetch: async (input) => {
+        requested.push(String(input));
+        return new Response('<title>Fetched</title>', { headers: { 'content-type': 'text/html' } });
+      },
+    });
+    for (const url of [
+      'file:///etc/hosts',
+      'data:text/html,<title>x</title>',
+      'javascript:alert(1)',
+      'not a url',
+    ])
+      expect(await subject.get(url)).toBeNull();
+    expect(requested).toEqual([]);
+    expect(warnings).toHaveLength(4);
+  });
+
+  it('stops reading a page once it passes 512 KiB', async () => {
+    const encoder = new TextEncoder();
+    const parts = [
+      '<title>Capped</title>',
+      ...Array.from({ length: 12 }, () => '中'.repeat(16_384)),
+      '<meta name="description" content="Past the cap">',
+      ...Array.from({ length: 64 }, () => ' '.repeat(65_536)),
+    ];
+    let pulled = 0;
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        const part = parts.shift();
+        if (part === undefined) {
+          controller.close();
+          return;
+        }
+        const chunk = encoder.encode(part);
+        pulled += chunk.byteLength;
+        controller.enqueue(chunk);
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const { fetcher: subject } = await setup({
+      fetch: async () =>
+        new Response(body, { headers: { 'content-type': 'text/html; charset=utf-8' } }),
+    });
+    expect(await subject.get('https://example.com/huge')).toMatchObject({
+      title: 'Capped',
+      description: null,
+    });
+    expect(cancelled).toBe(true);
+    expect(pulled).toBeLessThan(1024 * 1024);
   });
 });
