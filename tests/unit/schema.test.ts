@@ -245,6 +245,50 @@ describe('parseProjects', () => {
     expect(issues.map((issue) => issue.field)).toEqual(['Status']);
     expect(issues[0]?.message).toContain('(found Paused)');
   });
+
+  it('rejects project links that are not absolute http(s) URLs', () => {
+    const rows = [
+      project({ Link: prop.url('github.com/x/y'), Repo: prop.url('https://example.com') }),
+      project({
+        Slug: prop.text('script'),
+        Link: prop.url('https://example.com'),
+        Repo: prop.url('javascript:alert(1)'),
+      }),
+      project({ Slug: prop.text('same-scheme'), Link: prop.url('https:example.com') }),
+    ];
+    const { issues, items } = parseProjects(rows);
+    expect(issues.map((issue) => [issue.pageId, issue.field, issue.message])).toEqual([
+      [rows[0]?.id, 'Link', 'must be an http(s) URL (found "github.com/x/y")'],
+      [rows[1]?.id, 'Repo', 'must be an http(s) URL (found "javascript:alert(1)")'],
+      [rows[2]?.id, 'Link', 'must be an http(s) URL (found "https:example.com")'],
+    ]);
+    expect(items).toEqual([]);
+    expect(new ContentValidationError(issues).message).toContain(
+      `(https://www.notion.so/${rows[0]?.id}) Link: must be an http(s) URL (found "github.com/x/y")`,
+    );
+  });
+
+  it('keeps trimmed http(s) project links and leaves blank ones null', () => {
+    const result = parseProjects([
+      project({ Link: prop.url('https://example.com'), Repo: prop.url(null) }),
+      project({
+        Slug: prop.text('padded'),
+        Link: prop.url('  https://example.com '),
+        Repo: prop.url(' \n '),
+      }),
+      project({
+        Slug: prop.text('plain-http'),
+        Link: prop.url('   '),
+        Repo: prop.url('http://example.com'),
+      }),
+    ]);
+    expect(result.issues).toEqual([]);
+    expect(result.items.map((item) => [item.link, item.repo])).toEqual([
+      ['https://example.com', null],
+      ['https://example.com', null],
+      [null, 'http://example.com'],
+    ]);
+  });
 });
 
 describe('parseProfile', () => {

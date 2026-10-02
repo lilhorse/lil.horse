@@ -87,6 +87,11 @@ function isOneOf<T extends string>(value: string, options: readonly T[]): value 
   return (options as readonly string[]).includes(value);
 }
 
+// `https:example.com` parses on its own but resolves against the page URL inside an href.
+function isHttpUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value) && URL.canParse(value);
+}
+
 type ReportIssue = (field: string, message: string) => void;
 
 function rowContext(collection: CollectionName, row: PageObjectResponse) {
@@ -206,20 +211,26 @@ export function parseProjects(rows: PageObjectResponse[]): ParseResult<ParsedPro
     const slug = read('Slug', () => readText(props, 'Slug'), null);
     const description = read('Description', () => readText(props, 'Description'), null);
     const status = read('Status', () => readOption(props, 'Status'), null);
+    const link = read('Link', () => readUrl(props, 'Link')?.trim() || null, null);
+    const repo = read('Repo', () => readUrl(props, 'Repo')?.trim() || null, null);
     if (!title) issue('Name', 'is required');
     if (!description) issue('Description', 'is required for visible projects');
     if (slug && !SLUG_PATTERN.test(slug)) issue('Slug', `"${slug}" must match ${SLUG_PATTERN}`);
     claimSlug(usedSlugs, slug, pageId, issue);
     if (status !== null && !isOneOf(status, PROJECT_STATUSES))
       issue('Status', `must be one of ${PROJECT_STATUSES.join(', ')} (found ${status})`);
+    if (link && !isHttpUrl(link))
+      issue('Link', `must be an http(s) URL (found ${JSON.stringify(link)})`);
+    if (repo && !isHttpUrl(repo))
+      issue('Repo', `must be an http(s) URL (found ${JSON.stringify(repo)})`);
     const project: ParsedProject = {
       id: pageId,
       name: title,
       slug,
       description: description ?? '',
       stack: read('Stack', () => readOptions(props, 'Stack'), []),
-      link: read('Link', () => readUrl(props, 'Link'), null),
-      repo: read('Repo', () => readUrl(props, 'Repo'), null),
+      link,
+      repo,
       status: status !== null && isOneOf(status, PROJECT_STATUSES) ? status : null,
       featured: read('Featured', () => readCheckbox(props, 'Featured'), false),
       order: read('Order', () => readNumber(props, 'Order'), null),
