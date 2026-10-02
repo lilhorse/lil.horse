@@ -74,7 +74,7 @@ function redact(url: string): string {
   return parsed.toString();
 }
 
-function decode(value: string): string {
+export function safeDecodeURIComponent(value: string): string {
   try {
     return decodeURIComponent(value);
   } catch {
@@ -84,7 +84,7 @@ function decode(value: string): string {
 
 // Notion's image proxy carries the source URL, percent-encoded, in its path.
 function urlFileName(url: string): string {
-  return basename(decode(new URL(url).pathname).split(/[?#]/)[0] ?? '');
+  return basename(safeDecodeURIComponent(new URL(url).pathname).split(/[?#]/)[0] ?? '');
 }
 
 function lastBytes(text: string, limit: number): string {
@@ -94,7 +94,7 @@ function lastBytes(text: string, limit: number): string {
 }
 
 function safeFileName(hint: string, mime: string): string {
-  const cleaned = decode(hint)
+  const cleaned = safeDecodeURIComponent(hint)
     .normalize('NFC')
     .replace(/[^\p{L}\p{N}_.-]+/gu, '-');
   let name = lastBytes(cleaned, MAX_NAME_BYTES).replace(/^[-.]+|-+$/g, '') || 'file';

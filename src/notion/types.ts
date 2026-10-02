@@ -155,7 +155,7 @@ export interface ImageNode extends BaseNode {
 
 export type VideoSource =
   | { kind: 'youtube'; videoId: string; poster: MediaRef | null }
-  | { kind: 'vimeo'; videoId: string }
+  | { kind: 'vimeo'; videoId: string; hash: string | null }
   | { kind: 'file'; media: MediaRef }
   | { kind: 'link'; url: string };
 

@@ -259,9 +259,9 @@ async function convert({ block, children }: BlockNode, ctx: AstContext): Promise
     case 'pdf':
       return fileNode(block, ctx);
     case 'bookmark':
-      return bookmarkNode(block.id, block.bookmark.url, block.bookmark.caption, ctx);
+      return bookmarkNode(block, block.bookmark.url, block.bookmark.caption, ctx);
     case 'link_preview':
-      return bookmarkNode(block.id, block.link_preview.url, [], ctx);
+      return bookmarkNode(block, block.link_preview.url, [], ctx);
     case 'embed':
       return embedNode(block, ctx);
     case 'link_to_page':
