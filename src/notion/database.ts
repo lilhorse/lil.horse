@@ -32,6 +32,8 @@ export interface DatabaseDeps {
 type SchemaProperty = DataSourceObjectResponse['properties'][string];
 
 const IMAGE_FILE = /\.(png|jpe?g|gif|webp|avif|svg)(\?|#|$)/i;
+// Pinned so the order does not depend on the build machine's locale.
+const COLLATOR = new Intl.Collator('zh');
 const PLAIN = {
   bold: false,
   italic: false,
@@ -57,6 +59,17 @@ function plainCell(text: string): RichText {
   return [{ kind: 'text', text, annotations: { ...PLAIN }, href: null, pageId: null }];
 }
 
+type FileEntry = Extract<PageProperty, { type: 'files' }>['files'][number];
+
+function imageFiles(files: FileEntry[]): { name: string; url: string }[] {
+  return files
+    .map((file) => ({
+      name: file.name,
+      url: file.type === 'external' ? file.external.url : file.type === 'file' ? file.file.url : '',
+    }))
+    .filter((file) => file.url && (IMAGE_FILE.test(file.name) || IMAGE_FILE.test(file.url)));
+}
+
 function isEmptyValue(value: PageProperty | undefined): boolean {
   if (!value) return true;
   switch (value.type) {
@@ -79,7 +92,7 @@ function isEmptyValue(value: PageProperty | undefined): boolean {
     case 'email':
       return !value.email;
     case 'files':
-      return value.files.length === 0;
+      return imageFiles(value.files).length === 0;
     case 'checkbox':
     case 'created_time':
     case 'last_edited_time':
@@ -126,7 +139,7 @@ function sortRows(
     if (left === null) return right === null ? 0 : 1;
     if (right === null) return -1;
     if (typeof left === 'number' && typeof right === 'number') return (left - right) * direction;
-    return String(left).localeCompare(String(right)) * direction;
+    return COLLATOR.compare(String(left), String(right)) * direction;
   });
 }
 
@@ -138,7 +151,8 @@ function defaultColumns(schema: SchemaProperty[], rows: PageObjectResponse[]): D
         property.type !== 'title' &&
         rows.some((row) => !isEmptyValue(row.properties[property.name])),
     )
-    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    // UTF-8 byte order is code-point order.
+    .sort((a, b) => Buffer.compare(Buffer.from(a.name), Buffer.from(b.name)));
   return [...(title ? [toColumn(title)] : []), ...others.map((property) => toColumn(property))];
 }
 
@@ -212,17 +226,7 @@ async function toCell(
     case 'email':
       return value.email ? { kind: 'text', text: plainCell(value.email) } : { kind: 'empty' };
     case 'files': {
-      const images = value.files
-        .map((file) => ({
-          name: file.name,
-          url:
-            file.type === 'external'
-              ? file.external.url
-              : file.type === 'file'
-                ? file.file.url
-                : '',
-        }))
-        .filter((file) => file.url && (IMAGE_FILE.test(file.name) || IMAGE_FILE.test(file.url)));
+      const images = imageFiles(value.files);
       if (images.length === 0) return { kind: 'empty' };
       return {
         kind: 'media',
@@ -237,6 +241,18 @@ async function toCell(
       return { kind: 'date', start: datePart(value.last_edited_time), end: null };
     default:
       return { kind: 'empty' };
+  }
+}
+
+async function readViews(
+  databaseId: string,
+  api: NotionApi,
+): Promise<DataSourceViewObjectResponse[] | null> {
+  try {
+    return await api.listViews(databaseId);
+  } catch (error) {
+    if (!isNotFoundError(error)) throw error;
+    return null;
   }
 }
 
@@ -260,12 +276,20 @@ async function resolveLayout(
       }
       return [toColumn(property, column.format ?? null)];
     });
-    return { columns, ordered: override.sort ? sortRows(rows, override.sort) : rows };
+    const sort = override.sort;
+    if (sort && !byName.has(sort.property)) {
+      deps.warn(`Inline database ${databaseId}: sort property "${sort.property}" does not exist`);
+      return { columns, ordered: rows };
+    }
+    return { columns, ordered: sort ? sortRows(rows, sort) : rows };
   }
 
-  const view = (views ?? (await deps.api.listViews(databaseId))).find(
-    (candidate) => candidate.type === 'table',
-  );
+  const available = views ?? (await readViews(databaseId, deps.api));
+  if (!available) {
+    deps.warn(`Inline database ${databaseId}: views could not be read; showing default columns`);
+    return { columns: defaultColumns(schema, rows), ordered: rows };
+  }
+  const view = available.find((candidate) => candidate.type === 'table');
   if (!view) return { columns: defaultColumns(schema, rows), ordered: rows };
 
   const byId = new Map(schema.map((property) => [decode(property.id), property]));
@@ -284,7 +308,7 @@ async function resolveLayout(
     .sort(
       (a, b) => (position.get(normalizeId(a.id)) ?? 0) - (position.get(normalizeId(b.id)) ?? 0),
     );
-  return { columns: columns.length > 0 ? columns : defaultColumns(schema, rows), ordered };
+  return { columns: columns.length > 0 ? columns : defaultColumns(schema, ordered), ordered };
 }
 
 export async function buildDatabaseNode(
@@ -305,7 +329,13 @@ export async function buildDatabaseNode(
   }
   // A linked view has no data source of its own; its views point at the source.
   const views =
-    database.data_sources.length === 0 ? await deps.api.listViews(databaseId) : undefined;
+    database.data_sources.length === 0 ? await readViews(databaseId, deps.api) : undefined;
+  if (views === null) {
+    deps.warn(
+      `Inline database "${blockTitle}" (${databaseId}) is a linked view whose views or source database are not shared with the integration; skipped`,
+    );
+    return null;
+  }
   const sourceView = views?.find((view) => view.type === 'table') ?? views?.[0];
   const reference = database.data_sources[0]?.id ?? sourceView?.data_source_id;
   if (!reference) {
