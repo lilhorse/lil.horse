@@ -6,18 +6,40 @@ describe('readEnv', () => {
     expect(
       readEnv(
         { NOTION_TOKEN: '  ' },
-        { NOTION_TOKEN: 'secret', NOTION_FIXTURES: '1', NOTION_FULL_REFRESH: '0' },
+        {
+          NOTION_TOKEN: 'secret',
+          NOTION_FIXTURES: '1',
+          NOTION_FULL_REFRESH: '0',
+          NOTION_SKIP_SYNC: '0',
+        },
       ),
-    ).toEqual({ notionToken: 'secret', fixtures: true, includeDrafts: false, fullRefresh: false });
+    ).toEqual({
+      notionToken: 'secret',
+      fixtures: true,
+      includeDrafts: false,
+      fullRefresh: false,
+      skipSync: false,
+    });
   });
 
   it('lets the first non-empty source win and reads every flag', () => {
     expect(
       readEnv(
         { NOTION_FIXTURES: '0' },
-        { NOTION_FIXTURES: '1', NOTION_INCLUDE_DRAFTS: '1', NOTION_FULL_REFRESH: ' 1 ' },
+        {
+          NOTION_FIXTURES: '1',
+          NOTION_INCLUDE_DRAFTS: '1',
+          NOTION_FULL_REFRESH: ' 1 ',
+          NOTION_SKIP_SYNC: '1',
+        },
       ),
-    ).toEqual({ notionToken: null, fixtures: false, includeDrafts: true, fullRefresh: true });
+    ).toEqual({
+      notionToken: null,
+      fixtures: false,
+      includeDrafts: true,
+      fullRefresh: true,
+      skipSync: true,
+    });
   });
 
   it('defaults everything to off', () => {
@@ -26,6 +48,7 @@ describe('readEnv', () => {
       fixtures: false,
       includeDrafts: false,
       fullRefresh: false,
+      skipSync: false,
     });
   });
 });

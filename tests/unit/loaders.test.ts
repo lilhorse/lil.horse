@@ -1,7 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
-import { entriesFor, writeMediaManifest } from '../../src/notion/loaders';
+import type { LoaderContext } from 'astro/loaders';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { entriesFor, notionLoader, writeMediaManifest } from '../../src/notion/loaders';
 import type { SiteContent } from '../../src/notion/types';
 import { tempDir } from '../helpers/temp-dir';
 
@@ -28,5 +29,29 @@ describe('writeMediaManifest', () => {
     const file = join(await tempDir('manifest-'), 'nested', 'media-manifest.json');
     await writeMediaManifest(file, ['a', 'b']);
     expect(JSON.parse(await readFile(file, 'utf8'))).toEqual(['a', 'b']);
+  });
+});
+
+describe('notionLoader', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('skips the sync and leaves the store alone when NOTION_SKIP_SYNC is set', async () => {
+    vi.stubEnv('NOTION_SKIP_SYNC', '1');
+    // Without a token or fixtures, any sync attempt fails instead of reaching Notion.
+    vi.stubEnv('NOTION_TOKEN', undefined);
+    vi.stubEnv('NOTION_FIXTURES', undefined);
+    const store = { clear: vi.fn(), set: vi.fn() };
+    const logger = { info: vi.fn(), warn: vi.fn() };
+    const context = { store, logger, generateDigest: () => 'digest' };
+
+    await notionLoader('posts').load(context as unknown as LoaderContext);
+
+    expect(store.clear).not.toHaveBeenCalled();
+    expect(store.set).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledExactlyOnceWith(
+      'Skipping the Notion sync (NOTION_SKIP_SYNC=1)',
+    );
   });
 });

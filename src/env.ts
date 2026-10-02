@@ -3,6 +3,7 @@ export interface RuntimeEnv {
   fixtures: boolean;
   includeDrafts: boolean;
   fullRefresh: boolean;
+  skipSync: boolean;
 }
 
 type EnvSource = Record<string, string | boolean | undefined>;
@@ -20,5 +21,6 @@ export function readEnv(...sources: EnvSource[]): RuntimeEnv {
     fixtures: get('NOTION_FIXTURES') === '1',
     includeDrafts: get('NOTION_INCLUDE_DRAFTS') === '1',
     fullRefresh: get('NOTION_FULL_REFRESH') === '1',
+    skipSync: get('NOTION_SKIP_SYNC') === '1',
   };
 }

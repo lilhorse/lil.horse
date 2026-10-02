@@ -23,8 +23,11 @@ export async function writeMediaManifest(file: string, keys: string[]): Promise<
   await writeFile(file, `${JSON.stringify(keys, null, 2)}\n`);
 }
 
+const runtimeEnv = () =>
+  readEnv(process.env, import.meta.env as Record<string, string | boolean | undefined>);
+
 async function runSync(logger: Logger): Promise<SiteContent> {
-  const env = readEnv(process.env, import.meta.env as Record<string, string | boolean | undefined>);
+  const env = runtimeEnv();
   const paths = cachePaths(env.fixtures);
   const offline = env.fixtures ? { fetch: placeholderFetch } : {};
   let api: NotionApi;
@@ -87,6 +90,10 @@ export function notionLoader(collection: CollectionKey): Loader {
   return {
     name: `notion-${collection}`,
     async load({ store, logger, generateDigest }) {
+      if (runtimeEnv().skipSync) {
+        logger.info('Skipping the Notion sync (NOTION_SKIP_SYNC=1)');
+        return;
+      }
       const site = await loadSiteContent(logger);
       store.clear();
       for (const [id, data] of entriesFor(site, collection))
