@@ -169,7 +169,7 @@ export async function bookmarkNode(
     type: 'bookmark',
     id: block.id,
     url,
-    meta: await ctx.bookmarks.get(url),
+    meta: await ctx.bookmarks.get(url, ctx.warn),
     caption: toRichText(caption),
   };
 }

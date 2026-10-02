@@ -237,17 +237,18 @@ export class BookmarkFetcher {
     this.#warn = options.warn ?? (() => undefined);
   }
 
-  get(url: string): Promise<BookmarkMeta | null> {
+  // A request already in flight for the same URL reports its warnings to the first caller only.
+  get(url: string, warn: (message: string) => void = this.#warn): Promise<BookmarkMeta | null> {
     const pending = this.#pending.get(url);
     if (pending) return pending;
-    const task = this.#get(url).finally(() => this.#pending.delete(url));
+    const task = this.#get(url, warn).finally(() => this.#pending.delete(url));
     this.#pending.set(url, task);
     return task;
   }
 
-  async #get(url: string): Promise<BookmarkMeta | null> {
+  async #get(url: string, warn: (message: string) => void): Promise<BookmarkMeta | null> {
     if (!httpUrl(url)) {
-      this.#warn(`Bookmark metadata unavailable for ${url}: not an http(s) URL`);
+      warn(`Bookmark metadata unavailable for ${url}: not an http(s) URL`);
       return null;
     }
     const file = join(
@@ -265,7 +266,7 @@ export class BookmarkFetcher {
       return cached.meta;
 
     const page = await this.#fetchPage(url).catch((error: unknown) => {
-      this.#warn(`Bookmark metadata unavailable for ${url}: ${reason(error)}`);
+      warn(`Bookmark metadata unavailable for ${url}: ${reason(error)}`);
       return null;
     });
     if (!page) {
@@ -282,13 +283,13 @@ export class BookmarkFetcher {
       title: readable(page.head.title),
       description: readable(page.head.description),
       siteName: readable(page.head.siteName),
-      image: await this.#download(url, 'image', page.head.image ? [page.head.image] : []),
-      icon: await this.#download(url, 'icon', page.icons),
+      image: await this.#download(url, 'image', page.head.image ? [page.head.image] : [], warn),
+      icon: await this.#download(url, 'icon', page.icons, warn),
     };
     try {
       await this.#write(file, { fetchedAt: this.#now(), meta });
     } catch (error) {
-      this.#warn(`Could not cache bookmark metadata for ${url}: ${reason(error)}`);
+      warn(`Could not cache bookmark metadata for ${url}: ${reason(error)}`);
     }
     return meta;
   }
@@ -309,6 +310,7 @@ export class BookmarkFetcher {
     page: string,
     label: 'image' | 'icon',
     candidates: string[],
+    warn: (message: string) => void,
   ): Promise<MediaRef | null> {
     const failures: string[] = [];
     for (const candidate of candidates) {
@@ -319,7 +321,7 @@ export class BookmarkFetcher {
       }
     }
     if (failures.length > 0)
-      this.#warn(`Bookmark ${label} unavailable for ${page}: ${failures.join('; ')}`);
+      warn(`Bookmark ${label} unavailable for ${page}: ${failures.join('; ')}`);
     return null;
   }
 

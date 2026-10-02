@@ -457,6 +457,15 @@ describe('BookmarkFetcher', () => {
     expect(warnings).toHaveLength(4);
   });
 
+  it('reports to the warn passed with the call instead of the constructor one', async () => {
+    const { fetcher: subject, warnings } = await setup();
+    const own: string[] = [];
+    await subject.get(`${server.url}/broken-image`, (message) => own.push(message));
+    await subject.get('not a url', (message) => own.push(message));
+    expect(own).toHaveLength(3);
+    expect(warnings).toEqual([]);
+  });
+
   it('stops reading a page once it passes 512 KiB', async () => {
     const encoder = new TextEncoder();
     const parts = [

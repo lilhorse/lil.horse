@@ -392,6 +392,26 @@ describe('syncNotion', () => {
     expect(site.warnings).toContain(warning);
   });
 
+  it('stores bookmark warnings with the page and repeats them on a cache hit', async () => {
+    const { api, config, posts } = workspace();
+    api.setChildren(posts.hello.id, [
+      block('bookmark', { url: 'ftp://example.com/a', caption: [] }),
+    ]);
+    const warning = 'Bookmark metadata unavailable for ftp://example.com/a: not an http(s) URL';
+    const { root } = await options(api, config);
+
+    const first = await options(api, config, {}, root);
+    expect((await syncNotion(first.value)).warnings).toContain(warning);
+    const record = await new PageCache(join(root, 'pages'), LOADER_VERSION).read(posts.hello.id);
+    expect(record?.warnings).toContain(warning);
+
+    const second = await options(api, config, {}, root);
+    const site = await syncNotion(second.value);
+    expect(blockFetches(api, posts.hello.id)).toBe(1);
+    expect(second.warnings).toContain(warning);
+    expect(site.warnings).toContain(warning);
+  });
+
   it('rebuilds cached pages when the inline database display config changes', async () => {
     const { api, config, posts, moviesDb } = workspace();
     const { root } = await options(api, config);
