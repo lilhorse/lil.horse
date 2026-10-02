@@ -23,8 +23,7 @@ export async function writeMediaManifest(file: string, keys: string[]): Promise<
   await writeFile(file, `${JSON.stringify(keys, null, 2)}\n`);
 }
 
-const runtimeEnv = () =>
-  readEnv(process.env, import.meta.env as Record<string, string | boolean | undefined>);
+const runtimeEnv = () => readEnv(process.env);
 
 async function runSync(logger: Logger): Promise<SiteContent> {
   const env = runtimeEnv();
