@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import pLimit from 'p-limit';
-import type { NotionApi } from './api';
+import { buildLinkMap } from '../lib/links';
+import { isNotFoundError, type NotionApi } from './api';
 import { toIcon } from './ast';
 import type { BookmarkFetcher } from './bookmarks';
 import { normalizeId } from './ids';
@@ -28,6 +29,7 @@ import type {
   StandalonePageKey,
 } from './types';
 
+// Bump whenever PageContent or the AST changes shape.
 export const LOADER_VERSION = 1;
 
 export interface SyncOptions {
@@ -39,10 +41,38 @@ export interface SyncOptions {
   statuses: PostStatus[];
   fullRefresh: boolean;
   log: { info(message: string): void; warn(message: string): void };
+  now?: () => number;
 }
+
+// Pinned so the order does not depend on the build machine's locale.
+const COLLATOR = new Intl.Collator('zh');
+
+const compareCodeUnits = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+const byPublishedDesc = (a: PostEntry, b: PostEntry) =>
+  compareCodeUnits(b.published, a.published) || compareCodeUnits(a.slug, b.slug);
+
+const byOrderThenName = (a: ProjectEntry, b: ProjectEntry) =>
+  (a.order ?? Number.POSITIVE_INFINITY) - (b.order ?? Number.POSITIVE_INFINITY) ||
+  COLLATOR.compare(a.name, b.name);
 
 const digest = (value: unknown) =>
   createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 16);
+
+// Cache checks only: written digests never contain it, so it can never match one.
+const MISSING = 'missing';
+
+// Notion truncates edit times to the minute, so a page edited this recently may still change under the same timestamp.
+const SETTLE_MS = 120_000;
+
+async function editedTimeOrMissing(api: NotionApi, dataSourceId: string): Promise<string | null> {
+  try {
+    return await api.latestEditedTime(dataSourceId);
+  } catch (error) {
+    if (!isNotFoundError(error)) throw error;
+    return MISSING;
+  }
+}
 
 async function resolveDataSourceId(api: NotionApi, databaseId: string): Promise<string> {
   const source = (await api.retrieveDatabase(databaseId)).data_sources[0];
@@ -56,30 +86,50 @@ function contentLoader(options: SyncOptions, warn: (message: string) => void) {
     media: options.media,
     bookmarks: options.bookmarks,
     databaseDisplay: options.config.databaseDisplay,
-    warn,
   };
+  const displayDigest = digest(options.config.databaseDisplay);
   const digestOf = (lastEditedTime: string, childTimes: (string | null)[]) =>
-    digest([LOADER_VERSION, lastEditedTime, childTimes]);
+    digest([LOADER_VERSION, displayDigest, lastEditedTime, childTimes]);
+  const now = options.now ?? Date.now;
   return async (pageId: string, lastEditedTime: string): Promise<PageContent> => {
     const cached = options.fullRefresh ? null : await options.cache.read(pageId);
-    if (cached) {
+    const mediaPresent = cached?.content.mediaKeys.every((key) => options.media.has(key));
+    if (cached && mediaPresent) {
       const childTimes = await Promise.all(
-        cached.childDataSourceIds.map((id) => options.api.latestEditedTime(id)),
+        cached.childDataSourceIds.map((id) => editedTimeOrMissing(options.api, id)),
       );
-      const mediaPresent = cached.content.mediaKeys.every((key) => options.media.has(key));
-      if (mediaPresent && cached.digest === digestOf(lastEditedTime, childTimes))
+      if (cached.digest === digestOf(lastEditedTime, childTimes)) {
+        for (const message of cached.warnings) warn(message);
         return cached.content;
+      }
     }
-    const content = await buildPageContent(pageId, deps);
+    const warnings: string[] = [];
+    const fetchStartedAt = now();
+    const content = await buildPageContent(pageId, {
+      ...deps,
+      warn: (message) => {
+        warnings.push(message);
+        warn(message);
+      },
+    });
     const childTimes = await Promise.all(
       content.childDataSourceIds.map((id) => options.api.latestEditedTime(id)),
     );
-    await options.cache.write(pageId, {
-      version: LOADER_VERSION,
-      digest: digestOf(lastEditedTime, childTimes),
-      childDataSourceIds: content.childDataSourceIds,
-      content,
-    });
+    const lastEdit = Math.max(
+      ...[lastEditedTime, ...childTimes].map((time) => (time ? Date.parse(time) : 0)),
+    );
+    if (lastEdit < fetchStartedAt - SETTLE_MS) {
+      await options.cache.write(pageId, {
+        version: LOADER_VERSION,
+        digest: digestOf(lastEditedTime, childTimes),
+        childDataSourceIds: content.childDataSourceIds,
+        warnings,
+        content,
+      });
+    } else {
+      // Trashing an inline database's newest row moves its edit time back, so an older record could match again.
+      await options.cache.delete(pageId);
+    }
     return content;
   };
 }
@@ -90,16 +140,12 @@ function checkLinks(
   pages: StandalonePageEntry[],
   warn: (message: string) => void,
 ): void {
-  const published = new Set<string>([
-    ...posts.map((post) => post.id),
-    ...projects.filter((project) => project.content && project.slug).map((project) => project.id),
-    ...pages.map((entry) => entry.id),
-  ]);
+  const linkMap = buildLinkMap({ posts, projects, pages });
   const check = (owner: string, content: PageContent | null) => {
     for (const id of content?.linkedPageIds ?? []) {
-      if (!published.has(id))
+      if (!linkMap.has(id))
         warn(
-          `"${owner}" links to Notion page ${id}, which is not on the site; it renders as plain text`,
+          `"${owner}" links to Notion page ${id}, which is not on the site; the link is not published`,
         );
     }
   };
@@ -122,20 +168,59 @@ export async function syncNotion(options: SyncOptions): Promise<SiteContent> {
     ),
   );
   const [postRows, projectRows, profileRows] = await Promise.all(
-    [postsSource, projectsSource, profileSource].map((id) => api.queryDataSource(id as string)),
+    [postsSource, projectsSource, profileSource].map((id) => api.queryDataSource(id)),
   );
-  const posts = parsePosts(postRows ?? []);
-  const projects = parseProjects(projectRows ?? []);
-  const profile = parseProfile(profileRows ?? []);
+  const posts = parsePosts(postRows);
+  const projects = parseProjects(projectRows);
+  const profile = parseProfile(profileRows);
   for (const message of [...posts.warnings, ...projects.warnings, ...profile.warnings])
     warn(message);
   const issues: ValidationIssue[] = [...posts.issues, ...projects.issues, ...profile.issues];
-  if (issues.length > 0) throw new ContentValidationError(issues);
 
   const loadContent = contentLoader(options, warn);
   const cover = (url: string | null): Promise<MediaRef | null> =>
     url ? media.ensure(url, { kind: 'image' }) : Promise.resolve(null);
   const limit = pLimit(4);
+
+  // A project body without a Slug is a validation issue, so projects load before the check.
+  const projectResults = await Promise.allSettled(
+    projects.items.map((project) =>
+      limit(async (): Promise<ProjectEntry> => {
+        const content = await loadContent(project.id, project.lastEditedTime);
+        const hasBody = content.blocks.length > 0;
+        if (hasBody && !project.slug) {
+          issues.push({
+            collection: 'projects',
+            pageId: project.id,
+            title: project.name,
+            field: 'Slug',
+            message: 'is required when the project page has content',
+          });
+        }
+        return {
+          id: project.id,
+          name: project.name,
+          slug: project.slug,
+          description: project.description,
+          stack: project.stack,
+          link: project.link,
+          repo: project.repo,
+          status: project.status,
+          featured: project.featured,
+          order: project.order,
+          year: project.year,
+          cover: await cover(project.coverUrl),
+          lastEditedTime: project.lastEditedTime,
+          content: hasBody ? content : null,
+        };
+      }),
+    ),
+  );
+  if (issues.length > 0) throw new ContentValidationError(issues);
+  const projectEntries = projectResults.map((result) => {
+    if (result.status === 'rejected') throw result.reason;
+    return result.value;
+  });
 
   const postEntries = await Promise.all(
     posts.items
@@ -164,51 +249,21 @@ export async function syncNotion(options: SyncOptions): Promise<SiteContent> {
       ),
   );
 
-  const projectIssues: ValidationIssue[] = [];
-  const projectEntries = await Promise.all(
-    projects.items.map((project) =>
-      limit(async (): Promise<ProjectEntry> => {
-        const content = await loadContent(project.id, project.lastEditedTime);
-        const hasBody = content.blocks.length > 0;
-        if (hasBody && !project.slug) {
-          projectIssues.push({
-            collection: 'projects',
-            pageId: project.id,
-            title: project.name,
-            field: 'Slug',
-            message: 'is required when the project page has content',
-          });
-        }
-        return {
-          id: project.id,
-          name: project.name,
-          slug: project.slug,
-          description: project.description,
-          stack: project.stack,
-          link: project.link,
-          repo: project.repo,
-          status: project.status,
-          featured: project.featured,
-          order: project.order,
-          year: project.year,
-          cover: await cover(project.coverUrl),
-          lastEditedTime: project.lastEditedTime,
-          content: hasBody ? content : null,
-        };
-      }),
-    ),
-  );
-  if (projectIssues.length > 0) throw new ContentValidationError(projectIssues);
-
   const pageEntries = await Promise.all(
     (Object.entries(config.pages) as [StandalonePageKey, string][]).map(([key, id]) =>
       limit(async (): Promise<StandalonePageEntry> => {
         const notionPage = await api.retrievePage(id);
         const pageId = normalizeId(notionPage.id);
+        const title = readTitle(notionPage.properties);
+        if (notionPage.icon?.type === 'icon') {
+          warn(
+            `Page "${title}" (${pageId}) uses a built-in Notion icon, which can't be shown on the site; use an emoji instead`,
+          );
+        }
         return {
           id: pageId,
           key,
-          title: readTitle(notionPage.properties),
+          title,
           icon: await toIcon(notionPage.icon, media),
           cover: await cover(coverUrl(notionPage)),
           lastEditedTime: notionPage.last_edited_time,
@@ -234,12 +289,8 @@ export async function syncNotion(options: SyncOptions): Promise<SiteContent> {
     `Synced ${postEntries.length} posts, ${projectEntries.length} projects and ${pageEntries.length} pages from Notion`,
   );
   return {
-    posts: postEntries.sort((a, b) => b.published.localeCompare(a.published)),
-    projects: projectEntries.sort(
-      (a, b) =>
-        (a.order ?? Number.POSITIVE_INFINITY) - (b.order ?? Number.POSITIVE_INFINITY) ||
-        a.name.localeCompare(b.name),
-    ),
+    posts: postEntries.sort(byPublishedDesc),
+    projects: projectEntries.sort(byOrderThenName),
     profile: profileEntry,
     pages: pageEntries,
     mediaKeys: [...mediaKeys].sort(),
