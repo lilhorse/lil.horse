@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.astro/
+.cache/
+public/_media/
+.env
+.env.*
+!.env.example
+test-results/
+playwright-report/
+.DS_Store
