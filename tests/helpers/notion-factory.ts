@@ -20,7 +20,7 @@ const ANNOTATIONS = {
 let counter = 0;
 export function nextId(): string {
   counter += 1;
-  return counter.toString(16).padStart(32, 'a');
+  return counter.toString(16).padStart(32, '0');
 }
 
 export function rt(
