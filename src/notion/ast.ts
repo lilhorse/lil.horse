@@ -1,5 +1,4 @@
 import type {
-  BlockObjectResponse,
   ChildDatabaseBlockObjectResponse,
   CodeBlockObjectResponse,
   PageObjectResponse,
@@ -7,12 +6,14 @@ import type {
   TableBlockObjectResponse,
 } from '@notionhq/client';
 import type GithubSlugger from 'github-slugger';
+import { slug } from 'github-slugger';
 import type { BlockNode } from './blocks';
 import type { BookmarkFetcher } from './bookmarks';
 import type { MediaStore } from './media';
 import { isBlank, plain, toRichText } from './rich-text';
 import type {
   CodeNode,
+  Column,
   DatabaseNode,
   HeadingNode,
   Icon,
@@ -89,7 +90,7 @@ export async function toIcon(
 
 interface TextContent {
   rich_text: RichTextItemResponse[];
-  color: string;
+  color: NotionColor;
 }
 
 function listNode(
@@ -107,7 +108,7 @@ function listNode(
       {
         id,
         text: toRichText(content.rich_text),
-        color: content.color as NotionColor,
+        color: content.color,
         checked,
         children,
       },
@@ -121,15 +122,18 @@ async function toHeading(
   content: TextContent & { is_toggleable: boolean },
   children: BlockNode[],
   ctx: AstContext,
-): Promise<HeadingNode> {
+): Promise<HeadingNode | null> {
   const text = toRichText(content.rich_text);
+  const title = plain(text).trim();
+  // Raw children: converting them first would slug nested headings before this one.
+  if (!title && !content.is_toggleable && children.length === 0) return null;
   return {
     type: 'heading',
     id,
     level,
     text,
-    anchor: ctx.slugger.slug(plain(text).trim() || 'section'),
-    color: content.color as NotionColor,
+    anchor: ctx.slugger.slug(slug(title) ? title : 'section'),
+    color: content.color,
     toggleable: content.is_toggleable,
     children: await blocksToAst(children, ctx),
   };
@@ -148,14 +152,9 @@ function toTableNode(block: TableBlockObjectResponse, children: BlockNode[]): Ta
   };
 }
 
-function widthRatioOf(column: BlockObjectResponse): number | null {
-  const ratio = (column as { column?: { width_ratio?: number } }).column?.width_ratio;
-  return typeof ratio === 'number' ? ratio : null;
-}
-
 async function convert({ block, children }: BlockNode, ctx: AstContext): Promise<Node | null> {
   const nested = () => blocksToAst(children, ctx);
-  // Every case below that renders children must also be listed in RENDERS_CHILDREN in src/notion/sanitize.ts.
+  // Keep the cases that render children in sync with RENDERS_CHILDREN in src/notion/sanitize.ts.
   switch (block.type) {
     case 'paragraph': {
       const text = toRichText(block.paragraph.rich_text);
@@ -165,7 +164,7 @@ async function convert({ block, children }: BlockNode, ctx: AstContext): Promise
         type: 'paragraph',
         id: block.id,
         text,
-        color: block.paragraph.color as NotionColor,
+        color: block.paragraph.color,
         children: inner,
       };
     }
@@ -188,7 +187,7 @@ async function convert({ block, children }: BlockNode, ctx: AstContext): Promise
         type: 'toggle',
         id: block.id,
         summary: toRichText(block.toggle.rich_text),
-        color: block.toggle.color as NotionColor,
+        color: block.toggle.color,
         children: await nested(),
       };
     case 'quote':
@@ -196,18 +195,24 @@ async function convert({ block, children }: BlockNode, ctx: AstContext): Promise
         type: 'quote',
         id: block.id,
         text: toRichText(block.quote.rich_text),
-        color: block.quote.color as NotionColor,
+        color: block.quote.color,
         children: await nested(),
       };
-    case 'callout':
+    case 'callout': {
+      if (block.callout.icon?.type === 'icon') {
+        ctx.warn(
+          `Callout (${block.id}) uses a built-in Notion icon, which can't be shown on the site; use an emoji instead`,
+        );
+      }
       return {
         type: 'callout',
         id: block.id,
         icon: await toIcon(block.callout.icon, ctx.media),
         text: toRichText(block.callout.rich_text),
-        color: block.callout.color as NotionColor,
+        color: block.callout.color,
         children: await nested(),
       };
+    }
     case 'divider':
       return { type: 'divider', id: block.id };
     case 'code':
@@ -216,20 +221,19 @@ async function convert({ block, children }: BlockNode, ctx: AstContext): Promise
       return { type: 'equation', id: block.id, expression: block.equation.expression };
     case 'table':
       return toTableNode(block, children);
-    case 'column_list':
-      return {
-        type: 'columns',
-        id: block.id,
-        columns: await Promise.all(
-          children
-            .filter(({ block: column }) => column.type === 'column')
-            .map(async ({ block: column, children: columnChildren }) => ({
-              id: column.id,
-              widthRatio: widthRatioOf(column),
-              children: await blocksToAst(columnChildren, ctx),
-            })),
-        ),
-      };
+    case 'column_list': {
+      const columns: Column[] = [];
+      // Sequential, so the slugger numbers duplicate headings in document order.
+      for (const { block: column, children: columnChildren } of children) {
+        if (column.type !== 'column') continue;
+        columns.push({
+          id: column.id,
+          widthRatio: column.column.width_ratio ?? null,
+          children: await blocksToAst(columnChildren, ctx),
+        });
+      }
+      return { type: 'columns', id: block.id, columns };
+    }
     case 'synced_block':
     case 'tab':
     case 'column': {
@@ -245,9 +249,11 @@ async function convert({ block, children }: BlockNode, ctx: AstContext): Promise
     case 'meeting_notes':
     case 'transcription':
       return null;
-    default:
-      ctx.warn(`Unsupported Notion block "${block.type}" (${block.id}) skipped`);
-      return { type: 'unsupported', id: block.id, blockType: block.type };
+    default: {
+      const blockType = block.type === 'unsupported' ? block.unsupported.block_type : block.type;
+      ctx.warn(`Unsupported Notion block "${blockType}" (${block.id}) skipped`);
+      return { type: 'unsupported', id: block.id, blockType };
+    }
   }
 }
 
