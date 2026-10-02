@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fetchBlockTree } from '../../src/notion/blocks';
 import { FakeNotionApi } from '../helpers/fake-api';
 import { block, nextId } from '../helpers/notion-factory';
@@ -34,7 +34,33 @@ describe('fetchBlockTree', () => {
     expect(tree[1]?.children.map((node) => node.block.id)).toEqual([fromOriginal.id]);
     expect(tree[2]?.children).toEqual([]);
     expect(tree[3]?.children).toEqual([]);
-    expect(api.calls).not.toContain(`listBlockChildren:${childPage.id}`);
-    expect(api.calls).not.toContain(`listBlockChildren:${synced.id}`);
+    expect([...api.calls].sort()).toEqual(
+      [root, toggle.id, original].map((id) => `listBlockChildren:${id}`).sort(),
+    );
+  });
+
+  it('names the synced block when its original is not shared and rethrows other errors unchanged', async () => {
+    const api = new FakeNotionApi();
+    const root = nextId();
+    const original = nextId();
+    const synced = block(
+      'synced_block',
+      { synced_from: { type: 'block_id', block_id: original } },
+      { hasChildren: true },
+    );
+    api.setChildren(root, [synced]);
+    const list = api.listBlockChildren.bind(api);
+    let failure = Object.assign(new Error('not shared'), { code: 'object_not_found' });
+    vi.spyOn(api, 'listBlockChildren').mockImplementation(async (id) => {
+      if (id === original) throw failure;
+      return list(id);
+    });
+
+    const rejection = fetchBlockTree(api, root);
+    await expect(rejection).rejects.toThrow(`Synced block ${synced.id} copies ${original}`);
+    await expect(rejection).rejects.toHaveProperty('cause.code', 'object_not_found');
+
+    failure = Object.assign(new Error('Service unavailable'), { code: 'service_unavailable' });
+    await expect(fetchBlockTree(api, root)).rejects.toBe(failure);
   });
 });
