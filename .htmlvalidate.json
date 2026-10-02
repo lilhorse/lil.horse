@@ -1,0 +1,10 @@
+{
+  "extends": ["html-validate:standard"],
+  "elements": [
+    "html5",
+    {
+      "code": { "permittedContent": ["@phrasing", "div"] },
+      "button": { "permittedContent": ["@phrasing", "div"] }
+    }
+  ]
+}
