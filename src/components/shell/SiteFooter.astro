@@ -77,7 +77,10 @@ const { social, version } = Astro.props;
     color: var(--accent);
   }
   nav a {
-    text-decoration: none;
+    text-decoration-line: none;
+  }
+  nav a:hover {
+    text-decoration-line: underline;
   }
   .build {
     color: var(--fg);

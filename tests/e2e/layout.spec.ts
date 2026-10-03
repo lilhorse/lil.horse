@@ -3,6 +3,12 @@ import { pageContaining, pagePaths, settle } from './site';
 
 const BACKGROUND = { light: 'rgb(242, 244, 247)', dark: 'rgb(26, 27, 38)' };
 const TARGETS = 'header a[href], header summary, footer a[href]';
+const HOVER_LINKS = [
+  ['/', '.posts .name a'],
+  ['/blog', '.posts .name a'],
+  ['/', '.neofetch dd a'],
+  ['/', 'footer nav a'],
+] as const;
 
 /** Controls under 44 x 44 px, leaving out links that flow inside prose text. */
 function smallTargets(page: Page, selector: string): Promise<string[]> {
@@ -94,11 +100,13 @@ test('the glint stops when the visitor asks for less motion', async ({ page }) =
   expect(await glint()).toBe('none');
 });
 
-test('post links are underlined only while the mouse is over them', async ({ page }, testInfo) => {
+test('list and social links are underlined only while the mouse is over them', async ({
+  page,
+}, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'needs a mouse');
-  for (const path of ['/', '/blog']) {
+  for (const [path, selector] of HOVER_LINKS) {
     await page.goto(path);
-    const link = page.locator('.posts .name a').first();
+    const link = page.locator(selector).first();
     await expect(link).toHaveCSS('text-decoration-line', 'none');
     await link.hover();
     await expect(link).toHaveCSS('text-decoration-line', 'underline');
