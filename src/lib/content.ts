@@ -37,6 +37,9 @@ async function load(): Promise<SiteData> {
 }
 
 export function getSiteData(): Promise<SiteData> {
-  cached ??= load();
+  cached ??= load().catch((error: unknown) => {
+    cached = undefined;
+    throw error;
+  });
   return cached;
 }
