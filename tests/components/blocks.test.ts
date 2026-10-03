@@ -164,6 +164,27 @@ describe('BookmarkCard', () => {
     });
     expect(textOf(html)).toBe('A post What it says Example Site example.com');
   });
+
+  it('gives only external bookmarks a rel', async () => {
+    for (const metadata of [null, meta]) {
+      const external = await render(BookmarkCard, {
+        node: bookmark('https://example.com/a', metadata),
+        resolve,
+      });
+      const internal = await render(BookmarkCard, { node: bookmark('/blog/x', metadata), resolve });
+      expect(external).toContain('href="https://example.com/a" rel="noopener noreferrer"');
+      expect(internal).toContain('href="/blog/x"');
+      expect(internal).not.toMatch(/\srel=/);
+    }
+  });
+
+  it('sizes the preview image to the 160 px it is shown at', async () => {
+    const html = await render(BookmarkCard, {
+      node: bookmark('https://example.com/a', { ...meta, image: media('preview') }),
+      resolve,
+    });
+    expect(html.match(/\ssizes="[^"]*"/g)).toEqual([' sizes="160px"', ' sizes="160px"']);
+  });
 });
 
 describe('FileCard', () => {
