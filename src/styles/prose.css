@@ -51,6 +51,9 @@
     color: var(--fg);
     font-weight: 600;
   }
+  .prose a strong {
+    color: inherit;
+  }
 
   .prose a {
     color: var(--accent);

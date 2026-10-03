@@ -69,7 +69,8 @@ const { posts, tags, variant, date = 'full' } = Astro.props;
   }
   .titles li {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    /* Caps the tags column so a long tag wraps instead of squeezing the title. */
+    grid-template-columns: auto minmax(0, 1fr) fit-content(40%);
     padding-block: 8px;
     border-bottom: 1px solid var(--rule);
   }

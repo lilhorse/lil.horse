@@ -32,15 +32,26 @@ const { social, version } = Astro.props;
       </ul>
     </nav>
     <p class="legal">
-      © Lil'Horse <span class="sep">·</span> Content{' '}
-      <a href="https://creativecommons.org/licenses/by-nc/4.0/" rel="license noopener noreferrer">
-        CC BY-NC 4.0
-      </a>{' '}
-      <span class="sep">·</span> Code{' '}
-      <a href="https://github.com/lilhorse/lil.horse/blob/main/LICENSE" rel="noopener noreferrer">
-        MIT
-      </a>{' '}
-      <span class="sep">·</span> build <span class="build">{version}</span>
+      <span>
+        © Lil'Horse<span class="sep"> ·</span>
+      </span>{' '}
+      <span>
+        Content{' '}
+        <a href="https://creativecommons.org/licenses/by-nc/4.0/" rel="license noopener noreferrer">
+          CC BY-NC 4.0
+        </a>
+        <span class="sep"> ·</span>
+      </span>{' '}
+      <span>
+        Code{' '}
+        <a href="https://github.com/lilhorse/lil.horse/blob/main/LICENSE" rel="noopener noreferrer">
+          MIT
+        </a>
+        <span class="sep"> ·</span>
+      </span>{' '}
+      <span>
+        build <span class="build">{version}</span>
+      </span>
     </p>
   </div>
 </footer>
@@ -81,6 +92,10 @@ const { social, version } = Astro.props;
   }
   nav a:hover {
     text-decoration-line: underline;
+  }
+  /* Each item wraps as a whole, so no line starts with a separator. */
+  .legal > span {
+    display: inline-block;
   }
   .build {
     color: var(--fg);

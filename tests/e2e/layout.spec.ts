@@ -46,6 +46,65 @@ test('phone tap targets are at least 44 by 44 pixels', async ({ page }, testInfo
   }
 });
 
+test('a very long tag wraps instead of widening the page', async ({ page }) => {
+  for (const path of pagePaths()) {
+    await page.goto(encodeURI(path));
+    const found = await page.evaluate(() => {
+      const pill = document.querySelector('.pill');
+      if (pill) pill.textContent = `#${'averylongtagname'.repeat(12)}`;
+      return pill !== null;
+    });
+    if (!found) continue;
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow, path).toBeLessThanOrEqual(0);
+    const titles = await page.$$eval('.posts .name', (names) =>
+      names.map((name) => name.getBoundingClientRect().width),
+    );
+    for (const width of titles) expect(width, path).toBeGreaterThan(40);
+  }
+});
+
+test('no footer line starts with a separator', async ({ page }) => {
+  await page.goto('/');
+  const offsets = await page.$$eval('.legal .sep', (separators) =>
+    separators.map(
+      (separator) =>
+        separator.getBoundingClientRect().left -
+        (separator.closest('p') as Element).getBoundingClientRect().left,
+    ),
+  );
+  expect(offsets.length).toBeGreaterThan(0);
+  for (const offset of offsets) expect(offset).toBeGreaterThan(1);
+});
+
+test('the neofetch contact row is no taller than its lines on phones', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'phones only');
+  await page.goto('/');
+  const { height, lineHeight } = await page.$eval('.neofetch dd:has(a)', (dd) => ({
+    height: dd.getBoundingClientRect().height,
+    lineHeight: parseFloat(getComputedStyle(dd).lineHeight),
+  }));
+  const lines = Math.max(1, Math.round(height / lineHeight));
+  expect(height).toBeCloseTo(lines * lineHeight, 0);
+});
+
+test('bold text inside a link keeps the link colour', async ({ page }) => {
+  for (const path of pagePaths()) {
+    await page.goto(encodeURI(path));
+    const pairs = await page.$$eval('.prose a strong', (elements) =>
+      elements.map((element) => [
+        getComputedStyle(element).color,
+        getComputedStyle(element.closest('a') as Element).color,
+      ]),
+    );
+    for (const [bold, link] of pairs) expect(bold, path).toBe(link);
+  }
+});
+
 test('data-theme overrides the system colour scheme', async ({ page }) => {
   const visibleLogos = (theme: string) =>
     page.evaluate(

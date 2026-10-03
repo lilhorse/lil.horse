@@ -182,6 +182,8 @@ const social = socialLinks(profile);
       align-items: center;
       min-block-size: 44px;
       min-inline-size: 44px;
+      /* Keeps the 44 px target without making the row taller than the others. */
+      margin-block: calc((1lh - 44px) / 2);
     }
   }
 </style>
