@@ -92,3 +92,29 @@ describe('colour tokens', () => {
       expect(contrast(color('faint', theme), color('bg', theme))).toBeLessThan(4.5);
   });
 });
+
+describe('page frame', () => {
+  const textColors = (component: string): Set<string> => {
+    const source = readFileSync(`src/components/shell/${component}.astro`, 'utf8');
+    return new Set(
+      [...source.matchAll(/(?<![\w-])color: var\(--([\w-]+)\)/g)].map((match) => match[1] ?? ''),
+    );
+  };
+
+  it.each(['light', 'dark'] as const)(
+    'keeps the header, menu and footer text at 4.5:1 or more on the bar (%s)',
+    (theme) => {
+      for (const component of ['SiteHeader', 'SiteMenu', 'SiteFooter']) {
+        const names = textColors(component);
+        expect(names.size, component).toBeGreaterThan(0);
+        for (const name of names) {
+          const ratio = contrast(color(name, theme), color('bg-bar', theme));
+          expect(
+            ratio,
+            `${component}: ${name} on bg-bar: ${ratio.toFixed(2)}`,
+          ).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    },
+  );
+});
