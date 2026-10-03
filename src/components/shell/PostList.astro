@@ -75,6 +75,12 @@ const { posts, tags, variant, date = 'full' } = Astro.props;
     font-size: 0.9375rem;
     font-weight: 500;
   }
+  /* Untagged rows are otherwise shorter than the 24 px minimum target size. */
+  .files .name a {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: 24px;
+  }
   .draft {
     padding: 0 6px;
     border-radius: 4px;
@@ -98,8 +104,6 @@ const { posts, tags, variant, date = 'full' } = Astro.props;
       min-block-size: 44px;
     }
     .files .name a {
-      display: inline-flex;
-      align-items: center;
       min-block-size: 44px;
     }
   }
