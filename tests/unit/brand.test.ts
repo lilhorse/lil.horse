@@ -59,6 +59,16 @@ describe('webManifest', () => {
     ]);
     expect(manifest.icons[2]?.purpose).toBe('maskable');
   });
+
+  it('colours the app chrome like the dark header bar', () => {
+    const base = readFileSync('src/layouts/Base.astro', 'utf8');
+    const dark =
+      /<meta name="theme-color" content="([^"]+)" media="\(prefers-color-scheme: dark\)"/.exec(
+        base,
+      )?.[1];
+    expect(dark).toMatch(/^#[0-9a-f]{6}$/);
+    expect((JSON.parse(webManifest()) as { theme_color: string }).theme_color).toBe(dark);
+  });
 });
 
 describe('brandFiles', () => {

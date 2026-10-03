@@ -2,6 +2,8 @@ import sharp from 'sharp';
 import { GRID_16, GRID_24, PALETTES, horsePaths, horseRgba, horseSvg } from './horse';
 
 export const ICON_BACKGROUND = '#1a1b26';
+// Keep in sync with the dark theme-color meta in src/layouts/Base.astro.
+const HEADER_BAR = '#16161e';
 
 export async function pngFromRgba(rgba: Buffer, size: number): Promise<Buffer> {
   return sharp(rgba, { raw: { width: size, height: size, channels: 4 } })
@@ -53,7 +55,7 @@ export function webManifest(): string {
     start_url: '/',
     display: 'standalone',
     background_color: ICON_BACKGROUND,
-    theme_color: ICON_BACKGROUND,
+    theme_color: HEADER_BAR,
     icons: [
       { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
       { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
