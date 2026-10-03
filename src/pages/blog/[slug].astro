@@ -1,6 +1,10 @@
 ---
 import Blocks from '../../components/blocks/Blocks.astro';
 import Picture from '../../components/blocks/Picture.astro';
+import AdjacentNav from '../../components/shell/AdjacentNav.astro';
+import DocHeader from '../../components/shell/DocHeader.astro';
+import DocLayout from '../../components/shell/DocLayout.astro';
+import TagList from '../../components/shell/TagList.astro';
 import Base from '../../layouts/Base.astro';
 import { getSiteData } from '../../lib/content';
 import { adjacentPosts } from '../../lib/selectors';
@@ -19,6 +23,8 @@ const { post } = Astro.props;
 const site = await getSiteData();
 const { previous, next } = adjacentPosts(site.posts, post.slug);
 const lang = post.language === 'zh' ? 'zh-Hans' : 'en';
+const neighbour = (entry: PostEntry | null) =>
+  entry && { href: `/blog/${entry.slug}`, title: entry.title };
 ---
 
 <Base
@@ -28,27 +34,32 @@ const lang = post.language === 'zh' ? 'zh-Hans' : 'en';
   hasMath={post.content.hasMath}
   path={`~/blog/${post.slug}.md`}
   file={`${post.slug}.md`}
+  wide
 >
-  <article lang={lang}>
-    <header>
-      {post.status === 'Draft' && <p class="draft-badge">DRAFT</p>}
-      <h1>{post.title}</h1>
-      <p>
-        <time datetime={post.published}>{post.published}</time> · {post.readingMinutes} min read
-        {post.tags.map((tag) => (
+  <DocLayout headings={post.content.headings} lang={lang}>
+    <DocHeader command={`cat ~/blog/${post.slug}.md`} title={post.title}>
+      <div class="doc-meta" slot="meta">
+        <time datetime={post.published}>{post.published}</time> <span class="sep">·</span>{' '}
+        {post.readingMinutes} min read
+        {post.status === 'Draft' && (
           <Fragment>
             {' '}
-            <span class="tag">#{tag}</span>
+            <span class="draft">DRAFT</span>
           </Fragment>
-        ))}
-      </p>
-      {post.updated && (
-        <p>
-          Updated <time datetime={post.updated}>{post.updated}</time>
-        </p>
-      )}
-    </header>
-    {post.cover && <Picture media={post.cover} alt="" priority />}
+        )}
+        {post.tags.length > 0 && (
+          <Fragment>
+            {' '}
+            <span class="sep">·</span> <TagList tags={post.tags} linked={site.tagSlugs} />
+          </Fragment>
+        )}
+      </div>
+    </DocHeader>
+    {post.cover && (
+      <div class="doc-cover">
+        <Picture media={post.cover} alt="" priority />
+      </div>
+    )}
     <div class="prose">
       <Blocks
         nodes={post.content.blocks}
@@ -57,17 +68,41 @@ const lang = post.language === 'zh' ? 'zh-Hans' : 'en';
         priorityImageId={post.cover ? null : post.content.priorityImageId}
       />
     </div>
-  </article>
-  <nav aria-label="Adjacent posts">
-    {previous && (
-      <a rel="prev" href={`/blog/${previous.slug}`}>
-        Older: {previous.title}
-      </a>
-    )}{' '}
-    {next && (
-      <a rel="next" href={`/blog/${next.slug}`}>
-        Newer: {next.title}
-      </a>
+    {post.updated && (
+      <p class="doc-updated">
+        Updated <time datetime={post.updated}>{post.updated}</time>
+      </p>
     )}
-  </nav>
+    <AdjacentNav
+      slot="after"
+      label="Adjacent posts"
+      previous={neighbour(previous)}
+      next={neighbour(next)}
+      previousLabel="older"
+      nextLabel="newer"
+    />
+  </DocLayout>
 </Base>
+
+<style>
+  .doc-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    color: var(--muted);
+    font-size: var(--text-ui);
+  }
+  .draft {
+    padding: 0 6px;
+    border-radius: 4px;
+    background: var(--hl-pink);
+    color: var(--fg);
+    font-weight: 600;
+  }
+  .doc-updated {
+    margin-block-start: 32px;
+    color: var(--muted);
+    font-size: var(--text-ui);
+  }
+</style>

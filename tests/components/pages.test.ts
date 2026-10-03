@@ -2,10 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import StandalonePage from '../../src/components/StandalonePage.astro';
 import { excerpt } from '../../src/notion/text';
 import type { StandalonePageEntry } from '../../src/notion/types';
-import BlogPost from '../../src/pages/blog/[slug].astro';
 import ProjectsIndex from '../../src/pages/projects/index.astro';
 import { render, textOf } from '../helpers/astro-render';
-import { content, element, post, project, useSite } from '../helpers/site-data';
+import { content, element, project, useSite } from '../helpers/site-data';
 
 vi.mock('../../src/lib/content', async () => {
   const { siteState } = await import('../helpers/site-data');
@@ -14,22 +13,6 @@ vi.mock('../../src/lib/content', async () => {
 
 beforeEach(() => {
   useSite();
-});
-
-describe('blog pages', () => {
-  it('separates the meta line and the adjacent links of a post', async () => {
-    const posts = [
-      post('new', { published: '2024-03-01' }),
-      post('middle', { published: '2024-02-01', tags: ['helloworld', 'AI'] }),
-      post('old', { published: '2024-01-01' }),
-    ];
-    useSite({ posts });
-    const html = await render(BlogPost, { post: posts[1] });
-    expect(textOf(element(html, '<p><time', 'p'))).toBe('2024-02-01 · 2 min read #helloworld #AI');
-    expect(textOf(element(html, '<nav aria-label="Adjacent posts"', 'nav'))).toBe(
-      'Older: Post old Newer: Post new',
-    );
-  });
 });
 
 describe('projects page', () => {

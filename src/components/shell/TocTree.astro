@@ -1,0 +1,62 @@
+---
+import type { TocItem } from '../../lib/toc';
+
+interface Props {
+  items: TocItem[];
+}
+
+const { items } = Astro.props;
+const Self = Astro.self;
+---
+
+<ul>
+  {items.map((item) => (
+    <li>
+      <a href={`#${item.anchor}`}>{item.text}</a>
+      {item.children.length > 0 && <Self items={item.children} />}
+    </li>
+  ))}
+</ul>
+
+<style>
+  ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  ul ul {
+    margin-inline-start: 2ch;
+  }
+  li {
+    position: relative;
+    padding-inline-start: 3ch;
+  }
+  li::before {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0.5ch;
+    border-inline-start: 1px solid var(--faint);
+    content: '';
+  }
+  li:last-child::before {
+    inset-block-end: auto;
+    block-size: 0.8em;
+  }
+  li::after {
+    position: absolute;
+    inset-block-start: 0.8em;
+    inset-inline-start: 0.5ch;
+    inline-size: 2ch;
+    border-block-start: 1px solid var(--faint);
+    content: '';
+  }
+  a {
+    display: inline-block;
+    padding-block: 2px;
+    color: var(--muted);
+    text-decoration: none;
+  }
+  a:hover {
+    color: var(--fg);
+  }
+</style>

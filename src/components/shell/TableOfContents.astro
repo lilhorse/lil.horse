@@ -1,0 +1,36 @@
+---
+import { tocTree } from '../../lib/toc';
+import type { HeadingRef } from '../../notion/types';
+import Prompt from './Prompt.astro';
+import TocTree from './TocTree.astro';
+
+interface Props {
+  headings: HeadingRef[];
+}
+
+const items = tocTree(Astro.props.headings);
+---
+
+<nav class="toc" aria-label="On this page">
+  <p class="command" aria-hidden="true">
+    <Prompt /> tree
+  </p>
+  <p class="root" aria-hidden="true">
+    .
+  </p>
+  <TocTree items={items} />
+</nav>
+
+<style>
+  .toc {
+    font-size: var(--text-ui);
+    line-height: 1.6;
+  }
+  .command {
+    margin-block-end: 6px;
+    color: var(--fg);
+  }
+  .root {
+    color: var(--faint);
+  }
+</style>

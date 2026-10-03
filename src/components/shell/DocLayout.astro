@@ -1,0 +1,72 @@
+---
+import { hasToc } from '../../lib/toc';
+import type { HeadingRef } from '../../notion/types';
+import TableOfContents from './TableOfContents.astro';
+
+interface Props {
+  headings: HeadingRef[];
+  lang?: string;
+}
+
+const { headings, lang } = Astro.props;
+const toc = hasToc(headings);
+---
+
+<div class:list={['doc', { 'has-toc': toc }]}>
+  <article class="doc-main" lang={lang}>
+    <slot />
+  </article>
+  {toc && (
+    <div class="doc-toc">
+      <TableOfContents headings={headings} />
+    </div>
+  )}
+  <div class="doc-after">
+    <slot name="after" />
+  </div>
+</div>
+
+<style>
+  .doc {
+    display: grid;
+    grid-template-columns: minmax(0, var(--measure));
+    justify-content: center;
+  }
+  .doc-main :global(.doc-cover) {
+    margin-block: 8px 24px;
+  }
+  .doc-main :global(.doc-cover img) {
+    display: block;
+    inline-size: 100%;
+    border-radius: var(--radius);
+  }
+  .doc-main :global(.prose) {
+    margin-block-start: 16px;
+  }
+  .doc-toc {
+    display: none;
+  }
+  .doc-after:empty {
+    display: none;
+  }
+  @media (min-width: 1200px) {
+    .has-toc {
+      grid-template-columns: minmax(0, 1fr) minmax(0, var(--measure)) minmax(0, 1fr);
+      column-gap: 40px;
+    }
+    .has-toc .doc-main,
+    .has-toc .doc-after {
+      grid-column: 2;
+    }
+    .has-toc .doc-toc {
+      display: block;
+      grid-column: 3;
+      grid-row: 1;
+      position: sticky;
+      inset-block-start: 24px;
+      align-self: start;
+      max-inline-size: 260px;
+      padding-block-start: 24px;
+    }
+  }
+</style>

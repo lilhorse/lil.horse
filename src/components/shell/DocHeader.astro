@@ -1,0 +1,47 @@
+---
+import Prompt from './Prompt.astro';
+
+interface Props {
+  command: string;
+  title: string;
+}
+
+const { command, title } = Astro.props;
+---
+
+<header class="doc-header">
+  <p class="command" aria-hidden="true">
+    <Prompt /> {command}
+  </p>
+  <slot name="meta" />
+  <h1 class="title">
+    <span class="heading-mark" aria-hidden="true">
+      #
+    </span>{' '}
+    {title}
+  </h1>
+  <slot />
+</header>
+
+<style>
+  .doc-header {
+    display: grid;
+    gap: 10px;
+    padding-block: 20px 8px;
+  }
+  .command {
+    color: var(--fg);
+    overflow-wrap: anywhere;
+  }
+  .title {
+    color: var(--fg);
+    font-size: 1.625rem;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+  @media (max-width: 639.98px) {
+    .title {
+      font-size: 1.375rem;
+    }
+  }
+</style>
