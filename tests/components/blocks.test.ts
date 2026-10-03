@@ -12,7 +12,7 @@ import type {
   RichText,
   VideoNode,
 } from '../../src/notion/types';
-import { htmlErrors, render } from '../helpers/astro-render';
+import { htmlErrors, render, textOf } from '../helpers/astro-render';
 
 const resolve: LinkResolver = (pageId) =>
   pageId === 'known' ? { url: '/blog/known', title: 'Known post' } : undefined;
@@ -102,6 +102,65 @@ describe('href policy', () => {
     const video = await render(VideoBlock, { node: videoLink('https://example.com/v'), resolve });
     expect(card).toContain('href="https://example.com/a" rel="noopener noreferrer"');
     expect(video).toContain('href="https://example.com/v" rel="noopener noreferrer"');
+  });
+});
+
+describe('BookmarkCard', () => {
+  it('renders a plain link when the metadata could not be fetched', async () => {
+    const html = await render(BookmarkCard, {
+      node: bookmark('https://example.com/post'),
+      resolve,
+    });
+    expect(html).toContain(
+      '<a href="https://example.com/post" rel="noopener noreferrer">https://example.com/post</a>',
+    );
+    expect(html).not.toContain('bookmark-title');
+    expect(await htmlErrors(html)).toEqual([]);
+  });
+
+  it('shows the site name and the site icon', async () => {
+    const icon = media('icon', {
+      width: 32,
+      height: 32,
+      variants: [
+        { width: 32, format: 'avif', src: '/_media/icon/32.avif' },
+        { width: 32, format: 'webp', src: '/_media/icon/32.webp' },
+      ],
+    });
+    const html = await render(BookmarkCard, {
+      node: bookmark('https://www.example.com/a', { ...meta, icon }),
+      resolve,
+    });
+    expect(html).toMatch(
+      /<img class="bookmark-icon" src="\/_media\/icon\/32\.webp" alt=""[^>]* width="16" height="16"/,
+    );
+    expect(html).toContain('Example Site');
+    expect(html).toContain('example.com');
+    expect(await htmlErrors(html)).toEqual([]);
+  });
+
+  it('uses the original file of an icon without variants', async () => {
+    const icon = media('ico', {
+      mime: 'image/x-icon',
+      fileName: 'favicon.ico',
+      src: '/_media/ico/favicon.ico',
+      width: null,
+      height: null,
+      variants: [],
+    });
+    const html = await render(BookmarkCard, {
+      node: bookmark('https://example.com/a', { ...meta, siteName: null, icon }),
+      resolve,
+    });
+    expect(html).toContain('src="/_media/ico/favicon.ico"');
+  });
+
+  it('separates the parts of the card with spaces', async () => {
+    const html = await render(BookmarkCard, {
+      node: bookmark('https://example.com/a', meta),
+      resolve,
+    });
+    expect(textOf(html)).toBe('A post What it says Example Site example.com');
   });
 });
 

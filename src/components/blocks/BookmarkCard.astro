@@ -9,16 +9,49 @@ interface Props {
 }
 
 const { node, resolve } = Astro.props;
-const host = hostnameOf(node.url);
+const { meta } = node;
 const href = isSafeHref(node.url) ? node.url : undefined;
+const rel = href ? 'noopener noreferrer' : undefined;
+const host = hostnameOf(node.url);
+const icon =
+  meta?.icon &&
+  (meta.icon.variants.find((variant) => variant.format === 'webp')?.src ?? meta.icon.src);
 ---
 
 <figure class="bookmark">
-  <a class="bookmark-link" href={href} rel={href ? 'noopener noreferrer' : undefined}>
-    <span class="bookmark-title">{node.meta?.title ?? host}</span>
-    {node.meta?.description && <span class="bookmark-description">{node.meta.description}</span>}
-    <span class="bookmark-host">{host}</span>
-    {node.meta?.image && <Picture media={node.meta.image} alt="" sizes="240px" />}
-  </a>
+  {meta ? (
+    <a class="bookmark-link" href={href} rel={rel}>
+      <span class="bookmark-title">{meta.title ?? node.url}</span>{' '}
+      {meta.description && (
+        <Fragment>
+          <span class="bookmark-description">{meta.description}</span>{' '}
+        </Fragment>
+      )}
+      <span class="bookmark-site">
+        {icon && (
+          <img
+            class="bookmark-icon"
+            src={icon}
+            alt=""
+            width="16"
+            height="16"
+            loading="lazy"
+            decoding="async"
+          />
+        )}
+        {meta.siteName && (
+          <Fragment>
+            <span class="bookmark-site-name">{meta.siteName}</span>{' '}
+          </Fragment>
+        )}
+        <span class="bookmark-host">{host}</span>
+      </span>
+      {meta.image && <Picture media={meta.image} alt="" sizes="240px" />}
+    </a>
+  ) : (
+    <a href={href} rel={rel}>
+      {node.url}
+    </a>
+  )}
   {node.caption.length > 0 && <figcaption set:html={renderRichText(node.caption, resolve)} />}
 </figure>
