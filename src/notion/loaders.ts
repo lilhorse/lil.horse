@@ -17,6 +17,7 @@ export type CollectionKey = 'posts' | 'projects' | 'profile' | 'pages';
 type Logger = LoaderContext['logger'];
 
 let pending: Promise<SiteContent> | undefined;
+let skipLogged = false;
 
 export async function writeMediaManifest(file: string, keys: string[]): Promise<void> {
   await mkdir(dirname(file), { recursive: true });
@@ -66,7 +67,7 @@ async function runSync(logger: Logger): Promise<SiteContent> {
 
 // All four collections share one successful sync per process; restart `astro dev` to pull new Notion edits.
 export function loadSiteContent(logger: Logger): Promise<SiteContent> {
-  pending ??= runSync(logger).catch((error: unknown) => {
+  pending ??= runSync(logger.fork('notion')).catch((error: unknown) => {
     pending = undefined;
     throw error;
   });
@@ -94,7 +95,9 @@ export function notionLoader(collection: CollectionKey): Loader {
     name: `notion-${collection}`,
     async load({ store, logger, generateDigest }) {
       if (runtimeEnv().skipSync) {
-        logger.info('Skipping the Notion sync (NOTION_SKIP_SYNC=1)');
+        if (!skipLogged)
+          logger.fork('notion').info('Skipping the Notion sync (NOTION_SKIP_SYNC=1)');
+        skipLogged = true;
         return;
       }
       const site = await loadSiteContent(logger);
