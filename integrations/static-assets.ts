@@ -78,6 +78,20 @@ export function staticAssets(): AstroIntegration {
   return {
     name: 'lil-horse-static-assets',
     hooks: {
+      'astro:config:setup': ({ command }) => {
+        if (command !== 'build') return;
+        const env = readEnv(process.env);
+        const problems: string[] = [];
+        if (env.skipSync)
+          problems.push(
+            'NOTION_SKIP_SYNC is set; it is only for type checks (pnpm check). Unset it to build.',
+          );
+        if (env.includeDrafts)
+          problems.push(
+            'NOTION_INCLUDE_DRAFTS is set; it is only for previewing drafts (pnpm dev). Unset it to build.',
+          );
+        if (problems.length > 0) throw new Error(problems.join('\n'));
+      },
       'astro:server:setup': ({ server }) => {
         server.middlewares.use(
           '/_media',

@@ -3,10 +3,64 @@ import { chmod, mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import { get } from 'node:http';
 import { join } from 'node:path';
 import katex from 'katex';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { copyKatex, copyMedia, serveFrom } from '../../integrations/static-assets';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { copyKatex, copyMedia, serveFrom, staticAssets } from '../../integrations/static-assets';
 import { startServer, type TestServer } from '../helpers/http';
 import { tempDir } from '../helpers/temp-dir';
+
+type ConfigSetup = Parameters<
+  NonNullable<ReturnType<typeof staticAssets>['hooks']['astro:config:setup']>
+>[0];
+
+describe('staticAssets config setup', () => {
+  const setup = (command: ConfigSetup['command']) => () =>
+    staticAssets().hooks['astro:config:setup']?.({ command } as ConfigSetup);
+
+  beforeEach(() => {
+    vi.stubEnv('NOTION_SKIP_SYNC', undefined);
+    vi.stubEnv('NOTION_INCLUDE_DRAFTS', undefined);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it.each([
+    [
+      'NOTION_SKIP_SYNC',
+      'NOTION_SKIP_SYNC is set; it is only for type checks (pnpm check). Unset it to build.',
+    ],
+    [
+      'NOTION_INCLUDE_DRAFTS',
+      'NOTION_INCLUDE_DRAFTS is set; it is only for previewing drafts (pnpm dev). Unset it to build.',
+    ],
+  ])('refuses to build with %s set', (name, message) => {
+    vi.stubEnv(name, '1');
+    expect(setup('build')).toThrow(message);
+  });
+
+  it('names every flag that blocks the build', () => {
+    vi.stubEnv('NOTION_SKIP_SYNC', '1');
+    vi.stubEnv('NOTION_INCLUDE_DRAFTS', '1');
+    expect(setup('build')).toThrow(/NOTION_SKIP_SYNC is set.*\n.*NOTION_INCLUDE_DRAFTS is set/);
+  });
+
+  it('builds when neither flag is set', () => {
+    vi.stubEnv('NOTION_SKIP_SYNC', '0');
+    expect(setup('build')).not.toThrow();
+  });
+
+  it('lets type checks run with either flag set', () => {
+    vi.stubEnv('NOTION_SKIP_SYNC', '1');
+    vi.stubEnv('NOTION_INCLUDE_DRAFTS', '1');
+    expect(setup('sync')).not.toThrow();
+  });
+
+  it('lets the dev server include drafts', () => {
+    vi.stubEnv('NOTION_INCLUDE_DRAFTS', '1');
+    expect(setup('dev')).not.toThrow();
+  });
+});
 
 async function mediaCache(keys: string[]): Promise<string> {
   const root = await tempDir('assets-');
