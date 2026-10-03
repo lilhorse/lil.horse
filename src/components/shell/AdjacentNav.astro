@@ -2,6 +2,7 @@
 interface Neighbour {
   href: string;
   title: string;
+  lang?: string | undefined;
 }
 
 interface Props {
@@ -22,7 +23,9 @@ const { label, previous, next, previousLabel, nextLabel } = Astro.props;
         <span class="direction">
           <span aria-hidden="true">‹</span> {previousLabel}
         </span>{' '}
-        <span class="title">{previous.title}</span>
+        <span class="title" lang={previous.lang}>
+          {previous.title}
+        </span>
       </a>
     )}
     {previous && next && ' '}
@@ -31,7 +34,9 @@ const { label, previous, next, previousLabel, nextLabel } = Astro.props;
         <span class="direction">
           {nextLabel} <span aria-hidden="true">›</span>
         </span>{' '}
-        <span class="title">{next.title}</span>
+        <span class="title" lang={next.lang}>
+          {next.title}
+        </span>
       </a>
     )}
   </nav>

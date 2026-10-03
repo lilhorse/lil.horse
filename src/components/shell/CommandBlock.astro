@@ -5,7 +5,7 @@ interface Props {
   command: string;
   pipe?: string;
   full?: boolean;
-  heading?: { level: 1 | 2; text: string } | null;
+  heading?: { level: 1 | 2; text: string; lang?: string | undefined } | null;
 }
 
 const { command, pipe, full = false, heading = null } = Astro.props;
@@ -13,7 +13,11 @@ const Heading = heading ? (`h${heading.level}` as const) : null;
 ---
 
 <section class="cmd">
-  {Heading && <Heading class="sr-only">{heading?.text}</Heading>}
+  {Heading && (
+    <Heading class="sr-only" lang={heading?.lang}>
+      {heading?.text}
+    </Heading>
+  )}
   <p class="cmd-line" aria-hidden="true">
     <Prompt full={full} /> <span class="command">{command}</span>
     {pipe && <span class="pipe"> {pipe}</span>}

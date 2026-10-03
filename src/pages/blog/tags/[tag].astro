@@ -3,6 +3,7 @@ import CommandBlock from '../../../components/shell/CommandBlock.astro';
 import PostList from '../../../components/shell/PostList.astro';
 import Base from '../../../layouts/Base.astro';
 import { getSiteData } from '../../../lib/content';
+import { langOfText } from '../../../lib/lang';
 import type { TagInfo } from '../../../lib/tags';
 
 export async function getStaticPaths() {
@@ -26,7 +27,7 @@ const site = await getSiteData();
 >
   <CommandBlock
     command={`grep -r "#${tag.name}" ~/blog`}
-    heading={{ level: 1, text: `Posts tagged #${tag.name}` }}
+    heading={{ level: 1, text: `#${tag.name}`, lang: langOfText(tag.name) }}
   >
     <PostList posts={tag.posts} tags={site.tagSlugs} variant="titles" />
   </CommandBlock>

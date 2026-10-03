@@ -34,15 +34,30 @@ describe('PostList', () => {
     expect(await htmlErrors(html)).toEqual([]);
   });
 
-  it('lists titles with month and day', async () => {
+  it('lists titles with month and day, marking Chinese titles', async () => {
     const html = await render(PostList, {
-      posts: [post('douban', { published: '2024-02-29' })],
+      posts: [
+        post('douban', { published: '2024-02-29' }),
+        post('zh', { published: '2024-01-15', language: 'zh', title: '我的豆瓣备份' }),
+      ],
       tags: new Set(),
       variant: 'titles',
       date: 'month-day',
     });
-    expect(textOf(html)).toBe('02-29 Post douban');
+    expect(textOf(html)).toContain('02-29 Post douban');
+    expect(textOf(html)).toContain('01-15 我的豆瓣备份');
     expect(html).toContain('<time datetime="2024-02-29">02-29</time>');
+    expect(html).toContain('<a href="/blog/douban">Post douban</a>');
+    expect(html).toContain('<a href="/blog/zh" lang="zh-Hans">我的豆瓣备份</a>');
+  });
+
+  it('leaves file names without a lang, whatever the post language', async () => {
+    const html = await render(PostList, {
+      posts: [post('zh', { language: 'zh' })],
+      tags: new Set(),
+      variant: 'files',
+    });
+    expect(html).toContain('<a href="/blog/zh">zh.md</a>');
   });
 
   it('prints total 0 for an empty list', async () => {

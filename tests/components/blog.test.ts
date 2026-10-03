@@ -38,7 +38,7 @@ describe('tag pages', () => {
     useSite({ posts: [post('one', { tags: ['豆瓣'] }), post('two', { tags: ['other'] })] });
     const tag = siteState.data.tags.find((entry) => entry.name === '豆瓣');
     const html = await render(TagPage, { tag });
-    expect(html).toContain('<h1 class="sr-only">Posts tagged #豆瓣</h1>');
+    expect(html).toContain('<h1 class="sr-only" lang="zh-Hans">#豆瓣</h1>');
     expect(html).toMatch(/grep -r (&quot;|&#34;|")#豆瓣(&quot;|&#34;|") ~\/blog/);
     expect(textOf(element(html, '<ul class="posts titles"', 'section'))).toBe(
       '2024-01-11 Post one #豆瓣',

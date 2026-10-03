@@ -1,4 +1,5 @@
 ---
+import { htmlLang } from '../../lib/lang';
 import type { PostEntry } from '../../notion/types';
 import TagList from './TagList.astro';
 
@@ -22,7 +23,12 @@ const { posts, tags, variant, date = 'full' } = Astro.props;
           {date === 'month-day' ? post.published.slice(5) : post.published}
         </time>{' '}
         <span class="name">
-          <a href={`/blog/${post.slug}`}>{variant === 'files' ? `${post.slug}.md` : post.title}</a>
+          <a
+            href={`/blog/${post.slug}`}
+            lang={variant === 'titles' ? htmlLang(post.language) : undefined}
+          >
+            {variant === 'files' ? `${post.slug}.md` : post.title}
+          </a>
           {post.status === 'Draft' && (
             <Fragment>
               {' '}

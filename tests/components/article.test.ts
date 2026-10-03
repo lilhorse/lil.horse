@@ -1,4 +1,6 @@
+import { close, createIndex } from 'pagefind';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { SEARCH_LANGUAGE } from '../../integrations/pagefind';
 import AdjacentNav from '../../src/components/shell/AdjacentNav.astro';
 import TableOfContents from '../../src/components/shell/TableOfContents.astro';
 import BlogPost from '../../src/pages/blog/[slug].astro';
@@ -13,6 +15,18 @@ vi.mock('../../src/lib/content', async () => {
 beforeEach(() => {
   useSite();
 });
+
+/** The metadata Pagefind records for a rendered page. */
+async function searchMeta(html: string): Promise<Record<string, string>> {
+  const created = await createIndex({ forceLanguage: SEARCH_LANGUAGE });
+  try {
+    const added = await created.index?.addHTMLFile({ url: '/page', content: html });
+    expect(added?.errors).toEqual([]);
+    return added?.file.meta ?? {};
+  } finally {
+    await close();
+  }
+}
 
 describe('TableOfContents', () => {
   it('draws a tree, nesting skipped levels under the nearest parent', async () => {
@@ -75,6 +89,19 @@ describe('post page', () => {
     expect(html).toContain('<span class="draft">DRAFT</span>');
     expect(html).toContain('<meta name="robots" content="noindex">');
   });
+
+  it('tells search and neighbours the language of Chinese posts', async () => {
+    const zh = post('zh', { language: 'zh', title: '我的豆瓣备份', published: '2024-02-01' });
+    const en = post('en', { published: '2024-01-01' });
+    useSite({ posts: [zh, en] });
+    const zhHtml = await render(BlogPost, { post: zh });
+    expect(zhHtml).toContain(
+      '<article class="doc-main" lang="zh-Hans" data-pagefind-body data-pagefind-meta="lang[lang], type:post">',
+    );
+    expect(await searchMeta(zhHtml)).toMatchObject({ type: 'post', lang: 'zh-Hans' });
+    const html = await render(BlogPost, { post: en });
+    expect(html).toContain('<span class="title" lang="zh-Hans">我的豆瓣备份</span>');
+  }, 60_000);
 
   it('marks Published posts for the search index and leaves the others out', async () => {
     const published = post('pub', { tags: ['AI'], updated: '2024-02-10' });

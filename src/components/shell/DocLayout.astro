@@ -11,6 +11,10 @@ interface Props {
 
 const { headings, lang, search = null } = Astro.props;
 const toc = hasToc(headings);
+// Pagefind reads an inline key:value to the end of the list, so it goes last.
+const searchMeta =
+  search &&
+  [lang && lang !== 'en' && 'lang[lang]', `type:${search.type}`].filter(Boolean).join(', ');
 ---
 
 <div class:list={['doc', { 'has-toc': toc }]}>
@@ -18,7 +22,7 @@ const toc = hasToc(headings);
     class="doc-main"
     lang={lang}
     data-pagefind-body={search ? '' : undefined}
-    data-pagefind-meta={search ? `type:${search.type}` : undefined}
+    data-pagefind-meta={searchMeta}
   >
     <slot />
   </article>
