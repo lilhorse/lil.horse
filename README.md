@@ -9,7 +9,9 @@ Content is written in Notion. At build time, Astro reads it through the official
 - [Astro](https://astro.build) 7 with static output
 - The official Notion API (`@notionhq/client`), read by a custom content loader
 - [sharp](https://sharp.pixelplumbing.com) for images, [KaTeX](https://katex.org) for math and [Expressive Code](https://expressive-code.com) for code blocks
-- Vitest, ESLint, Prettier and html-validate
+- Plain CSS with cascade layers and `light-dark()`
+- JetBrains Mono and IBM Plex Sans from [Fontsource](https://fontsource.org), self-hosted through Astro's Fonts API
+- Vitest, Playwright with axe-core, ESLint, Prettier and html-validate
 
 ## How it works
 
@@ -21,8 +23,30 @@ Content is written in Notion. At build time, Astro reads it through the official
    - expiring Notion URLs
    - broken internal links
    - missing routes
-   - JavaScript or CSS over budget
+   - JavaScript, CSS or preloaded fonts over budget
    - invalid HTML
+
+## Design
+
+The site looks like a terminal. Each page has a tab bar, a prompt and a command such as `ls -lt ~/blog`, and the page content is the output of that command.
+
+- **Themes.** Night is the dark theme, and Mist with highlighter colours is the light theme. The site follows the system setting. Setting `data-theme="light"` or `data-theme="dark"` on `<html>` overrides it.
+- **Colours.** Every theme colour is a token in `src/styles/tokens.css`. `tests/unit/tokens.test.ts` checks each token and the contrast of the text and background pairs the site uses, in both themes.
+- **Styles.** `tokens.css`, `base.css` and `prose.css` (Notion content) in `src/styles/` are global. Components keep their own scoped styles. Code block colours are in `src/styles/code-themes.mjs`, and Expressive Code reads them through `ec.config.mjs`.
+- **Logo.** The pixel horse with sunglasses is drawn in `brand/horse.ts`: a 24 × 24 grid for the home page and a 16 × 16 grid for the favicon and the header. `pnpm brand` regenerates the SVGs in `src/assets/brand/` and the favicons, app icons and web manifest in `public/`. The generated files are committed, and `tests/unit/brand.test.ts` fails when they are out of date.
+- **Accessibility.** `pnpm test:e2e` runs axe on every built page in both themes, at desktop and phone sizes. It also checks that no page scrolls sideways and that, on a phone, every link and button outside running text is at least 44 × 44 px.
+
+## Pages
+
+| Route                | Content                                                       |
+| -------------------- | ------------------------------------------------------------- |
+| `/`                  | The profile as `neofetch`, featured projects and latest posts |
+| `/blog`              | All posts, grouped by year                                    |
+| `/blog/<slug>`       | A post                                                        |
+| `/blog/tags/<tag>`   | The posts with a tag                                          |
+| `/projects`          | All visible projects                                          |
+| `/projects/<slug>`   | A project whose Notion page has content                       |
+| `/about`, `/contact` | The About and Contact pages                                   |
 
 ## Development
 
@@ -38,17 +62,21 @@ pnpm dev
 
 `pnpm dev` and `pnpm build` load `.env` only, not `.env.local` or `.env.<mode>`. `pnpm dev` syncs with Notion once, when it starts. Restart it to pick up edits made in Notion.
 
-| Command                | What it does                                                |
-| ---------------------- | ----------------------------------------------------------- |
-| `pnpm dev`             | Starts the dev server, with Draft posts included            |
-| `pnpm build`           | Builds the production site from live Notion data            |
-| `pnpm build:fixtures`  | Builds offline from the fixtures in `tests/fixtures/notion` |
-| `pnpm preview`         | Serves the last build                                       |
-| `pnpm test`            | Runs the unit and component tests                           |
-| `pnpm lint`            | Runs ESLint                                                 |
-| `pnpm check`           | Type-checks the project without syncing Notion              |
-| `pnpm check:dist`      | Checks the build output in `dist/`                          |
-| `pnpm record:fixtures` | Records sanitized fixtures from the live workspace          |
+`pnpm test:e2e` tests the last build in Chromium. Install the browser once with `pnpm exec playwright install chromium`. `SCREENSHOTS=1 pnpm test:e2e tests/e2e/screenshots.spec.ts` saves a full-page screenshot of every page, in both themes and at both sizes, to `test-results/screenshots/`.
+
+| Command                | What it does                                                       |
+| ---------------------- | ------------------------------------------------------------------ |
+| `pnpm dev`             | Starts the dev server, with Draft posts included                   |
+| `pnpm build`           | Builds the production site from live Notion data                   |
+| `pnpm build:fixtures`  | Builds offline from the fixtures in `tests/fixtures/notion`        |
+| `pnpm preview`         | Serves the last build                                              |
+| `pnpm test`            | Runs the unit, DOM and component tests                             |
+| `pnpm test:e2e`        | Runs Playwright and axe against the last build in `dist/`          |
+| `pnpm lint`            | Runs ESLint                                                        |
+| `pnpm check`           | Type-checks the project without syncing Notion                     |
+| `pnpm check:dist`      | Checks the build output in `dist/`                                 |
+| `pnpm record:fixtures` | Records sanitized fixtures from the live workspace                 |
+| `pnpm brand`           | Regenerates the logo, favicons and app icons from `brand/horse.ts` |
 
 | Variable                  | Effect                                                |
 | ------------------------- | ----------------------------------------------------- |
@@ -70,7 +98,11 @@ Every post needs a unique `Slug` (lowercase letters, digits and hyphens) and a `
 
 Published and Unlisted posts also need a `Published` date. A post's `Language` (`en` or `zh`; `en` when empty) sets the language of its text.
 
-A visible project needs a `Description`. If its page has content, it also needs a `Slug`.
+Each tag used by a Published post gets a page at `/blog/tags/<tag>`. Tags that differ only in letter case or spacing share one page. When a tag loses characters on the way into its address, such as `C++` or `C#`, the address ends in a short hash (`/blog/tags/c-4c21a3`), so different tags never share a page. Very long tags get a shortened address. Tags never stop the build.
+
+A visible project needs a `Description`. If its page has content, it also needs a `Slug`. Check `Featured` to list a project on the home page.
+
+In the profile, `GitHub` and `X` take a handle, `@handle` or a full URL.
 
 An inline database shows the columns and row order of its first table view. To pick the columns and sort order yourself, or to show a column as star ratings, add an entry for its block ID to `databaseDisplay` in `site.config.ts`.
 
