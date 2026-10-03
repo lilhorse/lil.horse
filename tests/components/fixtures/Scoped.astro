@@ -1,0 +1,17 @@
+---
+interface Props {
+  label: string;
+}
+
+const { label } = Astro.props;
+---
+
+<p class="scoped">
+  {label} <slot />
+</p>
+
+<style>
+  .scoped {
+    color: var(--fg);
+  }
+</style>

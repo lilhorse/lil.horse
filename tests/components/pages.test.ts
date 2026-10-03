@@ -1,107 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import StandalonePage from '../../src/components/StandalonePage.astro';
-import type { SiteData } from '../../src/lib/content';
 import { excerpt } from '../../src/notion/text';
-import type {
-  PageContent,
-  PostEntry,
-  ProfileEntry,
-  ProjectEntry,
-  StandalonePageEntry,
-} from '../../src/notion/types';
+import type { StandalonePageEntry } from '../../src/notion/types';
 import NotFound from '../../src/pages/404.astro';
 import BlogPost from '../../src/pages/blog/[slug].astro';
 import BlogIndex from '../../src/pages/blog/index.astro';
 import Home from '../../src/pages/index.astro';
 import ProjectsIndex from '../../src/pages/projects/index.astro';
 import { htmlErrors, render, textOf } from '../helpers/astro-render';
+import { content, element, post, project, useSite } from '../helpers/site-data';
 
-const site = vi.hoisted(() => ({ data: undefined as unknown as SiteData }));
-
-vi.mock('../../src/lib/content', () => ({ getSiteData: async () => site.data }));
-
-const content = (overrides: Partial<PageContent> = {}): PageContent => ({
-  blocks: [],
-  headings: [],
-  plainText: '',
-  firstParagraph: null,
-  hasMath: false,
-  priorityImageId: null,
-  childDataSourceIds: [],
-  mediaKeys: [],
-  linkedPageIds: [],
-  ...overrides,
+vi.mock('../../src/lib/content', async () => {
+  const { siteState } = await import('../helpers/site-data');
+  return { getSiteData: async () => siteState.data };
 });
-
-const post = (slug: string, overrides: Partial<PostEntry> = {}): PostEntry => ({
-  id: `id-${slug}`,
-  slug,
-  title: `Post ${slug}`,
-  status: 'Published',
-  published: '2024-01-11',
-  updated: null,
-  tags: [],
-  description: 'About it',
-  language: 'en',
-  featured: false,
-  cover: null,
-  lastEditedTime: '2024-01-11T00:00:00.000Z',
-  readingMinutes: 2,
-  content: content(),
-  ...overrides,
-});
-
-const project = (name: string, overrides: Partial<ProjectEntry> = {}): ProjectEntry => ({
-  id: `id-${name}`,
-  name,
-  slug: null,
-  description: `${name} does things`,
-  stack: [],
-  link: 'https://example.com',
-  repo: null,
-  status: null,
-  featured: false,
-  order: null,
-  year: null,
-  cover: null,
-  lastEditedTime: '2024-01-11T00:00:00.000Z',
-  content: null,
-  ...overrides,
-});
-
-const profile: ProfileEntry = {
-  id: 'me',
-  name: "Lil'Horse",
-  role: 'Developer',
-  location: 'Auckland',
-  availability: 'Open to work',
-  stack: [],
-  email: null,
-  github: null,
-  x: null,
-  bio: null,
-};
-
-function useSite(data: Partial<SiteData>) {
-  site.data = {
-    posts: [],
-    projects: [],
-    profile,
-    pages: [],
-    links: new Map(),
-    resolve: () => undefined,
-    ...data,
-  };
-}
-
-const element = (html: string, start: string, tag: string) => {
-  const from = html.indexOf(start);
-  expect(from).toBeGreaterThanOrEqual(0);
-  return html.slice(from, html.indexOf(`</${tag}>`, from) + tag.length + 3);
-};
 
 beforeEach(() => {
-  useSite({});
+  useSite();
 });
 
 describe('Base layout', () => {

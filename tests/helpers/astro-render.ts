@@ -5,12 +5,19 @@ import { FileSystemConfigLoader, HtmlValidate } from 'html-validate';
 const container = await AstroContainer.create();
 const validator = new HtmlValidate(new FileSystemConfigLoader());
 
-export function render(
+/** Renders a component; scoped-style attributes are dropped so assertions read like plain HTML. */
+export async function render(
   component: Parameters<AstroContainer['renderToString']>[0],
   props: Record<string, unknown> = {},
   url = 'https://lil.horse/',
+  slots: Record<string, string> = {},
 ): Promise<string> {
-  return container.renderToString(component, { props, request: new Request(url) });
+  const html = await container.renderToString(component, {
+    props,
+    slots,
+    request: new Request(url),
+  });
+  return html.replace(/\s+data-astro-cid-[a-z0-9]+(?:="[^"]*")?/g, '');
 }
 
 export const textOf = (html: string): string => html.replace(/<[^>]+>/g, '');
