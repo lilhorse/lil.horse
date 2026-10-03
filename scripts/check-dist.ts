@@ -9,6 +9,7 @@ const issues = await checkDist('dist', {
     'contact.html',
     '404.html',
     'blog/*.html',
+    'blog/tags/*.html',
     'favicon.svg',
     'favicon.ico',
     'apple-touch-icon.png',

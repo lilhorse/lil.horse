@@ -1,0 +1,33 @@
+---
+import CommandBlock from '../../../components/shell/CommandBlock.astro';
+import PostList from '../../../components/shell/PostList.astro';
+import Base from '../../../layouts/Base.astro';
+import { getSiteData } from '../../../lib/content';
+import type { TagInfo } from '../../../lib/tags';
+
+export async function getStaticPaths() {
+  const site = await getSiteData();
+  return site.tags.map((tag) => ({ params: { tag: tag.slug }, props: { tag } }));
+}
+
+interface Props {
+  tag: TagInfo;
+}
+
+const { tag } = Astro.props;
+const site = await getSiteData();
+---
+
+<Base
+  title={`#${tag.name}`}
+  description={`Posts tagged #${tag.name}`}
+  path={`~/blog/tags/${tag.slug}`}
+  file={`#${tag.name}`}
+>
+  <CommandBlock
+    command={`grep -r "#${tag.name}" ~/blog`}
+    heading={{ level: 1, text: `Posts tagged #${tag.name}` }}
+  >
+    <PostList posts={tag.posts} tags={site.tagSlugs} variant="titles" />
+  </CommandBlock>
+</Base>

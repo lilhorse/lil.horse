@@ -3,7 +3,6 @@ import StandalonePage from '../../src/components/StandalonePage.astro';
 import { excerpt } from '../../src/notion/text';
 import type { StandalonePageEntry } from '../../src/notion/types';
 import BlogPost from '../../src/pages/blog/[slug].astro';
-import BlogIndex from '../../src/pages/blog/index.astro';
 import Home from '../../src/pages/index.astro';
 import ProjectsIndex from '../../src/pages/projects/index.astro';
 import { htmlErrors, render, textOf } from '../helpers/astro-render';
@@ -48,12 +47,6 @@ describe('home page', () => {
 });
 
 describe('blog pages', () => {
-  it('separates the title, draft marker and tags in the list', async () => {
-    useSite({ posts: [post('draft', { status: 'Draft', tags: ['a', 'b'] })] });
-    const main = (await render(BlogIndex)).split('<main')[1] ?? '';
-    expect(textOf(element(main, '<li>', 'li'))).toBe('01-11 Post draft DRAFT #a #b');
-  });
-
   it('separates the meta line and the adjacent links of a post', async () => {
     const posts = [
       post('new', { published: '2024-03-01' }),

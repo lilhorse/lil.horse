@@ -1,36 +1,40 @@
 ---
+import CommandBlock from '../../components/shell/CommandBlock.astro';
+import PostList from '../../components/shell/PostList.astro';
 import Base from '../../layouts/Base.astro';
 import { getSiteData } from '../../lib/content';
 import { postsByYear } from '../../lib/selectors';
 
 const site = await getSiteData();
+const years = postsByYear(site.posts);
 ---
 
 <Base title="Blog" description="All posts" current="blog" path="~/blog">
-  <h1>Blog</h1>
-  {postsByYear(site.posts).map((group) => (
-    <section aria-labelledby={`year-${group.year}`}>
-      <h2 id={`year-${group.year}`}>{group.year}</h2>
-      <ul>
-        {group.posts.map((post) => (
-          <li>
-            <time datetime={post.published}>{post.published.slice(5)}</time>{' '}
-            <a href={`/blog/${post.slug}`}>{post.title}</a>
-            {post.status === 'Draft' && (
-              <Fragment>
-                {' '}
-                <span class="draft-badge">DRAFT</span>
-              </Fragment>
-            )}
-            {post.tags.map((tag) => (
-              <Fragment>
-                {' '}
-                <span class="tag">#{tag}</span>
-              </Fragment>
-            ))}
-          </li>
-        ))}
-      </ul>
-    </section>
-  ))}
+  <CommandBlock command="ls -lt ~/blog" heading={{ level: 1, text: 'Blog' }}>
+    {years.length === 0 ? (
+      <PostList posts={[]} tags={site.tagSlugs} variant="titles" />
+    ) : (
+      years.map((group) => (
+        <section class="year" aria-labelledby={`year-${group.year}`}>
+          <h2 id={`year-${group.year}`}>
+            <span aria-hidden="true">── </span>
+            {group.year}
+          </h2>
+          <PostList posts={group.posts} tags={site.tagSlugs} variant="titles" date="month-day" />
+        </section>
+      ))
+    )}
+  </CommandBlock>
 </Base>
+
+<style>
+  .year + .year {
+    margin-block-start: 20px;
+  }
+  h2 {
+    margin-block-end: 4px;
+    color: var(--muted);
+    font-size: var(--text-ui);
+    font-weight: 400;
+  }
+</style>

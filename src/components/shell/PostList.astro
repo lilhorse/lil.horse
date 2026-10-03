@@ -1,0 +1,106 @@
+---
+import type { PostEntry } from '../../notion/types';
+import TagList from './TagList.astro';
+
+interface Props {
+  posts: PostEntry[];
+  tags: ReadonlySet<string>;
+  variant: 'files' | 'titles';
+  date?: 'full' | 'month-day';
+}
+
+const { posts, tags, variant, date = 'full' } = Astro.props;
+---
+
+{posts.length === 0 ? (
+  <p class="empty">total 0</p>
+) : (
+  <ul class:list={['posts', variant]}>
+    {posts.map((post) => (
+      <li>
+        <time datetime={post.published}>
+          {date === 'month-day' ? post.published.slice(5) : post.published}
+        </time>{' '}
+        <span class="name">
+          <a href={`/blog/${post.slug}`}>{variant === 'files' ? `${post.slug}.md` : post.title}</a>
+          {post.status === 'Draft' && (
+            <Fragment>
+              {' '}
+              <span class="draft">DRAFT</span>
+            </Fragment>
+          )}
+        </span>
+        {post.tags.length > 0 && (
+          <Fragment>
+            {' '}
+            <TagList tags={post.tags} linked={tags} />
+          </Fragment>
+        )}
+      </li>
+    ))}
+  </ul>
+)}
+
+<style>
+  .posts {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .empty {
+    color: var(--muted);
+  }
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 14px;
+  }
+  time {
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .name a {
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .titles li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding-block: 8px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .titles .name a {
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    font-weight: 500;
+  }
+  .draft {
+    padding: 0 6px;
+    border-radius: 4px;
+    background: var(--hl-pink);
+    color: var(--fg);
+    font-size: 0.6875rem;
+    font-weight: 600;
+  }
+  @media (max-width: 639.98px) {
+    .titles li {
+      grid-template-columns: auto minmax(0, 1fr);
+      row-gap: 2px;
+    }
+    .titles .name {
+      grid-column: 1 / -1;
+      grid-row: 1;
+    }
+    .titles .name a {
+      display: inline-flex;
+      align-items: center;
+      min-block-size: 44px;
+    }
+    .files .name a {
+      display: inline-flex;
+      align-items: center;
+      min-block-size: 44px;
+    }
+  }
+</style>

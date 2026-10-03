@@ -1,0 +1,77 @@
+---
+import { tagColor, tagHref, tagSlug } from '../../lib/tags';
+
+interface Props {
+  tags: string[];
+  linked: ReadonlySet<string>;
+}
+
+const { tags, linked } = Astro.props;
+---
+
+{tags.length > 0 && (
+  <ul class="tags">
+    {tags.map((name, index) => {
+      const slug = tagSlug(name);
+      const pill = <span class={`pill tag-${tagColor(slug)}`}>#{name}</span>;
+      return (
+        <Fragment>
+          {index > 0 && ' '}
+          <li>{linked.has(slug) ? <a href={tagHref(slug)}>{pill}</a> : pill}</li>
+        </Fragment>
+      );
+    })}
+  </ul>
+)}
+
+<style>
+  .tags {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  a {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: 24px;
+    text-decoration: none;
+  }
+  .pill {
+    display: inline-block;
+    padding: 0 7px;
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    line-height: 1.6;
+    white-space: nowrap;
+  }
+  a:hover .pill {
+    text-decoration: underline;
+  }
+  .tag-yellow {
+    background: var(--tag-yellow-bg);
+    color: var(--tag-yellow-fg);
+  }
+  .tag-pink {
+    background: var(--tag-pink-bg);
+    color: var(--tag-pink-fg);
+  }
+  .tag-green {
+    background: var(--tag-green-bg);
+    color: var(--tag-green-fg);
+  }
+  .tag-blue {
+    background: var(--tag-blue-bg);
+    color: var(--tag-blue-fg);
+  }
+  @media (max-width: 639.98px) {
+    a {
+      justify-content: center;
+      min-block-size: 44px;
+      min-inline-size: 44px;
+    }
+  }
+</style>
