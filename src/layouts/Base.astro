@@ -7,6 +7,7 @@ import { siteVersion } from '../lib/build-info';
 import { getSiteData } from '../lib/content';
 import { KATEX_STYLESHEET } from '../lib/katex';
 import { socialLinks } from '../lib/profile';
+import { THEME_INIT_SCRIPT } from '../lib/theme-init';
 import type { Section } from '../lib/shell';
 import '../styles/tokens.css';
 import '../styles/base.css';
@@ -54,6 +55,7 @@ const canonicalUrl = new URL(canonicalPath, siteConfig.url).toString();
     {noindex && <meta name="robots" content="noindex" />}
     <meta name="theme-color" content="#e6e9ef" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#16161e" media="(prefers-color-scheme: dark)" />
+    <script is:inline set:html={THEME_INIT_SCRIPT} />
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -61,6 +63,9 @@ const canonicalUrl = new URL(canonicalPath, siteConfig.url).toString();
     <Font cssVariable="--font-jetbrains-mono" preload={[{ weight: 400, style: 'normal' }]} />
     <Font cssVariable="--font-ibm-plex-sans" preload={[{ weight: 400, style: 'normal' }]} />
     {hasMath && <link rel="stylesheet" href={KATEX_STYLESHEET} />}
+    <script>
+      import '../scripts/entry';
+    </script>
   </head>
   <body>
     <a class="skip-link" href="#main">

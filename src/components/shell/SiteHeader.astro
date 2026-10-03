@@ -57,7 +57,48 @@ const isPage = (section: Section) => section === current;
     <PixelHorse grid={16} size={16} />
   </a>
   <span class="path">{path}</span>
-  <SiteMenu current={current} />
+  <div class="actions">
+    <SiteMenu current={current} />
+    <button class="theme-toggle" type="button" data-theme-toggle>
+      <span class="button">
+        <svg class="icon icon-system" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <circle
+            cx="8"
+            cy="8"
+            r="6.25"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+          ></circle>
+          <path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"></path>
+        </svg>
+        <svg class="icon icon-light" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <circle
+            cx="8"
+            cy="8"
+            r="3.25"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+          ></circle>
+          <path
+            d="M8 1.5v1.75M8 12.75v1.75M1.5 8h1.75M12.75 8h1.75M3.4 3.4l1.24 1.24M11.36 11.36l1.24 1.24M3.4 12.6l1.24-1.24M11.36 4.64l1.24-1.24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+          ></path>
+        </svg>
+        <svg class="icon icon-dark" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <path d="M13.5 9.6A6 6 0 0 1 6.4 2.5a6 6 0 1 0 7.1 7.1z" fill="currentColor"></path>
+        </svg>
+        <span class="sr-only">Theme: </span>
+        <span class="label label-system">system</span>
+        <span class="label label-light">light</span>
+        <span class="label label-dark">dark</span>
+      </span>
+    </button>
+  </div>
 </header>
 
 <style>
@@ -119,6 +160,54 @@ const isPage = (section: Section) => section === current;
   .path {
     display: none;
   }
+  .actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-inline-start: auto;
+  }
+  .theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--fg);
+    font: inherit;
+    cursor: pointer;
+  }
+  .theme-toggle .button {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    block-size: 32px;
+    padding-inline: 9px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+    font-size: var(--text-ui);
+  }
+  .theme-toggle:hover .button {
+    border-color: var(--accent);
+  }
+  .icon {
+    inline-size: 14px;
+    block-size: 14px;
+  }
+  .icon-light,
+  .icon-dark,
+  .label-light,
+  .label-dark {
+    display: none;
+  }
+  :global(:root[data-theme-pref='light']) .theme-toggle :is(.icon-light, .label-light),
+  :global(:root[data-theme-pref='dark']) .theme-toggle :is(.icon-dark, .label-dark) {
+    display: inline-block;
+  }
+  :global(:root[data-theme-pref='light']) .theme-toggle :is(.icon-system, .label-system),
+  :global(:root[data-theme-pref='dark']) .theme-toggle :is(.icon-system, .label-system) {
+    display: none;
+  }
   @media (max-width: 639.98px) {
     .site-header {
       padding-block: 0;
@@ -143,6 +232,11 @@ const isPage = (section: Section) => section === current;
       font-weight: 600;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .theme-toggle {
+      justify-content: center;
+      min-block-size: 44px;
+      min-inline-size: 44px;
     }
   }
 </style>

@@ -54,6 +54,18 @@ describe('SiteHeader', () => {
     expect(html.match(/<span class="theme-light">/g)).toHaveLength(2);
     expect(html.match(/<span class="theme-dark">/g)).toHaveLength(2);
   });
+
+  it('offers a theme button whose icon and label CSS picks by preference', async () => {
+    const html = await render(SiteHeader, { current: null, path: '~', file: null });
+    const button = element(html, '<button class="theme-toggle"', 'button');
+    expect(button).toContain('type="button" data-theme-toggle');
+    expect(button).toContain('<span class="sr-only">Theme: </span>');
+    for (const name of ['system', 'light', 'dark']) {
+      expect(button).toContain(`<svg class="icon icon-${name}"`);
+      expect(button).toContain(`<span class="label label-${name}">${name}</span>`);
+    }
+    expect(await htmlErrors(html)).toEqual([]);
+  });
 });
 
 describe('SiteFooter', () => {
@@ -96,6 +108,14 @@ describe('Base layout', () => {
     expect(html).toContain(
       '<meta name="theme-color" content="#16161e" media="(prefers-color-scheme: dark)">',
     );
+  });
+
+  it('sets the theme in <head> before anything renders', async () => {
+    const html = await render(BlogIndex, {}, 'https://lil.horse/blog.html');
+    expect(html).toMatch(
+      /media="\(prefers-color-scheme: dark\)">\s*<script>\(\(\)=>\{let p="system";/,
+    );
+    expect(html.indexOf('let p="system"')).toBeLessThan(html.indexOf('<body'));
   });
 
   it('gives pages a canonical URL, except the 404 page', async () => {
