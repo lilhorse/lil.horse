@@ -34,7 +34,9 @@ cp .env.example .env # then set NOTION_TOKEN
 pnpm dev
 ```
 
-`NOTION_TOKEN` is the token of a Notion integration. The integration needs read access to the three databases and the two pages. `.env` is git-ignored. Never commit it.
+`NOTION_TOKEN` is the token of a Notion integration. The integration needs read access to the three databases and the two pages. If a page contains a linked view of a database, the integration also needs access to the view's source database; otherwise the table is skipped with a warning. `.env` is git-ignored. Never commit it.
+
+`pnpm dev` and `pnpm build` load `.env` only, not `.env.local` or `.env.<mode>`. `pnpm dev` syncs with Notion once, when it starts. Restart it to pick up edits made in Notion.
 
 | Command                | What it does                                                |
 | ---------------------- | ----------------------------------------------------------- |
@@ -56,6 +58,8 @@ pnpm dev
 | `NOTION_INCLUDE_DRAFTS=1` | Includes Draft posts; the `dev` script sets it        |
 | `NOTION_SKIP_SYNC=1`      | Skips the Notion sync; the `check` script sets it     |
 
+Only `NOTION_TOKEN` belongs in `.env`; a flag set there would apply to every build. Set the others per command: `pnpm build:fixtures` sets `NOTION_FIXTURES`, and `NOTION_FULL_REFRESH=1 pnpm build` runs a full refresh. `pnpm build` refuses to run while `NOTION_SKIP_SYNC` or `NOTION_INCLUDE_DRAFTS` is set.
+
 ## Writing content
 
 Every post needs a unique `Slug` (lowercase letters, digits and hyphens) and a `Status`:
@@ -64,9 +68,11 @@ Every post needs a unique `Slug` (lowercase letters, digits and hyphens) and a `
 - **Published**: appears on the site and in lists.
 - **Unlisted**: gets its own page, but stays out of lists and is marked `noindex`.
 
-Published and Unlisted posts also need a `Published` date.
+Published and Unlisted posts also need a `Published` date. A post's `Language` (`en` or `zh`; `en` when empty) sets the language of its text.
 
 A visible project needs a `Description`. If its page has content, it also needs a `Slug`.
+
+An inline database shows the columns and row order of its first table view. To pick the columns and sort order yourself, or to show a column as star ratings, add an entry for its block ID to `databaseDisplay` in `site.config.ts`.
 
 ## History
 
