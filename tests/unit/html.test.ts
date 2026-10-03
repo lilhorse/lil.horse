@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { formatBytes, hostnameOf, renderCell, renderRichText } from '../../src/lib/html';
+import { formatBytes, hostnameOf, relFor, renderCell, renderRichText } from '../../src/lib/html';
 import type { Annotations, MediaRef, RichTextSpan } from '../../src/notion/types';
 
 const base: Annotations = {
@@ -50,7 +50,7 @@ describe('renderRichText', () => {
 
   it('treats only single-slash paths as site-relative', () => {
     expect(renderRichText([span('a', {}, { href: '/blog/x' })], resolve)).toBe(
-      '<a href="/blog/x" rel="noopener noreferrer">a</a>',
+      '<a href="/blog/x">a</a>',
     );
     expect(renderRichText([span('b', {}, { href: '//evil.example/x' })], resolve)).toBe('b');
     expect(renderRichText([span('c', {}, { href: '/\\evil.example/x' })], resolve)).toBe('c');
@@ -68,9 +68,59 @@ describe('renderRichText', () => {
     ).toBe('<a href="/blog/helloworld">post</a>');
   });
 
+  it('merges neighbouring spans that link to the same place', () => {
+    expect(
+      renderRichText(
+        [
+          span('Read ', {}, { href: 'https://docs.example' }),
+          span('the docs', { bold: true }, { href: 'https://docs.example' }),
+          span(' now'),
+        ],
+        resolve,
+      ),
+    ).toBe(
+      '<a href="https://docs.example" rel="noopener noreferrer">Read <strong>the docs</strong></a> now',
+    );
+    expect(
+      renderRichText(
+        [
+          span('a', {}, { pageId: HELLO }),
+          span('b', { italic: true }, { href: '/blog/helloworld' }),
+        ],
+        resolve,
+      ),
+    ).toBe('<a href="/blog/helloworld">a<em>b</em></a>');
+  });
+
+  it('keeps neighbouring links to different places apart', () => {
+    expect(
+      renderRichText(
+        [
+          span('one', {}, { href: 'https://a.example' }),
+          span('two', {}, { href: 'https://b.example' }),
+        ],
+        resolve,
+      ),
+    ).toBe(
+      '<a href="https://a.example" rel="noopener noreferrer">one</a><a href="https://b.example" rel="noopener noreferrer">two</a>',
+    );
+  });
+
+  it('adds rel only to external web links', () => {
+    expect(renderRichText([span('top', {}, { href: '#intro' })], resolve)).toBe(
+      '<a href="#intro">top</a>',
+    );
+    expect(renderRichText([span('mail', {}, { href: 'mailto:a@b.c' })], resolve)).toBe(
+      '<a href="mailto:a@b.c">mail</a>',
+    );
+    expect(renderRichText([span('web', {}, { href: 'HTTP://x.example' })], resolve)).toBe(
+      '<a href="HTTP://x.example" rel="noopener noreferrer">web</a>',
+    );
+  });
+
   it('escapes quotes in attributes', () => {
     expect(renderRichText([span('x', {}, { href: '/a" onmouseover="b' })], resolve)).toBe(
-      '<a href="/a&quot; onmouseover=&quot;b" rel="noopener noreferrer">x</a>',
+      '<a href="/a&quot; onmouseover=&quot;b">x</a>',
     );
     expect(
       renderRichText(
@@ -147,7 +197,7 @@ describe('renderCell', () => {
   it('keeps a visible label for mailto and tel links', () => {
     expect(hostnameOf('mailto:a@b.c')).toBe('mailto:a@b.c');
     expect(renderCell({ kind: 'url', url: 'tel:+123' }, resolve)).toBe(
-      '<a href="tel:+123" rel="noopener noreferrer">tel:+123</a>',
+      '<a href="tel:+123">tel:+123</a>',
     );
   });
 
@@ -181,6 +231,20 @@ describe('renderCell', () => {
     );
     expect(renderCell({ kind: 'date', start: '2023"', end: '2024"' }, resolve)).toBe(
       '<time datetime="2023&quot;">2023"</time> → <time datetime="2024&quot;">2024"</time>',
+    );
+  });
+});
+
+describe('relFor', () => {
+  it('judges the URL the browser will follow, as isSafeHref does', () => {
+    expect(relFor('ht\ttps://x.example')).toBe('noopener noreferrer');
+    expect(relFor('/\n/evil.example')).toBe('noopener noreferrer');
+    expect(relFor('/\\evil.example')).toBe('noopener noreferrer');
+    expect(renderRichText([span('x', {}, { href: 'ht\ttps://x.example' })], resolve)).toBe(
+      '<a href="ht\ttps://x.example" rel="noopener noreferrer">x</a>',
+    );
+    expect(renderCell({ kind: 'url', url: 'ht\ttps://x.example' }, resolve)).toBe(
+      '<a href="ht\ttps://x.example" rel="noopener noreferrer">x.example</a>',
     );
   });
 });

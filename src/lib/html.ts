@@ -14,9 +14,13 @@ export function escapeAttr(value: string): string {
   return escapeHtml(value).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+function stripTabsAndNewlines(href: string): string {
+  return href.replace(/[\t\n\r]/g, '');
+}
+
 export function isSafeHref(href: string): boolean {
   // Browsers drop tabs and newlines and read '\' as '/', so '/\n/host' and '/\host' mean '//host'.
-  const url = href.replace(/[\t\n\r]/g, '');
+  const url = stripTabsAndNewlines(href);
   return /^(https?:|mailto:|tel:)/i.test(url) || /^\/(?![/\\])/.test(url) || url.startsWith('#');
 }
 
@@ -46,7 +50,26 @@ export function formatBytes(bytes: number): string {
   return `${value.toFixed(value < 10 ? 1 : 0)} ${units[unit]}`;
 }
 
-function renderSpan(span: RichTextSpan, resolve: LinkResolver): string {
+/** The rel of a link: external web pages get no opener or referrer; site, mailto and tel links get none. */
+export function relFor(href: string): string | undefined {
+  // Scheme-relative: '//host', or '/\host' as browsers read it.
+  return /^(https?:|[/\\]{2})/i.test(stripTabsAndNewlines(href))
+    ? 'noopener noreferrer'
+    : undefined;
+}
+
+export function linkHtml(href: string, inner: string): string {
+  const rel = relFor(href);
+  return `<a href="${escapeAttr(href)}"${rel ? ` rel="${rel}"` : ''}>${inner}</a>`;
+}
+
+function spanHref(span: RichTextSpan, resolve: LinkResolver): string | null {
+  if (span.kind !== 'text') return null;
+  if (span.pageId) return resolve(span.pageId)?.url ?? null;
+  return span.href && isSafeHref(span.href) ? span.href : null;
+}
+
+function renderSpan(span: RichTextSpan): string {
   if (span.kind === 'equation') {
     return katex.renderToString(span.expression, { ...KATEX_OPTIONS, displayMode: false });
   }
@@ -62,17 +85,29 @@ function renderSpan(span: RichTextSpan, resolve: LinkResolver): string {
   if (annotations.underline) html = `<u>${html}</u>`;
   if (annotations.color !== 'default')
     html = `<span class="${colorClass(annotations.color)}">${html}</span>`;
-  if (span.kind === 'text') {
-    const target = span.pageId ? resolve(span.pageId) : undefined;
-    if (target) html = `<a href="${escapeAttr(target.url)}">${html}</a>`;
-    else if (!span.pageId && span.href && isSafeHref(span.href))
-      html = `<a href="${escapeAttr(span.href)}" rel="noopener noreferrer">${html}</a>`;
-  }
   return html;
 }
 
+/** Notion splits a link wherever its formatting changes; spans that share a target become one link. */
 export function renderRichText(text: RichText, resolve: LinkResolver): string {
-  return text.map((span) => renderSpan(span, resolve)).join('');
+  let html = '';
+  let index = 0;
+  while (index < text.length) {
+    const span = text[index] as RichTextSpan;
+    const href = spanHref(span, resolve);
+    if (!href) {
+      html += renderSpan(span);
+      index += 1;
+      continue;
+    }
+    let inner = '';
+    while (index < text.length && spanHref(text[index] as RichTextSpan, resolve) === href) {
+      inner += renderSpan(text[index] as RichTextSpan);
+      index += 1;
+    }
+    html += linkHtml(href, inner);
+  }
+  return html;
 }
 
 function thumbnail(media: MediaRef): string {
@@ -111,7 +146,7 @@ export function renderCell(cell: DbCell | undefined, resolve: LinkResolver): str
         : '<span role="img" aria-label="No">–</span>';
     case 'url':
       return isSafeHref(cell.url)
-        ? `<a href="${escapeAttr(cell.url)}" rel="noopener noreferrer">${escapeHtml(hostnameOf(cell.url))}</a>`
+        ? linkHtml(cell.url, escapeHtml(hostnameOf(cell.url)))
         : escapeHtml(cell.url);
     case 'media':
       return cell.items.map(thumbnail).join('');
