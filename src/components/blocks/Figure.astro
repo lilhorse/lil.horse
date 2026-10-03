@@ -1,0 +1,20 @@
+---
+import { renderRichText, type LinkResolver } from '../../lib/html';
+import type { MediaRef, RichText } from '../../notion/types';
+import Picture from './Picture.astro';
+
+interface Props {
+  media: MediaRef;
+  alt: string;
+  caption: RichText;
+  resolve: LinkResolver;
+  priority?: boolean;
+}
+
+const { media, alt, caption, resolve, priority = false } = Astro.props;
+---
+
+<figure class="figure">
+  <Picture media={media} alt={alt} priority={priority} />
+  {caption.length > 0 && <figcaption set:html={renderRichText(caption, resolve)} />}
+</figure>

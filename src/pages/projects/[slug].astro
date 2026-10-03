@@ -1,0 +1,51 @@
+---
+import Blocks from '../../components/blocks/Blocks.astro';
+import Picture from '../../components/blocks/Picture.astro';
+import Base from '../../layouts/Base.astro';
+import { getSiteData } from '../../lib/content';
+import type { PageContent, ProjectEntry } from '../../notion/types';
+
+export async function getStaticPaths() {
+  const site = await getSiteData();
+  return site.projects
+    .filter((project): project is ProjectEntry & { slug: string; content: PageContent } =>
+      Boolean(project.slug && project.content),
+    )
+    .map((project) => ({ params: { slug: project.slug }, props: { project } }));
+}
+
+interface Props {
+  project: ProjectEntry & { slug: string; content: PageContent };
+}
+
+const { project } = Astro.props;
+const site = await getSiteData();
+---
+
+<Base title={project.name} description={project.description} hasMath={project.content.hasMath}>
+  <article>
+    <h1>{project.name}</h1>
+    <p>{project.description}</p>
+    {project.link && (
+      <p>
+        <a href={project.link} rel="noopener noreferrer">
+          {project.link}
+        </a>
+      </p>
+    )}
+    {project.repo && (
+      <p>
+        <a href={project.repo} rel="noopener noreferrer">
+          {project.repo}
+        </a>
+      </p>
+    )}
+    {project.cover && <Picture media={project.cover} alt="" priority />}
+    <Blocks
+      nodes={project.content.blocks}
+      resolve={site.resolve}
+      headings={project.content.headings}
+      priorityImageId={project.cover ? null : project.content.priorityImageId}
+    />
+  </article>
+</Base>

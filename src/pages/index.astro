@@ -1,19 +1,54 @@
 ---
-import { getCollection } from 'astro:content';
+import { siteConfig } from '../../site.config';
+import Base from '../layouts/Base.astro';
+import { getSiteData } from '../lib/content';
+import { featuredProjects, homePosts, projectHref } from '../lib/selectors';
 
-const posts = await getCollection('posts');
+const site = await getSiteData();
+const { profile } = site;
 ---
 
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>lil.horse</title>
-  </head>
-  <body>
+<Base title={siteConfig.name} description={profile.bio ?? `${profile.role} in ${profile.location}`}>
+  <section aria-labelledby="whoami">
+    <h1 id="whoami">{profile.name}</h1>
+    <dl>
+      <dt>Role</dt>
+      <dd>{profile.role}</dd>
+      <dt>Location</dt>
+      <dd>{profile.location}</dd>
+      {profile.stack.length > 0 && (
+        <Fragment>
+          <dt>Stack</dt>
+          <dd>{profile.stack.join(' · ')}</dd>
+        </Fragment>
+      )}
+      <dt>Status</dt>
+      <dd>{profile.availability}</dd>
+    </dl>
+    {profile.bio && <p>{profile.bio}</p>}
+  </section>
+  <section aria-labelledby="projects-heading">
+    <h2 id="projects-heading">Projects</h2>
     <ul>
-      {posts.map((post) => (
-        <li>{post.data.title}</li>
+      {featuredProjects(site.projects).map((project) => {
+        const href = projectHref(project);
+        return (
+          <li>
+            {href ? <a href={href}>{project.name}</a> : project.name}: {project.description}
+          </li>
+        );
+      })}
+    </ul>
+  </section>
+  <section aria-labelledby="posts-heading">
+    <h2 id="posts-heading">Latest posts</h2>
+    <ul>
+      {homePosts(site.posts).map((post) => (
+        <li>
+          <time datetime={post.published}>{post.published}</time>{' '}
+          <a href={`/blog/${post.slug}`}>{post.title}</a>
+        </li>
       ))}
     </ul>
-  </body>
-</html>
+  </section>
+</Base>

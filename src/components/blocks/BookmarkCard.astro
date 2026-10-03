@@ -1,0 +1,23 @@
+---
+import { hostnameOf, renderRichText, type LinkResolver } from '../../lib/html';
+import type { BookmarkNode } from '../../notion/types';
+import Picture from './Picture.astro';
+
+interface Props {
+  node: BookmarkNode;
+  resolve: LinkResolver;
+}
+
+const { node, resolve } = Astro.props;
+const host = hostnameOf(node.url);
+---
+
+<figure class="bookmark">
+  <a class="bookmark-link" href={node.url} rel="noopener noreferrer">
+    <span class="bookmark-title">{node.meta?.title ?? host}</span>
+    {node.meta?.description && <span class="bookmark-description">{node.meta.description}</span>}
+    <span class="bookmark-host">{host}</span>
+    {node.meta?.image && <Picture media={node.meta.image} alt="" sizes="240px" />}
+  </a>
+  {node.caption.length > 0 && <figcaption set:html={renderRichText(node.caption, resolve)} />}
+</figure>

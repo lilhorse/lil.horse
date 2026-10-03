@@ -1,0 +1,66 @@
+---
+import Blocks from '../../components/blocks/Blocks.astro';
+import Picture from '../../components/blocks/Picture.astro';
+import Base from '../../layouts/Base.astro';
+import { getSiteData } from '../../lib/content';
+import { adjacentPosts } from '../../lib/selectors';
+import type { PostEntry } from '../../notion/types';
+
+export async function getStaticPaths() {
+  const site = await getSiteData();
+  return site.posts.map((post) => ({ params: { slug: post.slug }, props: { post } }));
+}
+
+interface Props {
+  post: PostEntry;
+}
+
+const { post } = Astro.props;
+const site = await getSiteData();
+const { previous, next } = adjacentPosts(site.posts, post.slug);
+const lang = post.language === 'zh' ? 'zh-Hans' : 'en';
+---
+
+<Base
+  title={post.title}
+  description={post.description}
+  noindex={post.status !== 'Published'}
+  hasMath={post.content.hasMath}
+>
+  <article lang={lang}>
+    <header>
+      {post.status === 'Draft' && <p class="draft-badge">DRAFT</p>}
+      <h1>{post.title}</h1>
+      <p>
+        <time datetime={post.published}>{post.published}</time> · {post.readingMinutes} min read
+        {post.tags.map((tag) => (
+          <span class="tag">#{tag}</span>
+        ))}
+      </p>
+      {post.updated && (
+        <p>
+          Updated <time datetime={post.updated}>{post.updated}</time>
+        </p>
+      )}
+    </header>
+    {post.cover && <Picture media={post.cover} alt="" priority />}
+    <Blocks
+      nodes={post.content.blocks}
+      resolve={site.resolve}
+      headings={post.content.headings}
+      priorityImageId={post.cover ? null : post.content.priorityImageId}
+    />
+  </article>
+  <nav aria-label="Adjacent posts">
+    {previous && (
+      <a rel="prev" href={`/blog/${previous.slug}`}>
+        Older: {previous.title}
+      </a>
+    )}
+    {next && (
+      <a rel="next" href={`/blog/${next.slug}`}>
+        Newer: {next.title}
+      </a>
+    )}
+  </nav>
+</Base>

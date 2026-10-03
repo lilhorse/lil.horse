@@ -1,0 +1,56 @@
+---
+import { siteConfig } from '../../site.config';
+import { KATEX_STYLESHEET } from '../lib/katex';
+
+interface Props {
+  title: string;
+  description?: string | null;
+  noindex?: boolean;
+  hasMath?: boolean;
+}
+
+// Element ids used in this layout must also be in LAYOUT_IDS in src/notion/page-content.ts.
+const { title, description = null, noindex = false, hasMath = false } = Astro.props;
+const pageTitle = title === siteConfig.name ? title : `${title} · ${siteConfig.name}`;
+// With build.format 'file', Astro.url.pathname ends in .html at build time.
+const canonicalPath = Astro.url.pathname.replace(/\/index\.html$/, '/').replace(/\.html$/, '');
+const canonical = new URL(canonicalPath, siteConfig.url).toString();
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    {description && <meta name="description" content={description} />}
+    <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex" />}
+    {hasMath && <link rel="stylesheet" href={KATEX_STYLESHEET} />}
+  </head>
+  <body>
+    <a href="#main">Skip to content</a>
+    <header>
+      <nav aria-label="Primary">
+        <a href="/">~/lil.horse</a>
+        <a href="/blog">blog</a>
+        <a href="/projects">projects</a>
+        <a href="/about">about</a>
+        <a href="/contact">contact</a>
+      </nav>
+    </header>
+    <main id="main">
+      <slot />
+    </main>
+    <footer>
+      <p>exit 0</p>
+      <p>
+        © Lil'Horse · Content{' '}
+        <a href="https://creativecommons.org/licenses/by-nc/4.0/" rel="license">
+          CC BY-NC 4.0
+        </a>{' '}
+        · Code <a href="https://github.com/lilhorse/lil.horse/blob/main/LICENSE">MIT</a>
+      </p>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,19 @@
+---
+import { formatBytes, renderRichText, type LinkResolver } from '../../lib/html';
+import type { FileNode } from '../../notion/types';
+
+interface Props {
+  node: FileNode;
+  resolve: LinkResolver;
+}
+
+const { node, resolve } = Astro.props;
+---
+
+<figure class="file">
+  <a href={node.media.src} download={node.name}>
+    {node.name}
+  </a>
+  <span class="file-size">{formatBytes(node.media.bytes)}</span>
+  {node.caption.length > 0 && <figcaption set:html={renderRichText(node.caption, resolve)} />}
+</figure>

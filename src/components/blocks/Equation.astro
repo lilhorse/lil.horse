@@ -1,0 +1,12 @@
+---
+import katex from 'katex';
+import { KATEX_OPTIONS } from '../../lib/katex';
+
+interface Props {
+  expression: string;
+}
+
+const html = katex.renderToString(Astro.props.expression, { ...KATEX_OPTIONS, displayMode: true });
+---
+
+<div class="equation" set:html={html} />

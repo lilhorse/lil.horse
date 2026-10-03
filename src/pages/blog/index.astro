@@ -1,0 +1,28 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getSiteData } from '../../lib/content';
+import { postsByYear } from '../../lib/selectors';
+
+const site = await getSiteData();
+---
+
+<Base title="Blog" description="All posts">
+  <h1>Blog</h1>
+  {postsByYear(site.posts).map((group) => (
+    <section aria-labelledby={`year-${group.year}`}>
+      <h2 id={`year-${group.year}`}>{group.year}</h2>
+      <ul>
+        {group.posts.map((post) => (
+          <li>
+            <time datetime={post.published}>{post.published.slice(5)}</time>{' '}
+            <a href={`/blog/${post.slug}`}>{post.title}</a>
+            {post.status === 'Draft' && <span class="draft-badge">DRAFT</span>}
+            {post.tags.map((tag) => (
+              <span class="tag">#{tag}</span>
+            ))}
+          </li>
+        ))}
+      </ul>
+    </section>
+  ))}
+</Base>

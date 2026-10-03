@@ -1,0 +1,18 @@
+---
+import { Code } from 'astro-expressive-code/components';
+import { renderRichText, type LinkResolver } from '../../lib/html';
+import type { CodeNode } from '../../notion/types';
+
+interface Props {
+  node: CodeNode;
+  resolve: LinkResolver;
+}
+
+const { node, resolve } = Astro.props;
+const frame = node.frame === 'terminal' ? 'terminal' : node.frame === 'editor' ? 'code' : 'none';
+---
+
+<figure class="code">
+  <Code code={node.code} lang={node.language} title={node.title ?? undefined} frame={frame} />
+  {node.caption.length > 0 && <figcaption set:html={renderRichText(node.caption, resolve)} />}
+</figure>

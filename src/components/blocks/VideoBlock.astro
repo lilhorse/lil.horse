@@ -1,0 +1,45 @@
+---
+import { renderRichText, type LinkResolver } from '../../lib/html';
+import type { VideoNode } from '../../notion/types';
+import Picture from './Picture.astro';
+
+interface Props {
+  node: VideoNode;
+  resolve: LinkResolver;
+}
+
+const { node, resolve } = Astro.props;
+const { source } = node;
+---
+
+<figure class="video">
+  {source.kind === 'youtube' && (
+    <a
+      class="video-youtube"
+      href={`https://www.youtube.com/watch?v=${source.videoId}`}
+      rel="noopener noreferrer"
+    >
+      {source.poster ? (
+        <Picture media={source.poster} alt="Play the video on YouTube" />
+      ) : (
+        'Watch on YouTube'
+      )}
+    </a>
+  )}
+  {source.kind === 'vimeo' && (
+    <iframe
+      src={`https://player.vimeo.com/video/${source.videoId}${source.hash ? `?h=${source.hash}` : ''}`}
+      title="Vimeo video"
+      loading="lazy"
+      allow="fullscreen; picture-in-picture"
+      allowfullscreen
+    />
+  )}
+  {source.kind === 'file' && <video controls preload="none" src={source.media.src} />}
+  {source.kind === 'link' && (
+    <a href={source.url} rel="noopener noreferrer">
+      {source.url}
+    </a>
+  )}
+  {node.caption.length > 0 && <figcaption set:html={renderRichText(node.caption, resolve)} />}
+</figure>

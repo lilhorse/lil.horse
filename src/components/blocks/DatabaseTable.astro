@@ -1,0 +1,65 @@
+---
+import { renderCell, type LinkResolver } from '../../lib/html';
+import type { DatabaseNode, DbRow } from '../../notion/types';
+
+interface Props {
+  node: DatabaseNode;
+  resolve: LinkResolver;
+}
+
+const VISIBLE_ROWS = 10;
+const { node, resolve } = Astro.props;
+const visible = node.rows.slice(0, VISIBLE_ROWS);
+const hidden = node.rows.slice(VISIBLE_ROWS);
+const cellsOf = (row: DbRow) =>
+  node.columns.map((column) => renderCell(row.cells[column.id], resolve));
+---
+
+<figure class="database">
+  <figcaption>{node.title}</figcaption>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          {node.columns.map((column) => (
+            <th scope="col">{column.name}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {visible.map((row) => (
+          <tr>
+            {cellsOf(row).map((html) => (
+              <td set:html={html} />
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+  {hidden.length > 0 && (
+    <details class="database-more">
+      <summary>Show all {node.rows.length} rows</summary>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              {node.columns.map((column) => (
+                <th scope="col">{column.name}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {hidden.map((row) => (
+              <tr>
+                {cellsOf(row).map((html) => (
+                  <td set:html={html} />
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  )}
+</figure>

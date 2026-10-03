@@ -1,0 +1,25 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getSiteData } from '../../lib/content';
+import { projectHref } from '../../lib/selectors';
+
+const site = await getSiteData();
+---
+
+<Base title="Projects" description="Things I have built">
+  <h1>Projects</h1>
+  <ul>
+    {site.projects.map((project) => {
+      const href = projectHref(project);
+      return (
+        <li>
+          {href ? <a href={href}>{project.name}</a> : project.name}
+          {project.year && <span class="year">{project.year}</span>}
+          {project.status && <span class="status">{project.status}</span>}
+          <p>{project.description}</p>
+          {project.stack.length > 0 && <p class="stack">{project.stack.join(' · ')}</p>}
+        </li>
+      );
+    })}
+  </ul>
+</Base>

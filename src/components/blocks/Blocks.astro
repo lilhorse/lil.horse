@@ -1,0 +1,248 @@
+---
+import { renderRichText, type LinkResolver } from '../../lib/html';
+import type { HeadingRef, Node, RichText } from '../../notion/types';
+import BookmarkCard from './BookmarkCard.astro';
+import CodeBlock from './CodeBlock.astro';
+import DatabaseTable from './DatabaseTable.astro';
+import Equation from './Equation.astro';
+import Figure from './Figure.astro';
+import FileCard from './FileCard.astro';
+import Icon from './Icon.astro';
+import VideoBlock from './VideoBlock.astro';
+
+interface Props {
+  nodes: Node[];
+  resolve: LinkResolver;
+  headings: HeadingRef[];
+  priorityImageId?: string | null;
+}
+
+const { nodes, resolve, headings, priorityImageId = null } = Astro.props;
+const Self = Astro.self;
+const rich = (text: RichText) => renderRichText(text, resolve);
+const showUnsupported = import.meta.env.DEV;
+---
+
+{nodes.map((node) => {
+  switch (node.type) {
+    case 'paragraph':
+      return (
+        <Fragment>
+          <p class={`c-${node.color}`} set:html={rich(node.text)} />
+          {node.children.length > 0 && (
+            <div class="indent">
+              <Self
+                nodes={node.children}
+                resolve={resolve}
+                headings={headings}
+                priorityImageId={priorityImageId}
+              />
+            </div>
+          )}
+        </Fragment>
+      );
+    case 'heading': {
+      const Tag = `h${node.level}` as 'h2' | 'h3' | 'h4' | 'h5';
+      const heading = <Tag id={node.anchor} class={`c-${node.color}`} set:html={rich(node.text)} />;
+      if (!node.toggleable) return heading;
+      return (
+        <details class="toggle-heading">
+          <summary>{heading}</summary>
+          <Self
+            nodes={node.children}
+            resolve={resolve}
+            headings={headings}
+            priorityImageId={priorityImageId}
+          />
+        </details>
+      );
+    }
+    case 'list': {
+      const ListTag = node.style === 'numbered' ? 'ol' : 'ul';
+      return (
+        <ListTag class={`list list-${node.style}`}>
+          {node.items.map((item) => (
+            <li class={`c-${item.color}`}>
+              {node.style === 'todo' && (
+                <input
+                  type="checkbox"
+                  checked={item.checked === true}
+                  disabled
+                  aria-label={item.checked ? 'Completed' : 'Not completed'}
+                />
+              )}
+              <span set:html={rich(item.text)} />
+              {item.children.length > 0 && (
+                <Self
+                  nodes={item.children}
+                  resolve={resolve}
+                  headings={headings}
+                  priorityImageId={priorityImageId}
+                />
+              )}
+            </li>
+          ))}
+        </ListTag>
+      );
+    }
+    case 'quote':
+      return (
+        <blockquote class={`c-${node.color}`}>
+          <p set:html={rich(node.text)} />
+          {node.children.length > 0 && (
+            <Self
+              nodes={node.children}
+              resolve={resolve}
+              headings={headings}
+              priorityImageId={priorityImageId}
+            />
+          )}
+        </blockquote>
+      );
+    case 'callout':
+      return (
+        <aside class={`callout c-${node.color}`}>
+          {node.icon && <Icon icon={node.icon} />}
+          <div class="callout-body">
+            <p set:html={rich(node.text)} />
+            {node.children.length > 0 && (
+              <Self
+                nodes={node.children}
+                resolve={resolve}
+                headings={headings}
+                priorityImageId={priorityImageId}
+              />
+            )}
+          </div>
+        </aside>
+      );
+    case 'toggle':
+      return (
+        <details class={`toggle c-${node.color}`}>
+          <summary set:html={rich(node.summary)} />
+          <Self
+            nodes={node.children}
+            resolve={resolve}
+            headings={headings}
+            priorityImageId={priorityImageId}
+          />
+        </details>
+      );
+    case 'divider':
+      return <hr />;
+    case 'code':
+      return <CodeBlock node={node} resolve={resolve} />;
+    case 'equation':
+      return <Equation expression={node.expression} />;
+    case 'image':
+      return (
+        <Figure
+          media={node.media}
+          alt={node.alt}
+          caption={node.caption}
+          resolve={resolve}
+          priority={node.id === priorityImageId}
+        />
+      );
+    case 'video':
+      return <VideoBlock node={node} resolve={resolve} />;
+    case 'audio':
+      return (
+        <figure class="audio">
+          <audio controls preload="none" src={node.media.src} />
+          {node.caption.length > 0 && <figcaption set:html={rich(node.caption)} />}
+        </figure>
+      );
+    case 'file':
+      return <FileCard node={node} resolve={resolve} />;
+    case 'bookmark':
+      return <BookmarkCard node={node} resolve={resolve} />;
+    case 'table': {
+      const [first, ...rest] = node.rows;
+      const bodyRows = node.columnHeader ? rest : node.rows;
+      return (
+        <div class="table-scroll">
+          <table>
+            {node.columnHeader && first && (
+              <thead>
+                <tr>
+                  {first.map((cell) => (
+                    <th scope="col" set:html={rich(cell)} />
+                  ))}
+                </tr>
+              </thead>
+            )}
+            <tbody>
+              {bodyRows.map((row) => (
+                <tr>
+                  {row.map((cell, index) =>
+                    node.rowHeader && index === 0 ? (
+                      <th scope="row" set:html={rich(cell)} />
+                    ) : (
+                      <td set:html={rich(cell)} />
+                    ),
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+    case 'columns':
+      return (
+        <div class="columns">
+          {node.columns.map((column) => (
+            <div
+              class="column"
+              style={column.widthRatio ? `--column-ratio: ${column.widthRatio}` : undefined}
+            >
+              <Self
+                nodes={column.children}
+                resolve={resolve}
+                headings={headings}
+                priorityImageId={priorityImageId}
+              />
+            </div>
+          ))}
+        </div>
+      );
+    case 'database':
+      return <DatabaseTable node={node} resolve={resolve} />;
+    case 'toc':
+      return headings.length > 0 ? (
+        <nav class="toc" aria-label="Table of contents">
+          <ol>
+            {headings.map((heading) => (
+              <li class={`toc-${heading.level}`}>
+                <a href={`#${heading.anchor}`}>{heading.text}</a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      ) : null;
+    case 'page_link': {
+      const target = resolve(node.pageId);
+      return target ? (
+        <p class="page-link">
+          <a href={target.url}>{target.title || node.title}</a>
+        </p>
+      ) : null;
+    }
+    case 'container':
+      return (
+        <Self
+          nodes={node.children}
+          resolve={resolve}
+          headings={headings}
+          priorityImageId={priorityImageId}
+        />
+      );
+    case 'unsupported':
+      return showUnsupported ? (
+        <div class="unsupported">Unsupported Notion block: {node.blockType}</div>
+      ) : null;
+    default:
+      return null;
+  }
+})}

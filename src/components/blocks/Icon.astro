@@ -1,0 +1,21 @@
+---
+import type { Icon } from '../../notion/types';
+
+interface Props {
+  icon: Icon;
+}
+
+const { icon } = Astro.props;
+const src =
+  icon.kind === 'image'
+    ? (icon.media.variants.find((variant) => variant.format === 'webp')?.src ?? icon.media.src)
+    : '';
+---
+
+{icon.kind === 'emoji' ? (
+  <span class="icon" aria-hidden="true">
+    {icon.emoji}
+  </span>
+) : (
+  <img class="icon" src={src} alt="" width="20" height="20" />
+)}

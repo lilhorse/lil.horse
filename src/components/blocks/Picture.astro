@@ -1,0 +1,48 @@
+---
+import type { MediaRef } from '../../notion/types';
+
+interface Props {
+  media: MediaRef;
+  alt: string;
+  sizes?: string;
+  priority?: boolean;
+}
+
+const { media, alt, sizes = '(min-width: 768px) 720px, 100vw', priority = false } = Astro.props;
+const srcset = (format: 'avif' | 'webp') =>
+  media.variants
+    .filter((variant) => variant.format === format)
+    .map((variant) => `${variant.src} ${variant.width}w`)
+    .join(', ');
+const fallback =
+  media.variants.filter((variant) => variant.format === 'webp').at(-1)?.src ?? media.src;
+const style = media.dominant ? `background-color: ${media.dominant}` : undefined;
+const loading = priority ? 'eager' : 'lazy';
+---
+
+{media.variants.length > 0 ? (
+  <picture>
+    <source type="image/avif" srcset={srcset('avif')} sizes={sizes} />
+    <source type="image/webp" srcset={srcset('webp')} sizes={sizes} />
+    <img
+      src={fallback}
+      alt={alt}
+      width={media.width ?? undefined}
+      height={media.height ?? undefined}
+      loading={loading}
+      decoding="async"
+      fetchpriority={priority ? 'high' : undefined}
+      style={style}
+    />
+  </picture>
+) : (
+  <img
+    src={media.src}
+    alt={alt}
+    width={media.width ?? undefined}
+    height={media.height ?? undefined}
+    loading={loading}
+    decoding="async"
+    style={style}
+  />
+)}
