@@ -47,6 +47,18 @@ const { profile } = site;
         <li>
           <time datetime={post.published}>{post.published}</time>{' '}
           <a href={`/blog/${post.slug}`}>{post.title}</a>
+          {post.status === 'Draft' && (
+            <Fragment>
+              {' '}
+              <span class="draft-badge">DRAFT</span>
+            </Fragment>
+          )}
+          {post.tags.map((tag) => (
+            <Fragment>
+              {' '}
+              <span class="tag">#{tag}</span>
+            </Fragment>
+          ))}
         </li>
       ))}
     </ul>
