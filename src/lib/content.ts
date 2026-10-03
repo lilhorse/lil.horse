@@ -3,6 +3,7 @@ import type { PostEntry, ProfileEntry, ProjectEntry, StandalonePageEntry } from 
 import type { LinkResolver } from './html';
 import { buildLinkMap, type LinkTarget } from './links';
 import { sortProjects } from './selectors';
+import { tagIndex, type TagInfo } from './tags';
 
 export interface SiteData {
   posts: PostEntry[];
@@ -11,6 +12,8 @@ export interface SiteData {
   pages: StandalonePageEntry[];
   links: Map<string, LinkTarget>;
   resolve: LinkResolver;
+  tags: TagInfo[];
+  tagSlugs: ReadonlySet<string>;
 }
 
 let cached: Promise<SiteData> | undefined;
@@ -26,6 +29,7 @@ async function load(): Promise<SiteData> {
   if (!profile) throw new Error('The profile collection is empty');
   const pages = (await getCollection('pages')).map((entry) => entry.data as StandalonePageEntry);
   const links = buildLinkMap({ posts, projects, pages });
+  const tags = tagIndex(posts);
   return {
     posts,
     projects,
@@ -33,6 +37,8 @@ async function load(): Promise<SiteData> {
     pages,
     links,
     resolve: (pageId) => links.get(pageId),
+    tags,
+    tagSlugs: new Set(tags.map((tag) => tag.slug)),
   };
 }
 

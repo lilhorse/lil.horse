@@ -1,5 +1,6 @@
 import { expect } from 'vitest';
 import type { SiteData } from '../../src/lib/content';
+import { tagIndex } from '../../src/lib/tags';
 import type {
   HeadingRef,
   PageContent,
@@ -80,6 +81,7 @@ export const heading = (text: string, level: HeadingRef['level'] = 2): HeadingRe
 });
 
 export function useSite(data: Partial<SiteData> = {}): void {
+  const tags = tagIndex(data.posts ?? []);
   siteState.data = {
     posts: [],
     projects: [],
@@ -87,6 +89,8 @@ export function useSite(data: Partial<SiteData> = {}): void {
     pages: [],
     links: new Map(),
     resolve: () => undefined,
+    tags,
+    tagSlugs: new Set(tags.map((tag) => tag.slug)),
     ...data,
   };
 }
