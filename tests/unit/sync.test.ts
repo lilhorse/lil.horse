@@ -374,11 +374,11 @@ describe('syncNotion', () => {
     ).toEqual([strays.id]);
   });
 
-  it('repeats the warnings a cached page was built with', async () => {
+  it('names the page in its content warnings, also when a cached page repeats them', async () => {
     const { api, config, posts } = workspace();
     const unsupported = block('unsupported', { block_type: 'ai_block' });
     api.setChildren(posts.hello.id, [unsupported]);
-    const warning = `Unsupported Notion block "ai_block" (${unsupported.id}) skipped`;
+    const warning = `https://www.notion.so/${posts.hello.id}: Unsupported Notion block "ai_block" (${unsupported.id}) skipped`;
     const { root } = await options(api, config);
 
     const first = await options(api, config, {}, root);
@@ -397,7 +397,7 @@ describe('syncNotion', () => {
     api.setChildren(posts.hello.id, [
       block('bookmark', { url: 'ftp://example.com/a', caption: [] }),
     ]);
-    const warning = 'Bookmark metadata unavailable for ftp://example.com/a: not an http(s) URL';
+    const warning = `https://www.notion.so/${posts.hello.id}: Bookmark metadata unavailable for ftp://example.com/a: not an http(s) URL`;
     const { root } = await options(api, config);
 
     const first = await options(api, config, {}, root);

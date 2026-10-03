@@ -4,7 +4,7 @@ import { buildLinkMap } from '../lib/links';
 import { isNotFoundError, type NotionApi } from './api';
 import { toIcon } from './ast';
 import type { BookmarkFetcher } from './bookmarks';
-import { normalizeId } from './ids';
+import { normalizeId, notionUrl } from './ids';
 import type { MediaStore } from './media';
 import type { PageCache } from './page-cache';
 import { buildPageContent } from './page-content';
@@ -108,8 +108,9 @@ function contentLoader(options: SyncOptions, warn: (message: string) => void) {
     const content = await buildPageContent(pageId, {
       ...deps,
       warn: (message) => {
-        warnings.push(message);
-        warn(message);
+        const located = `${notionUrl(pageId)}: ${message}`;
+        warnings.push(located);
+        warn(located);
       },
     });
     const childTimes = await Promise.all(
