@@ -19,6 +19,10 @@ export const REQUIRED_ROUTES = [
   'pagefind/pagefind.js',
   'pagefind/pagefind-entry.json',
   'feed.xml',
+  'og/site/home.png',
+  'og/pages/about.png',
+  'og/pages/contact.png',
+  'og/blog/*.png',
 ];
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
