@@ -1,5 +1,7 @@
 import { pathToFileURL } from 'node:url';
+import { missingCspHashes } from '../src/lib/csp';
 import { checkDist } from '../src/lib/dist-check';
+import { unresolvedRedirects } from '../src/lib/redirects';
 
 export const REQUIRED_ROUTES = [
   'index.html',
@@ -23,10 +25,13 @@ export const REQUIRED_ROUTES = [
   'og/pages/about.png',
   'og/pages/contact.png',
   'og/blog/*.png',
+  '_headers',
+  '_redirects',
 ];
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const issues = await checkDist('dist', { routes: REQUIRED_ROUTES });
+  issues.push(...(await missingCspHashes('dist')), ...(await unresolvedRedirects('dist')));
   for (const { file, message } of issues)
     console.error(file ? `✗ ${file}: ${message}` : `✗ ${message}`);
   if (issues.length > 0) {

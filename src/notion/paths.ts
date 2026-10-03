@@ -5,6 +5,7 @@ export interface CachePaths {
   pages: string;
   bookmarks: string;
   manifest: string;
+  content: string;
 }
 
 export function cachePaths(fixtures: boolean, root: string = process.cwd()): CachePaths {
@@ -14,6 +15,7 @@ export function cachePaths(fixtures: boolean, root: string = process.cwd()): Cac
     pages: join(base, 'pages'),
     bookmarks: join(base, 'bookmarks'),
     manifest: join(base, 'media-manifest.json'),
+    content: join(base, 'content-manifest.json'),
   };
 }
 

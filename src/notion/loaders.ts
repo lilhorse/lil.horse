@@ -24,6 +24,24 @@ export async function writeMediaManifest(file: string, keys: string[]): Promise<
   await writeFile(file, `${JSON.stringify(keys, null, 2)}\n`);
 }
 
+/** What the Cloudflare integration needs after the build: the IDs behind the old Notion-style addresses. */
+export interface ContentManifest {
+  posts: { id: string; slug: string }[];
+  pages: { id: string; key: string }[];
+}
+
+export function contentManifest(site: SiteContent): ContentManifest {
+  return {
+    posts: site.posts.map(({ id, slug }) => ({ id, slug })),
+    pages: site.pages.map(({ id, key }) => ({ id, key })),
+  };
+}
+
+export async function writeContentManifest(file: string, manifest: ContentManifest): Promise<void> {
+  await mkdir(dirname(file), { recursive: true });
+  await writeFile(file, `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
 export function statusesFor(includeDrafts: boolean): PostStatus[] {
   return includeDrafts ? ['Draft', 'Published', 'Unlisted'] : ['Published', 'Unlisted'];
 }
@@ -62,6 +80,7 @@ async function runSync(logger: Logger): Promise<SiteContent> {
     log: { info: (message) => logger.info(message), warn: (message) => logger.warn(message) },
   });
   await writeMediaManifest(paths.manifest, site.mediaKeys);
+  await writeContentManifest(paths.content, contentManifest(site));
   return site;
 }
 

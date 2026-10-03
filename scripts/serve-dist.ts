@@ -1,7 +1,9 @@
-import { createReadStream, statSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { headersFor, parseHeaders, type HeaderRule } from '../src/lib/headers';
+import { matchRedirect, parseRedirects, type Redirect } from '../src/lib/redirects';
 
 const TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -27,6 +29,9 @@ const TYPES: Record<string, string> = {
   '.txt': 'text/plain; charset=utf-8',
 };
 
+// Cloudflare reads these two files; it never serves them.
+const CONTROL_FILES = new Set(['/_headers', '/_redirects']);
+
 function isFile(path: string): boolean {
   try {
     return statSync(path).isFile();
@@ -45,6 +50,7 @@ export function resolveDistFile(dist: string, url: string): { file: string; stat
   } catch {
     return notFound;
   }
+  if (CONTROL_FILES.has(path)) return notFound;
   const candidates =
     path === '/' ? ['index.html'] : [path, `${path}.html`, join(path, 'index.html')];
   for (const candidate of candidates) {
@@ -54,10 +60,31 @@ export function resolveDistFile(dist: string, url: string): { file: string; stat
   return notFound;
 }
 
+function readControlFile(dist: string, name: string): string {
+  const file = join(dist, name);
+  return existsSync(file) ? readFileSync(file, 'utf8') : '';
+}
+
+/** Serves dist/ the way Cloudflare's static assets would, including _redirects and _headers. */
 export function serveDist(dist: string, port: number) {
+  const redirects: Redirect[] = parseRedirects(readControlFile(dist, '_redirects'));
+  const rules: HeaderRule[] = parseHeaders(readControlFile(dist, '_headers'));
   return createServer((request, response) => {
+    // A malformed target must not crash the server; resolveDistFile answers it with the 404 page.
+    const url = URL.parse(request.url ?? '/', 'http://localhost') ?? new URL('http://localhost');
+    const extra = headersFor(rules, url.pathname);
+    const redirect = matchRedirect(redirects, url.pathname);
+    if (redirect) {
+      response.writeHead(redirect.status, {
+        ...extra,
+        location: `${redirect.location}${url.search}`,
+      });
+      response.end();
+      return;
+    }
     const { file, status } = resolveDistFile(dist, request.url ?? '/');
     response.writeHead(status, {
+      ...extra,
       'content-type': TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream',
     });
     createReadStream(file)

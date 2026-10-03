@@ -17,7 +17,7 @@ interface Options {
   routes: string[];
 }
 
-interface StartTag {
+export interface StartTag {
   tag: string;
   name: string;
   text: string;
@@ -68,7 +68,8 @@ function decodePath(path: string): string {
   }
 }
 
-function startTags(html: string): StartTag[] {
+/** Every start tag in document order; script and style tags carry their raw contents. */
+export function startTags(html: string): StartTag[] {
   const tags: StartTag[] = [];
   const pattern = new RegExp(START_TAG_OR_COMMENT);
   for (let match = pattern.exec(html); match; match = pattern.exec(html)) {
@@ -90,7 +91,7 @@ function startTags(html: string): StartTag[] {
   return tags;
 }
 
-function attribute(tag: string, wanted: string): string | undefined {
+export function attribute(tag: string, wanted: string): string | undefined {
   for (const [, name, double, single, bare] of tag.matchAll(ATTRIBUTE)) {
     if (name === wanted) return double ?? single ?? bare ?? '';
   }
@@ -116,7 +117,7 @@ function internalTargets(html: string): string[] {
     .map((url) => decodePath(url.split(/[?#]/)[0] ?? url));
 }
 
-function resolves(dist: string, path: string): boolean {
+export function resolves(dist: string, path: string): boolean {
   if (path === '/') return isFile(join(dist, 'index.html'));
   const clean = path.replace(/\/+$/, '');
   return [clean, `${clean}.html`, join(clean, 'index.html')].some((candidate) =>

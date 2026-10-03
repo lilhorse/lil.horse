@@ -2,7 +2,13 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { LoaderContext } from 'astro/loaders';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { entriesFor, statusesFor, writeMediaManifest } from '../../src/notion/loaders';
+import {
+  contentManifest,
+  entriesFor,
+  statusesFor,
+  writeContentManifest,
+  writeMediaManifest,
+} from '../../src/notion/loaders';
 import type { SiteContent } from '../../src/notion/types';
 import { tempDir } from '../helpers/temp-dir';
 
@@ -65,6 +71,19 @@ describe('writeMediaManifest', () => {
     const file = join(await tempDir('manifest-'), 'nested', 'media-manifest.json');
     await writeMediaManifest(file, ['a', 'b']);
     expect(JSON.parse(await readFile(file, 'utf8'))).toEqual(['a', 'b']);
+  });
+});
+
+describe('contentManifest', () => {
+  it('keeps only the IDs and routes the redirects need, and writes them', async () => {
+    const manifest = contentManifest(site);
+    expect(manifest).toEqual({
+      posts: [{ id: 'a', slug: 'helloworld' }],
+      pages: [{ id: 'b', key: 'about' }],
+    });
+    const file = join(await tempDir('content-'), 'nested', 'content-manifest.json');
+    await writeContentManifest(file, manifest);
+    expect(JSON.parse(await readFile(file, 'utf8'))).toEqual(manifest);
   });
 });
 
