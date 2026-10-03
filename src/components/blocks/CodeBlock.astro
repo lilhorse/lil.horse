@@ -16,3 +16,12 @@ const frame = node.frame === 'terminal' ? 'terminal' : node.frame === 'editor' ?
   <Code code={node.code} lang={node.language} title={node.title ?? undefined} frame={frame} />
   {node.caption.length > 0 && <figcaption set:html={renderRichText(node.caption, resolve)} />}
 </figure>
+
+<style>
+  @media (max-width: 639.98px) {
+    .code :global(.expressive-code .copy button) {
+      inline-size: 2.75rem;
+      block-size: 2.75rem;
+    }
+  }
+</style>
