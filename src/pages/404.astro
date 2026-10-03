@@ -1,10 +1,62 @@
 ---
+import Prompt from '../components/shell/Prompt.astro';
 import Base from '../layouts/Base.astro';
 ---
 
 <Base title="Not found" noindex canonical={false} path="~">
-  <h1>zsh: command not found</h1>
-  <p>
-    That page does not exist. <a href="/">Go home</a> or <a href="/blog">browse the blog</a>.
-  </p>
+  <section class="cmd">
+    <h1 class="sr-only">Page not found</h1>
+    <p class="line" aria-hidden="true">
+      <Prompt /> <span data-missing-path></span>
+    </p>
+    <p class="error">
+      zsh: command not found
+      <span data-missing hidden>
+        : <span data-missing-path></span>
+      </span>
+    </p>
+    <p class="help">
+      Go <a href="/">home</a> or <a href="/blog">browse the blog</a>.
+    </p>
+  </section>
+  <script is:inline>
+    {
+      let path = location.pathname;
+      try {
+        path = decodeURIComponent(path);
+      } catch {
+        path = location.pathname;
+      }
+      for (const node of document.querySelectorAll('[data-missing-path]')) node.textContent = path;
+      for (const node of document.querySelectorAll('[data-missing]')) node.hidden = false;
+    }
+  </script>
 </Base>
+
+<style>
+  .cmd {
+    display: grid;
+    gap: 8px;
+    padding-block: 20px;
+  }
+  .line {
+    color: var(--fg);
+    overflow-wrap: anywhere;
+  }
+  .error {
+    color: var(--danger);
+    overflow-wrap: anywhere;
+  }
+  .help a {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: 24px;
+  }
+  @media (max-width: 639.98px) {
+    .help a {
+      justify-content: center;
+      min-block-size: 44px;
+      min-inline-size: 44px;
+    }
+  }
+</style>

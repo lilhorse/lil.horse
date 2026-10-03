@@ -5,28 +5,35 @@ import { excerpt } from '../notion/text';
 import type { StandalonePageKey } from '../notion/types';
 import Blocks from './blocks/Blocks.astro';
 import Picture from './blocks/Picture.astro';
+import DocHeader from './shell/DocHeader.astro';
+import DocLayout from './shell/DocLayout.astro';
 
 interface Props {
   pageKey: StandalonePageKey;
 }
 
 const site = await getSiteData();
-const page = site.pages.find((entry) => entry.key === Astro.props.pageKey);
-if (!page)
-  throw new Error(`The "${Astro.props.pageKey}" page is missing from the pages collection`);
+const { pageKey } = Astro.props;
+const page = site.pages.find((entry) => entry.key === pageKey);
+if (!page) throw new Error(`The "${pageKey}" page is missing from the pages collection`);
 ---
 
 <Base
   title={page.title}
   description={page.content.firstParagraph ? excerpt(page.content.firstParagraph) : null}
   hasMath={page.content.hasMath}
-  current={page.key}
-  path={`~/${page.key}.md`}
-  file={page.key === 'contact' ? 'contact.md' : null}
+  current={pageKey}
+  path={`~/${pageKey}.md`}
+  file={pageKey === 'contact' ? 'contact.md' : null}
+  wide
 >
-  <article>
-    <h1>{page.title}</h1>
-    {page.cover && <Picture media={page.cover} alt="" priority />}
+  <DocLayout headings={page.content.headings}>
+    <DocHeader command={`cat ${pageKey}.md`} title={page.title} />
+    {page.cover && (
+      <div class="doc-cover">
+        <Picture media={page.cover} alt="" priority />
+      </div>
+    )}
     <div class="prose">
       <Blocks
         nodes={page.content.blocks}
@@ -35,5 +42,5 @@ if (!page)
         priorityImageId={page.cover ? null : page.content.priorityImageId}
       />
     </div>
-  </article>
+  </DocLayout>
 </Base>

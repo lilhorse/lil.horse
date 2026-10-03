@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { pageContaining, pagePaths, settle } from './site';
 
 const BACKGROUND = { light: 'rgb(242, 244, 247)', dark: 'rgb(26, 27, 38)' };
-const TARGETS = 'header a[href], header summary, footer a[href]';
+const TARGETS = 'a[href], button, summary';
 const HOVER_LINKS = [
   ['/', '.posts .name a'],
   ['/blog', '.posts .name a'],
@@ -134,4 +134,15 @@ test('the phone menu opens from the keyboard', async ({ page }, testInfo) => {
   await expect(menu).toHaveAttribute('open', '');
   await expect(menu.getByRole('link', { name: 'contact' })).toBeVisible();
   await expect(menu.getByRole('link', { name: 'blog' })).toHaveAttribute('aria-current', 'page');
+});
+
+test('the 404 page names the missing path, decoded', async ({ page }) => {
+  for (const [path, shown] of [
+    ['/does/not/exist', '/does/not/exist'],
+    ['/%E8%B1%86%E7%93%A3-x', '/豆瓣-x'],
+  ]) {
+    const response = await page.goto(path);
+    expect(response?.status()).toBe(404);
+    await expect(page.locator('.error')).toHaveText(`zsh: command not found: ${shown}`);
+  }
 });
