@@ -107,4 +107,10 @@ describe('horseRgba', () => {
       'cannot be centred',
     );
   });
+
+  it.each([1.25, 1.5, 0.5, 0, -1])('refuses a scale of %s', (scale) => {
+    const draw = () => horseRgba(GRID_24, PALETTES.night, { canvas: 48, scale });
+    expect(draw).toThrow(RangeError);
+    expect(draw).toThrow(/positive integer/);
+  });
 });

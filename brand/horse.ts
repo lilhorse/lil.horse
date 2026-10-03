@@ -206,6 +206,8 @@ export function horseRgba(
   options: { canvas: number; scale: number; background?: string },
 ): Buffer {
   const { canvas, scale, background } = options;
+  if (!(Number.isInteger(scale) && scale >= 1))
+    throw new RangeError(`scale must be a positive integer, got ${scale}`);
   const offset = (canvas - grid.size * scale) / 2;
   if (!Number.isInteger(offset) || offset < 0)
     throw new Error(`A ${grid.size}px grid at ${scale}x cannot be centred on a ${canvas}px canvas`);
