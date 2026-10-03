@@ -19,6 +19,7 @@ interface Props {
 
 const { nodes, resolve, headings, priorityImageId = null } = Astro.props;
 const Self = Astro.self;
+const shared = { resolve, headings, priorityImageId };
 const rich = (text: RichText) => renderRichText(text, resolve);
 const showUnsupported = import.meta.env.DEV;
 ---
@@ -31,12 +32,7 @@ const showUnsupported = import.meta.env.DEV;
           <p class={`c-${node.color}`} set:html={rich(node.text)} />
           {node.children.length > 0 && (
             <div class="indent">
-              <Self
-                nodes={node.children}
-                resolve={resolve}
-                headings={headings}
-                priorityImageId={priorityImageId}
-              />
+              <Self nodes={node.children} {...shared} />
             </div>
           )}
         </Fragment>
@@ -48,12 +44,7 @@ const showUnsupported = import.meta.env.DEV;
       return (
         <details class="toggle-heading">
           <summary>{heading}</summary>
-          <Self
-            nodes={node.children}
-            resolve={resolve}
-            headings={headings}
-            priorityImageId={priorityImageId}
-          />
+          <Self nodes={node.children} {...shared} />
         </details>
       );
     }
@@ -72,14 +63,7 @@ const showUnsupported = import.meta.env.DEV;
                 />
               )}
               <span set:html={rich(item.text)} />
-              {item.children.length > 0 && (
-                <Self
-                  nodes={item.children}
-                  resolve={resolve}
-                  headings={headings}
-                  priorityImageId={priorityImageId}
-                />
-              )}
+              {item.children.length > 0 && <Self nodes={item.children} {...shared} />}
             </li>
           ))}
         </ListTag>
@@ -89,14 +73,7 @@ const showUnsupported = import.meta.env.DEV;
       return (
         <blockquote class={`c-${node.color}`}>
           <p set:html={rich(node.text)} />
-          {node.children.length > 0 && (
-            <Self
-              nodes={node.children}
-              resolve={resolve}
-              headings={headings}
-              priorityImageId={priorityImageId}
-            />
-          )}
+          {node.children.length > 0 && <Self nodes={node.children} {...shared} />}
         </blockquote>
       );
     case 'callout':
@@ -105,14 +82,7 @@ const showUnsupported = import.meta.env.DEV;
           {node.icon && <Icon icon={node.icon} />}
           <div class="callout-body">
             <p set:html={rich(node.text)} />
-            {node.children.length > 0 && (
-              <Self
-                nodes={node.children}
-                resolve={resolve}
-                headings={headings}
-                priorityImageId={priorityImageId}
-              />
-            )}
+            {node.children.length > 0 && <Self nodes={node.children} {...shared} />}
           </div>
         </aside>
       );
@@ -120,12 +90,7 @@ const showUnsupported = import.meta.env.DEV;
       return (
         <details class={`toggle c-${node.color}`}>
           <summary set:html={rich(node.summary)} />
-          <Self
-            nodes={node.children}
-            resolve={resolve}
-            headings={headings}
-            priorityImageId={priorityImageId}
-          />
+          <Self nodes={node.children} {...shared} />
         </details>
       );
     case 'divider':
@@ -197,12 +162,7 @@ const showUnsupported = import.meta.env.DEV;
               class="column"
               style={column.widthRatio ? `--column-ratio: ${column.widthRatio}` : undefined}
             >
-              <Self
-                nodes={column.children}
-                resolve={resolve}
-                headings={headings}
-                priorityImageId={priorityImageId}
-              />
+              <Self nodes={column.children} {...shared} />
             </div>
           ))}
         </div>
@@ -230,14 +190,7 @@ const showUnsupported = import.meta.env.DEV;
       ) : null;
     }
     case 'container':
-      return (
-        <Self
-          nodes={node.children}
-          resolve={resolve}
-          headings={headings}
-          priorityImageId={priorityImageId}
-        />
-      );
+      return <Self nodes={node.children} {...shared} />;
     case 'unsupported':
       return showUnsupported ? (
         <div class="unsupported">Unsupported Notion block: {node.blockType}</div>
