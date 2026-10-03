@@ -23,6 +23,10 @@ export async function writeMediaManifest(file: string, keys: string[]): Promise<
   await writeFile(file, `${JSON.stringify(keys, null, 2)}\n`);
 }
 
+export function statusesFor(includeDrafts: boolean): PostStatus[] {
+  return includeDrafts ? ['Draft', 'Published', 'Unlisted'] : ['Published', 'Unlisted'];
+}
+
 const runtimeEnv = () => readEnv(process.env);
 
 async function runSync(logger: Logger): Promise<SiteContent> {
@@ -41,9 +45,6 @@ async function runSync(logger: Logger): Promise<SiteContent> {
     api = createNotionApi({ token: env.notionToken });
   }
   const media = new MediaStore({ cacheDir: paths.media, ...offline });
-  const statuses: PostStatus[] = env.includeDrafts
-    ? ['Draft', 'Published', 'Unlisted']
-    : ['Published', 'Unlisted'];
   const site = await syncNotion({
     api,
     media,
@@ -55,7 +56,7 @@ async function runSync(logger: Logger): Promise<SiteContent> {
     }),
     cache: new PageCache(paths.pages, LOADER_VERSION),
     config: siteConfig.notion,
-    statuses,
+    statuses: statusesFor(env.includeDrafts),
     fullRefresh: env.fullRefresh,
     log: { info: (message) => logger.info(message), warn: (message) => logger.warn(message) },
   });
