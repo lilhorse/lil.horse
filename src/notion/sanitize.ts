@@ -57,6 +57,8 @@ export function scrub(value: unknown): unknown {
     const isUser = (key === 'created_by' || key === 'last_edited_by') && isFilled(child);
     out[key] = isUser ? ANONYMOUS_USER : scrub(child);
   }
+  if (out.object === 'page' || out.object === 'database' || out.object === 'data_source')
+    delete out.public_url;
   if (out.type === 'people' && Array.isArray(out.people)) out.people = [];
   if (out.type === 'email' && typeof out.email === 'string') out.email = 'hello@example.com';
   if (out.type === 'phone_number' && typeof out.phone_number === 'string') out.phone_number = null;

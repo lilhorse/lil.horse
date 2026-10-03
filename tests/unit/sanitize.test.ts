@@ -134,6 +134,25 @@ describe('scrub', () => {
       schema,
     });
   });
+
+  it('drops the public Notion URL of pages, databases and data sources, but not a column of that name', () => {
+    const column = { id: 'p', type: 'url', url: 'https://example.com' };
+    for (const object of ['page', 'database', 'data_source']) {
+      const input = {
+        object,
+        id: 'x',
+        url: 'https://www.notion.so/x',
+        public_url: 'https://lil.notion.site/Secret-title-x',
+        properties: { public_url: column },
+      };
+      expect(scrub(input)).toStrictEqual({
+        object,
+        id: 'x',
+        url: 'https://www.notion.so/x',
+        properties: { public_url: column },
+      });
+    }
+  });
 });
 
 describe('createFixtureSanitizer', () => {
