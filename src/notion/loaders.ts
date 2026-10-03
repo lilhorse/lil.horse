@@ -40,7 +40,7 @@ async function runSync(logger: Logger): Promise<SiteContent> {
   } else {
     if (!env.notionToken) {
       throw new Error(
-        'NOTION_TOKEN is not set. Add it to .env, or run `pnpm build:fixtures` to build from the recorded fixtures.',
+        'NOTION_TOKEN is not set. Put it in .env and build with pnpm build / pnpm dev (they load .env), or run pnpm build:fixtures to build offline.',
       );
     }
     api = createNotionApi({ token: env.notionToken });

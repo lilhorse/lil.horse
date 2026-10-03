@@ -76,6 +76,14 @@ describe('loadSiteContent', () => {
     expect(logger.fork).toHaveBeenCalledExactlyOnceWith('notion');
   });
 
+  it('explains where the token has to come from', async () => {
+    const { loadSiteContent } = await freshLoaders();
+    const logger = loaderContext(notionLogger()).logger as unknown as LoaderContext['logger'];
+    await expect(loadSiteContent(logger)).rejects.toThrow(
+      'NOTION_TOKEN is not set. Put it in .env and build with pnpm build / pnpm dev (they load .env), or run pnpm build:fixtures to build offline.',
+    );
+  });
+
   it('runs a fresh sync after a failed one', async () => {
     const { loadSiteContent } = await freshLoaders();
     const logger = loaderContext(notionLogger()).logger as unknown as LoaderContext['logger'];
