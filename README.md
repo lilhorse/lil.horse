@@ -42,7 +42,7 @@ pnpm dev
 | `pnpm build`           | Builds the production site from live Notion data            |
 | `pnpm build:fixtures`  | Builds offline from the fixtures in `tests/fixtures/notion` |
 | `pnpm preview`         | Serves the last build                                       |
-| `pnpm test`            | Runs the unit tests                                         |
+| `pnpm test`            | Runs the unit and component tests                           |
 | `pnpm lint`            | Runs ESLint                                                 |
 | `pnpm check`           | Type-checks the project without syncing Notion              |
 | `pnpm check:dist`      | Checks the build output in `dist/`                          |
