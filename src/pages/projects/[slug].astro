@@ -47,11 +47,13 @@ const site = await getSiteData();
       </p>
     )}
     {project.cover && <Picture media={project.cover} alt="" priority />}
-    <Blocks
-      nodes={project.content.blocks}
-      resolve={site.resolve}
-      headings={project.content.headings}
-      priorityImageId={project.cover ? null : project.content.priorityImageId}
-    />
+    <div class="prose">
+      <Blocks
+        nodes={project.content.blocks}
+        resolve={site.resolve}
+        headings={project.content.headings}
+        priorityImageId={project.cover ? null : project.content.priorityImageId}
+      />
+    </div>
   </article>
 </Base>

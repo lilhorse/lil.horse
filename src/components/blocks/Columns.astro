@@ -1,0 +1,42 @@
+---
+import type { ColumnsNode } from '../../notion/types';
+import type { BlockContext, BlocksComponent } from './context';
+
+interface Props {
+  node: ColumnsNode;
+  ctx: BlockContext;
+  Blocks: BlocksComponent;
+}
+
+const { node, ctx, Blocks } = Astro.props;
+---
+
+<div class="columns">
+  {node.columns.map((column) => (
+    <div
+      class="column"
+      style={column.widthRatio ? `--column-ratio: ${column.widthRatio}` : undefined}
+    >
+      <Blocks nodes={column.children} {...ctx} />
+    </div>
+  ))}
+</div>
+
+<style>
+  .columns {
+    display: flex;
+    gap: 24px;
+  }
+  .column {
+    flex: var(--column-ratio, 1) 1 0;
+    min-inline-size: 0;
+  }
+  .column > :global(* + *) {
+    margin-block-start: 1em;
+  }
+  @media (max-width: 639.98px) {
+    .columns {
+      flex-direction: column;
+    }
+  }
+</style>

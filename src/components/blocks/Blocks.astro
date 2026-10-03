@@ -1,13 +1,25 @@
 ---
-import { colorClass, renderRichText, type LinkResolver } from '../../lib/html';
-import type { HeadingRef, Node, NotionColor, RichText } from '../../notion/types';
+import type { LinkResolver } from '../../lib/html';
+import type { HeadingRef, Node } from '../../notion/types';
+import AudioBlock from './AudioBlock.astro';
 import BookmarkCard from './BookmarkCard.astro';
+import Callout from './Callout.astro';
 import CodeBlock from './CodeBlock.astro';
+import Columns from './Columns.astro';
+import type { BlockContext } from './context';
 import DatabaseTable from './DatabaseTable.astro';
 import Equation from './Equation.astro';
 import Figure from './Figure.astro';
 import FileCard from './FileCard.astro';
-import Icon from './Icon.astro';
+import Heading from './Heading.astro';
+import List from './List.astro';
+import PageLink from './PageLink.astro';
+import Paragraph from './Paragraph.astro';
+import Quote from './Quote.astro';
+import TableBlock from './TableBlock.astro';
+import TocBlock from './TocBlock.astro';
+import Toggle from './Toggle.astro';
+import Unsupported from './Unsupported.astro';
 import VideoBlock from './VideoBlock.astro';
 
 interface Props {
@@ -18,82 +30,26 @@ interface Props {
 }
 
 const { nodes, resolve, headings, priorityImageId = null } = Astro.props;
+const ctx: BlockContext = { resolve, headings, priorityImageId };
 const Self = Astro.self;
-const shared = { resolve, headings, priorityImageId };
-const rich = (text: RichText) => renderRichText(text, resolve);
-const tone = (color: NotionColor) => (color === 'default' ? undefined : colorClass(color));
-const showUnsupported = import.meta.env.DEV;
 ---
 
 {nodes.map((node) => {
   switch (node.type) {
     case 'paragraph':
-      return (
-        <Fragment>
-          <p class={tone(node.color)} set:html={rich(node.text)} />
-          {node.children.length > 0 && (
-            <div class="indent">
-              <Self nodes={node.children} {...shared} />
-            </div>
-          )}
-        </Fragment>
-      );
-    case 'heading': {
-      const Tag = `h${node.level}` as 'h2' | 'h3' | 'h4' | 'h5';
-      const heading = <Tag id={node.anchor} class={tone(node.color)} set:html={rich(node.text)} />;
-      if (!node.toggleable) return heading;
-      return (
-        <details class="toggle-heading">
-          <summary>{heading}</summary>
-          <Self nodes={node.children} {...shared} />
-        </details>
-      );
-    }
-    case 'list': {
-      const ListTag = node.style === 'numbered' ? 'ol' : 'ul';
-      return (
-        <ListTag class={`list list-${node.style}`}>
-          {node.items.map((item) => (
-            <li class={tone(item.color)}>
-              {node.style === 'todo' && (
-                <input
-                  type="checkbox"
-                  checked={item.checked === true}
-                  disabled
-                  aria-label={item.checked ? 'Completed' : 'Not completed'}
-                />
-              )}
-              <span set:html={rich(item.text)} />
-              {item.children.length > 0 && <Self nodes={item.children} {...shared} />}
-            </li>
-          ))}
-        </ListTag>
-      );
-    }
+      return <Paragraph node={node} ctx={ctx} Blocks={Self} />;
+    case 'heading':
+      return <Heading node={node} ctx={ctx} Blocks={Self} />;
+    case 'list':
+      return <List node={node} ctx={ctx} Blocks={Self} />;
     case 'quote':
-      return (
-        <blockquote class={tone(node.color)}>
-          <p set:html={rich(node.text)} />
-          {node.children.length > 0 && <Self nodes={node.children} {...shared} />}
-        </blockquote>
-      );
+      return <Quote node={node} ctx={ctx} Blocks={Self} />;
     case 'callout':
-      return (
-        <aside class:list={['callout', tone(node.color)]}>
-          {node.icon && <Icon icon={node.icon} />}
-          <div class="callout-body">
-            <p set:html={rich(node.text)} />
-            {node.children.length > 0 && <Self nodes={node.children} {...shared} />}
-          </div>
-        </aside>
-      );
+      return <Callout node={node} ctx={ctx} Blocks={Self} />;
     case 'toggle':
-      return (
-        <details class:list={['toggle', tone(node.color)]}>
-          <summary set:html={rich(node.summary)} />
-          <Self nodes={node.children} {...shared} />
-        </details>
-      );
+      return <Toggle node={node} ctx={ctx} Blocks={Self} />;
+    case 'columns':
+      return <Columns node={node} ctx={ctx} Blocks={Self} />;
     case 'divider':
       return <hr />;
     case 'code':
@@ -113,89 +69,23 @@ const showUnsupported = import.meta.env.DEV;
     case 'video':
       return <VideoBlock node={node} resolve={resolve} />;
     case 'audio':
-      return (
-        <figure class="audio">
-          <audio controls preload="none" src={node.media.src} />
-          {node.caption.length > 0 && <figcaption set:html={rich(node.caption)} />}
-        </figure>
-      );
+      return <AudioBlock node={node} resolve={resolve} />;
     case 'file':
       return <FileCard node={node} resolve={resolve} />;
     case 'bookmark':
       return <BookmarkCard node={node} resolve={resolve} />;
-    case 'table': {
-      const [first, ...rest] = node.rows;
-      const bodyRows = node.columnHeader ? rest : node.rows;
-      return (
-        <div class="table-scroll">
-          <table>
-            {node.columnHeader && first && (
-              <thead>
-                <tr>
-                  {first.map((cell) => (
-                    <th scope="col" set:html={rich(cell)} />
-                  ))}
-                </tr>
-              </thead>
-            )}
-            <tbody>
-              {bodyRows.map((row) => (
-                <tr>
-                  {row.map((cell, index) =>
-                    node.rowHeader && index === 0 ? (
-                      <th scope="row" set:html={rich(cell)} />
-                    ) : (
-                      <td set:html={rich(cell)} />
-                    ),
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      );
-    }
-    case 'columns':
-      return (
-        <div class="columns">
-          {node.columns.map((column) => (
-            <div
-              class="column"
-              style={column.widthRatio ? `--column-ratio: ${column.widthRatio}` : undefined}
-            >
-              <Self nodes={column.children} {...shared} />
-            </div>
-          ))}
-        </div>
-      );
+    case 'table':
+      return <TableBlock node={node} resolve={resolve} />;
     case 'database':
       return <DatabaseTable node={node} resolve={resolve} />;
     case 'toc':
-      return headings.length > 0 ? (
-        <nav class="toc" aria-label="Table of contents">
-          <ol>
-            {headings.map((heading) => (
-              <li class={`toc-${heading.level}`}>
-                <a href={`#${heading.anchor}`}>{heading.text}</a>
-              </li>
-            ))}
-          </ol>
-        </nav>
-      ) : null;
-    case 'page_link': {
-      const target = resolve(node.pageId);
-      return target ? (
-        <p class="page-link">
-          <a href={target.url}>{target.title || node.title}</a>
-        </p>
-      ) : null;
-    }
+      return <TocBlock headings={headings} />;
+    case 'page_link':
+      return <PageLink node={node} resolve={resolve} />;
     case 'container':
-      return <Self nodes={node.children} {...shared} />;
+      return <Self nodes={node.children} {...ctx} />;
     case 'unsupported':
-      return showUnsupported ? (
-        <div class="unsupported">Unsupported Notion block: {node.blockType}</div>
-      ) : null;
+      return <Unsupported node={node} />;
     default:
       return null;
   }

@@ -1,0 +1,61 @@
+---
+import { renderRichText, toneClass } from '../../lib/html';
+import type { CalloutNode } from '../../notion/types';
+import type { BlockContext, BlocksComponent } from './context';
+import Icon from './Icon.astro';
+
+interface Props {
+  node: CalloutNode;
+  ctx: BlockContext;
+  Blocks: BlocksComponent;
+}
+
+const { node, ctx, Blocks } = Astro.props;
+---
+
+<aside class:list={['callout', toneClass(node.color)]}>
+  {node.icon && <Icon icon={node.icon} />}
+  <div class="callout-body">
+    <p set:html={renderRichText(node.text, ctx.resolve)} />
+    {node.children.length > 0 && <Blocks nodes={node.children} {...ctx} />}
+  </div>
+</aside>
+
+<style>
+  .callout {
+    display: flex;
+    gap: 12px;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-inline-start: 3px solid var(--callout-stripe, var(--border));
+    border-radius: var(--radius);
+    background: var(--bg-code);
+  }
+  .callout.hl-yellow,
+  .callout.hl-orange,
+  .callout.hl-brown,
+  .callout.hl-gray {
+    --callout-stripe: var(--hl-yellow);
+  }
+  .callout.hl-pink,
+  .callout.hl-red {
+    --callout-stripe: var(--hl-pink);
+  }
+  .callout.hl-green {
+    --callout-stripe: var(--hl-green);
+  }
+  .callout.hl-blue,
+  .callout.hl-purple {
+    --callout-stripe: var(--hl-blue);
+  }
+  .callout[class*='c-'] {
+    --callout-stripe: currentColor;
+  }
+  .callout-body {
+    flex: 1;
+    min-inline-size: 0;
+  }
+  .callout-body > :global(* + *) {
+    margin-block-start: 0.75em;
+  }
+</style>

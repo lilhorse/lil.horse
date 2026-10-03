@@ -1,0 +1,20 @@
+---
+import { renderRichText, toneClass } from '../../lib/html';
+import type { ToggleNode } from '../../notion/types';
+import type { BlockContext, BlocksComponent } from './context';
+
+interface Props {
+  node: ToggleNode;
+  ctx: BlockContext;
+  Blocks: BlocksComponent;
+}
+
+const { node, ctx, Blocks } = Astro.props;
+---
+
+<details class:list={['toggle', toneClass(node.color)]}>
+  <summary set:html={renderRichText(node.summary, ctx.resolve)} />
+  <div class="toggle-body">
+    <Blocks nodes={node.children} {...ctx} />
+  </div>
+</details>

@@ -1,0 +1,31 @@
+---
+import { renderRichText, toneClass } from '../../lib/html';
+import type { ListNode } from '../../notion/types';
+import type { BlockContext, BlocksComponent } from './context';
+
+interface Props {
+  node: ListNode;
+  ctx: BlockContext;
+  Blocks: BlocksComponent;
+}
+
+const { node, ctx, Blocks } = Astro.props;
+const Tag = node.style === 'numbered' ? 'ol' : 'ul';
+---
+
+<Tag class={`list list-${node.style}`}>
+  {node.items.map((item) => (
+    <li class={toneClass(item.color)}>
+      {node.style === 'todo' && (
+        <input
+          type="checkbox"
+          checked={item.checked === true}
+          disabled
+          aria-label={item.checked ? 'Completed' : 'Not completed'}
+        />
+      )}
+      <span set:html={renderRichText(item.text, ctx.resolve)} />
+      {item.children.length > 0 && <Blocks nodes={item.children} {...ctx} />}
+    </li>
+  ))}
+</Tag>

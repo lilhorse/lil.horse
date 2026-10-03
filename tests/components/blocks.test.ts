@@ -315,7 +315,7 @@ describe('Blocks', () => {
       headings: [{ anchor: 'intro', text: 'Intro', level: 2 }],
       priorityImageId: 'img',
     });
-    expect(html).toContain('<a href="/blog/known">Known post</a>');
+    expect(html).toMatch(/<a href="\/blog\/known">.*Known post<\/a>/);
     expect(html).toContain('<a href="#intro">Intro</a>');
     expect(html).toContain('fetchpriority="high"');
   });

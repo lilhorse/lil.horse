@@ -1,0 +1,46 @@
+---
+import { renderRichText, toneClass } from '../../lib/html';
+import type { HeadingNode } from '../../notion/types';
+import type { BlockContext, BlocksComponent } from './context';
+
+interface Props {
+  node: HeadingNode;
+  ctx: BlockContext;
+  Blocks: BlocksComponent;
+}
+
+const { node, ctx, Blocks } = Astro.props;
+const Tag = `h${node.level}` as 'h2' | 'h3' | 'h4' | 'h5';
+const text = renderRichText(node.text, ctx.resolve);
+---
+
+{node.toggleable ? (
+  <details class="toggle-heading">
+    <summary>
+      <Tag id={node.anchor} class={toneClass(node.color)}>
+        {node.level === 2 && (
+          <Fragment>
+            <span class="heading-mark" aria-hidden="true">
+              ##
+            </span>{' '}
+          </Fragment>
+        )}
+        <Fragment set:html={text} />
+      </Tag>
+    </summary>
+    <div class="toggle-body">
+      <Blocks nodes={node.children} {...ctx} />
+    </div>
+  </details>
+) : (
+  <Tag id={node.anchor} class={toneClass(node.color)}>
+    {node.level === 2 && (
+      <Fragment>
+        <span class="heading-mark" aria-hidden="true">
+          ##
+        </span>{' '}
+      </Fragment>
+    )}
+    <Fragment set:html={text} />
+  </Tag>
+)}

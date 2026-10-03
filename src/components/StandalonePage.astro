@@ -27,11 +27,13 @@ if (!page)
   <article>
     <h1>{page.title}</h1>
     {page.cover && <Picture media={page.cover} alt="" priority />}
-    <Blocks
-      nodes={page.content.blocks}
-      resolve={site.resolve}
-      headings={page.content.headings}
-      priorityImageId={page.cover ? null : page.content.priorityImageId}
-    />
+    <div class="prose">
+      <Blocks
+        nodes={page.content.blocks}
+        resolve={site.resolve}
+        headings={page.content.headings}
+        priorityImageId={page.cover ? null : page.content.priorityImageId}
+      />
+    </div>
   </article>
 </Base>

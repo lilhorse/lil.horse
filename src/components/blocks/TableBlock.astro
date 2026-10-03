@@ -1,0 +1,40 @@
+---
+import { renderRichText, type LinkResolver } from '../../lib/html';
+import type { TableNode } from '../../notion/types';
+
+interface Props {
+  node: TableNode;
+  resolve: LinkResolver;
+}
+
+const { node, resolve } = Astro.props;
+const [first, ...rest] = node.rows;
+const body = node.columnHeader ? rest : node.rows;
+---
+
+<div class="table-scroll" tabindex="0" role="group" aria-label="Table">
+  <table>
+    {node.columnHeader && first && (
+      <thead>
+        <tr>
+          {first.map((cell) => (
+            <th scope="col" set:html={renderRichText(cell, resolve)} />
+          ))}
+        </tr>
+      </thead>
+    )}
+    <tbody>
+      {body.map((row) => (
+        <tr>
+          {row.map((cell, index) =>
+            node.rowHeader && index === 0 ? (
+              <th scope="row" set:html={renderRichText(cell, resolve)} />
+            ) : (
+              <td set:html={renderRichText(cell, resolve)} />
+            ),
+          )}
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>

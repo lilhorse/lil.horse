@@ -1,0 +1,23 @@
+---
+import { renderRichText, type LinkResolver } from '../../lib/html';
+import type { AudioNode } from '../../notion/types';
+
+interface Props {
+  node: AudioNode;
+  resolve: LinkResolver;
+}
+
+const { node, resolve } = Astro.props;
+---
+
+<figure class="audio">
+  <audio controls preload="none" src={node.media.src}></audio>
+  {node.caption.length > 0 && <figcaption set:html={renderRichText(node.caption, resolve)} />}
+</figure>
+
+<style>
+  audio {
+    display: block;
+    inline-size: 100%;
+  }
+</style>

@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { formatBytes, hostnameOf, relFor, renderCell, renderRichText } from '../../src/lib/html';
+import {
+  formatBytes,
+  hostnameOf,
+  relFor,
+  renderCell,
+  renderRichText,
+  toneClass,
+} from '../../src/lib/html';
 import type { Annotations, MediaRef, RichTextSpan } from '../../src/notion/types';
 
 const base: Annotations = {
@@ -174,6 +181,16 @@ describe('renderRichText', () => {
   });
 });
 
+describe('toneClass', () => {
+  it('gives the default text and background colours no class', () => {
+    expect(toneClass('default')).toBeUndefined();
+    expect(toneClass('default_background')).toBeUndefined();
+    expect(toneClass('gray_background')).toBe('hl-gray');
+    expect(toneClass('red')).toBe('c-red');
+    expect(renderRichText([span('plain', { color: 'default_background' })], resolve)).toBe('plain');
+  });
+});
+
 describe('renderCell', () => {
   it('renders each cell kind', () => {
     expect(renderCell(undefined, resolve)).toBe('');
@@ -184,6 +201,9 @@ describe('renderCell', () => {
     expect(renderCell({ kind: 'chips', values: [{ name: 'Drama', color: 'blue' }] }, resolve)).toBe(
       '<span class="chip c-blue">Drama</span>',
     );
+    expect(
+      renderCell({ kind: 'chips', values: [{ name: 'Plain', color: 'default' }] }, resolve),
+    ).toBe('<span class="chip">Plain</span>');
     expect(renderCell({ kind: 'date', start: '2023-10-21', end: null }, resolve)).toBe(
       '<time datetime="2023-10-21">2023-10-21</time>',
     );

@@ -1,0 +1,20 @@
+---
+import { renderRichText, toneClass } from '../../lib/html';
+import type { ParagraphNode } from '../../notion/types';
+import type { BlockContext, BlocksComponent } from './context';
+
+interface Props {
+  node: ParagraphNode;
+  ctx: BlockContext;
+  Blocks: BlocksComponent;
+}
+
+const { node, ctx, Blocks } = Astro.props;
+---
+
+<p class={toneClass(node.color)} set:html={renderRichText(node.text, ctx.resolve)} />
+{node.children.length > 0 && (
+  <div class="indent">
+    <Blocks nodes={node.children} {...ctx} />
+  </div>
+)}

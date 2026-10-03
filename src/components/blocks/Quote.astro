@@ -1,0 +1,18 @@
+---
+import { renderRichText, toneClass } from '../../lib/html';
+import type { QuoteNode } from '../../notion/types';
+import type { BlockContext, BlocksComponent } from './context';
+
+interface Props {
+  node: QuoteNode;
+  ctx: BlockContext;
+  Blocks: BlocksComponent;
+}
+
+const { node, ctx, Blocks } = Astro.props;
+---
+
+<blockquote class={toneClass(node.color)}>
+  <p set:html={renderRichText(node.text, ctx.resolve)} />
+  {node.children.length > 0 && <Blocks nodes={node.children} {...ctx} />}
+</blockquote>

@@ -1,6 +1,6 @@
 import { domainToUnicode } from 'node:url';
 import katex from 'katex';
-import type { DbCell, MediaRef, RichText, RichTextSpan } from '../notion/types';
+import type { DbCell, MediaRef, NotionColor, RichText, RichTextSpan } from '../notion/types';
 import { KATEX_OPTIONS } from './katex';
 import type { LinkTarget } from './links';
 
@@ -22,6 +22,11 @@ export function isSafeHref(href: string): boolean {
   // Browsers drop tabs and newlines and read '\' as '/', so '/\n/host' and '/\host' mean '//host'.
   const url = stripTabsAndNewlines(href);
   return /^(https?:|mailto:|tel:)/i.test(url) || /^\/(?![/\\])/.test(url) || url.startsWith('#');
+}
+
+/** Like colorClass, but the default text and background colours get no class. */
+export function toneClass(color: NotionColor): string | undefined {
+  return color === 'default' || color === 'default_background' ? undefined : colorClass(color);
 }
 
 export function colorClass(color: string): string {
@@ -83,8 +88,8 @@ function renderSpan(span: RichTextSpan): string {
   if (annotations.italic) html = `<em>${html}</em>`;
   if (annotations.strikethrough) html = `<s>${html}</s>`;
   if (annotations.underline) html = `<u>${html}</u>`;
-  if (annotations.color !== 'default')
-    html = `<span class="${colorClass(annotations.color)}">${html}</span>`;
+  const tone = toneClass(annotations.color);
+  if (tone) html = `<span class="${tone}">${html}</span>`;
   return html;
 }
 
@@ -127,10 +132,10 @@ export function renderCell(cell: DbCell | undefined, resolve: LinkResolver): str
       return renderRichText(cell.text, resolve);
     case 'chips':
       return cell.values
-        .map(
-          (value) =>
-            `<span class="chip ${colorClass(value.color)}">${escapeHtml(value.name)}</span>`,
-        )
+        .map((value) => {
+          const tone = toneClass(value.color);
+          return `<span class="${tone ? `chip ${tone}` : 'chip'}">${escapeHtml(value.name)}</span>`;
+        })
         .join(' ');
     case 'date': {
       const start = `<time datetime="${escapeAttr(cell.start)}">${escapeHtml(cell.start)}</time>`;

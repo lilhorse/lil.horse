@@ -1,0 +1,45 @@
+---
+import type { LinkResolver } from '../../lib/html';
+import type { PageLinkNode } from '../../notion/types';
+
+interface Props {
+  node: PageLinkNode;
+  resolve: LinkResolver;
+}
+
+const { node, resolve } = Astro.props;
+const target = resolve(node.pageId);
+---
+
+{target && (
+  <p class="page-link">
+    <a href={target.url}>
+      <span class="arrow" aria-hidden="true">
+        »
+      </span>{' '}
+      {target.title || node.title}
+    </a>
+  </p>
+)}
+
+<style>
+  a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-block-size: 44px;
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: none;
+    color: var(--fg);
+    font-family: var(--font-mono);
+    font-size: var(--text-cmd);
+  }
+  a:hover {
+    border-color: var(--accent);
+  }
+  .arrow {
+    color: var(--accent);
+  }
+</style>

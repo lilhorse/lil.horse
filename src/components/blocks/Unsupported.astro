@@ -1,0 +1,22 @@
+---
+import type { UnsupportedNode } from '../../notion/types';
+
+interface Props {
+  node: UnsupportedNode;
+}
+
+const { node } = Astro.props;
+---
+
+{import.meta.env.DEV && <div class="unsupported">Unsupported Notion block: {node.blockType}</div>}
+
+<style>
+  .unsupported {
+    padding: 8px 12px;
+    border: 1px dashed var(--danger);
+    border-radius: var(--radius-sm);
+    color: var(--danger);
+    font-family: var(--font-mono);
+    font-size: var(--text-ui);
+  }
+</style>

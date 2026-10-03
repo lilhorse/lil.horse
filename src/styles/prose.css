@@ -1,0 +1,267 @@
+@layer prose {
+  .prose {
+    color: var(--fg-soft);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--leading-en);
+  }
+
+  .prose:lang(zh) {
+    line-height: var(--leading-zh);
+    text-autospace: normal;
+  }
+
+  .prose > * + *,
+  .prose :is(.indent, .toggle-body, blockquote, li) > * + * {
+    margin-block-start: 1em;
+  }
+
+  .prose :is(h2, h3, h4, h5) {
+    color: var(--fg);
+    font-family: var(--font-mono);
+    font-weight: 700;
+    line-height: 1.35;
+    scroll-margin-block-start: 16px;
+  }
+
+  .prose > :is(h2, h3, h4, h5, .toggle-heading) {
+    margin-block-start: 2em;
+  }
+
+  .prose h2 {
+    font-size: 1.25rem;
+  }
+
+  .prose h3 {
+    font-size: 1.0625rem;
+  }
+
+  .prose h4,
+  .prose h5 {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .heading-mark {
+    color: var(--heading-mark);
+    font-weight: 400;
+  }
+
+  .prose strong {
+    color: var(--fg);
+    font-weight: 600;
+  }
+
+  .prose a {
+    color: var(--accent);
+    text-decoration: none;
+    background-image: linear-gradient(transparent 58%, var(--hl-yellow) 58%);
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+
+  .prose a:hover {
+    background-image: linear-gradient(var(--hl-yellow), var(--hl-yellow));
+  }
+
+  .prose :not(pre) > code {
+    padding: 0.1em 0.35em;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-code);
+    color: var(--fg);
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+  }
+
+  .prose :is(ul, ol) {
+    padding-inline-start: 1.4em;
+  }
+
+  .prose li + li {
+    margin-block-start: 0.35em;
+  }
+
+  .prose li::marker {
+    color: var(--muted);
+  }
+
+  .prose .list-todo {
+    padding-inline-start: 0.2em;
+    list-style: none;
+  }
+
+  .prose .list-todo input {
+    margin-inline-end: 0.5em;
+    accent-color: var(--accent);
+  }
+
+  .prose .indent {
+    padding-inline-start: 1.4em;
+  }
+
+  .prose blockquote {
+    padding-inline-start: 1em;
+    border-inline-start: 3px solid var(--border);
+  }
+
+  .prose hr {
+    margin-block: 2em;
+    border: 0;
+    border-block-start: 1px solid var(--rule);
+  }
+
+  .prose figcaption {
+    margin-block-start: 8px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-ui);
+    line-height: 1.5;
+  }
+
+  .prose summary {
+    display: flex;
+    gap: 0.5em;
+    align-items: baseline;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .prose summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .prose summary::before {
+    color: var(--muted);
+    font-family: var(--font-mono);
+    content: '▸';
+    content: '▸' / '';
+  }
+
+  .prose details[open] > summary::before {
+    content: '▾';
+    content: '▾' / '';
+  }
+
+  .prose summary > :is(h2, h3, h4, h5) {
+    margin: 0;
+  }
+
+  .prose .toggle-body {
+    margin-block-start: 0.75em;
+    padding-inline-start: 1.4em;
+  }
+
+  .prose table {
+    inline-size: 100%;
+    border-collapse: collapse;
+    font-size: 0.9375em;
+    line-height: 1.5;
+  }
+
+  .prose th {
+    padding: 6px 10px;
+    background: var(--hl-yellow);
+    color: var(--fg);
+    font-family: var(--font-mono);
+    font-size: var(--text-ui);
+    font-weight: 600;
+    text-align: start;
+  }
+
+  .prose td {
+    padding: 6px 10px;
+    border-block-end: 1px solid var(--rule);
+    vertical-align: top;
+  }
+
+  .prose .table-scroll {
+    overflow-x: auto;
+    background:
+      linear-gradient(to right, var(--bg) 30%, transparent) left / 24px 100% no-repeat local,
+      linear-gradient(to left, var(--bg) 30%, transparent) right / 24px 100% no-repeat local,
+      radial-gradient(
+          farthest-side at 0 50%,
+          color-mix(in oklab, var(--fg) 25%, transparent),
+          transparent
+        )
+        left / 10px 100% no-repeat scroll,
+      radial-gradient(
+          farthest-side at 100% 50%,
+          color-mix(in oklab, var(--fg) 25%, transparent),
+          transparent
+        )
+        right / 10px 100% no-repeat scroll;
+  }
+
+  .prose .c-gray {
+    color: var(--muted);
+  }
+
+  .prose .c-brown {
+    color: var(--text-brown);
+  }
+
+  .prose .c-orange {
+    color: var(--text-orange);
+  }
+
+  .prose .c-yellow {
+    color: var(--text-yellow);
+  }
+
+  .prose .c-green {
+    color: var(--ok);
+  }
+
+  .prose .c-blue {
+    color: var(--accent);
+  }
+
+  .prose .c-purple {
+    color: var(--text-purple);
+  }
+
+  .prose :is(.c-pink, .c-red) {
+    color: var(--danger);
+  }
+
+  .prose :is(.hl-yellow, .hl-orange, .hl-brown, .hl-gray) {
+    background-color: var(--hl-yellow);
+    color: var(--fg);
+  }
+
+  .prose :is(.hl-pink, .hl-red) {
+    background-color: var(--hl-pink);
+    color: var(--fg);
+  }
+
+  .prose .hl-green {
+    background-color: var(--hl-green);
+    color: var(--fg);
+  }
+
+  .prose :is(.hl-blue, .hl-purple) {
+    background-color: var(--hl-blue);
+    color: var(--fg);
+  }
+
+  .prose span:is([class^='hl-']) {
+    padding-inline: 0.15em;
+    border-radius: 3px;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+
+  .prose :is(p, li, h2, h3, h4, h5, blockquote):is([class^='hl-']) {
+    padding: 0.2em 0.5em;
+    border-radius: 4px;
+  }
+
+  @media (max-width: 639.98px) {
+    .prose summary {
+      min-block-size: 44px;
+      align-items: center;
+    }
+  }
+}

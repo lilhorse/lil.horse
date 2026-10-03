@@ -49,12 +49,14 @@ const lang = post.language === 'zh' ? 'zh-Hans' : 'en';
       )}
     </header>
     {post.cover && <Picture media={post.cover} alt="" priority />}
-    <Blocks
-      nodes={post.content.blocks}
-      resolve={site.resolve}
-      headings={post.content.headings}
-      priorityImageId={post.cover ? null : post.content.priorityImageId}
-    />
+    <div class="prose">
+      <Blocks
+        nodes={post.content.blocks}
+        resolve={site.resolve}
+        headings={post.content.headings}
+        priorityImageId={post.cover ? null : post.content.priorityImageId}
+      />
+    </div>
   </article>
   <nav aria-label="Adjacent posts">
     {previous && (
