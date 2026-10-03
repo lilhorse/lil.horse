@@ -7,6 +7,17 @@ export default defineConfig({
     testTimeout: 30_000,
     projects: [
       { test: { name: 'unit', include: ['tests/unit/**/*.test.ts'] } },
+      {
+        test: {
+          name: 'dom',
+          include: ['tests/dom/**/*.test.ts'],
+          environment: 'happy-dom',
+          // Tests must never reach the network, not even for an iframe's page.
+          environmentOptions: {
+            happyDOM: { settings: { navigation: { disableChildFrameNavigation: true } } },
+          },
+        },
+      },
       // The dev toolbar would add data-astro-source-* attributes to every element.
       getViteConfig(
         { test: { name: 'components', include: ['tests/components/**/*.test.ts'] } },

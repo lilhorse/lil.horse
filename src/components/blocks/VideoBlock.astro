@@ -1,5 +1,6 @@
 ---
-import { isSafeHref, renderRichText, type LinkResolver } from '../../lib/html';
+import { isSafeHref, relFor, renderRichText, type LinkResolver } from '../../lib/html';
+import { plain } from '../../notion/rich-text';
 import type { VideoNode } from '../../notion/types';
 import Picture from './Picture.astro';
 
@@ -10,26 +11,31 @@ interface Props {
 
 const { node, resolve } = Astro.props;
 const { source } = node;
+const title = plain(node.caption).trim() || 'YouTube video';
 ---
 
 <figure class="video">
   {source.kind === 'youtube' && (
     <a
-      class="video-youtube"
+      class="youtube"
       href={`https://www.youtube.com/watch?v=${source.videoId}`}
       rel="noopener noreferrer"
+      data-youtube={source.videoId}
+      data-title={title}
     >
-      {source.poster ? (
-        <Picture media={source.poster} alt="Play the video on YouTube" />
-      ) : (
-        'Watch on YouTube'
-      )}
+      {source.poster && <Picture media={source.poster} alt="" />}
+      <svg class="play" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+        <circle cx="24" cy="24" r="24" fill="rgb(0 0 0 / 0.65)" />
+        <path d="M19 14.5 35 24l-16 9.5z" fill="#ffffff" />
+      </svg>
+      <span class="sr-only">Play video: {title}</span>
     </a>
   )}
   {source.kind === 'vimeo' && (
     <iframe
+      class="frame"
       src={`https://player.vimeo.com/video/${source.videoId}${source.hash ? `?h=${source.hash}` : ''}`}
-      title="Vimeo video"
+      title={plain(node.caption).trim() || 'Vimeo video'}
       loading="lazy"
       allow="fullscreen; picture-in-picture"
       allowfullscreen
@@ -38,7 +44,7 @@ const { source } = node;
   {source.kind === 'file' && <video controls preload="none" src={source.media.src} />}
   {source.kind === 'link' &&
     (isSafeHref(source.url) ? (
-      <a href={source.url} rel="noopener noreferrer">
+      <a href={source.url} rel={relFor(source.url)}>
         {source.url}
       </a>
     ) : (
@@ -46,3 +52,48 @@ const { source } = node;
     ))}
   {node.caption.length > 0 && <figcaption set:html={renderRichText(node.caption, resolve)} />}
 </figure>
+
+<script>
+  import { enhanceYouTube } from '../../scripts/youtube-facade';
+
+  enhanceYouTube(document);
+</script>
+
+<style>
+  .youtube,
+  .frame,
+  .video :global(.youtube-player) {
+    position: relative;
+    display: block;
+    inline-size: 100%;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: #000;
+  }
+  .youtube {
+    text-decoration: none;
+  }
+  .youtube :global(img) {
+    inline-size: 100%;
+    block-size: 100%;
+    object-fit: cover;
+  }
+  .play {
+    position: absolute;
+    inset: 50% auto auto 50%;
+    inline-size: 64px;
+    block-size: 64px;
+    translate: -50% -50%;
+  }
+  .youtube:hover .play circle,
+  .youtube:focus-visible .play circle {
+    fill: var(--danger);
+  }
+  video {
+    display: block;
+    inline-size: 100%;
+    border-radius: var(--radius-sm);
+  }
+</style>

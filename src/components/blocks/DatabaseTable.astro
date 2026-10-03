@@ -1,6 +1,6 @@
 ---
 import { renderCell, type LinkResolver } from '../../lib/html';
-import type { DatabaseNode, DbRow } from '../../notion/types';
+import type { DatabaseNode, DbColumn, DbRow } from '../../notion/types';
 
 interface Props {
   node: DatabaseNode;
@@ -11,13 +11,18 @@ const VISIBLE_ROWS = 10;
 const { node, resolve } = Astro.props;
 const visible = node.rows.slice(0, VISIBLE_ROWS);
 const hidden = node.rows.slice(VISIBLE_ROWS);
-const cellsOf = (row: DbRow) =>
-  node.columns.map((column) => renderCell(row.cells[column.id], resolve));
+const cellClass = (column: DbColumn) =>
+  column.format === 'stars' ? 'stars' : column.type === 'date' ? 'date' : undefined;
+const cells = (row: DbRow) =>
+  node.columns.map((column) => ({
+    className: cellClass(column),
+    html: renderCell(row.cells[column.id], resolve),
+  }));
 ---
 
 <figure class="database">
   <figcaption>{node.title}</figcaption>
-  <div class="table-scroll">
+  <div class="table-scroll" tabindex="0" role="group" aria-label={node.title}>
     <table>
       <thead>
         <tr>
@@ -29,8 +34,8 @@ const cellsOf = (row: DbRow) =>
       <tbody>
         {visible.map((row) => (
           <tr>
-            {cellsOf(row).map((html) => (
-              <td set:html={html} />
+            {cells(row).map((cell) => (
+              <td class={cell.className} set:html={cell.html} />
             ))}
           </tr>
         ))}
@@ -40,7 +45,7 @@ const cellsOf = (row: DbRow) =>
   {hidden.length > 0 && (
     <details class="database-more">
       <summary>Show all {node.rows.length} rows</summary>
-      <div class="table-scroll">
+      <div class="table-scroll" tabindex="0" role="group" aria-label={node.title}>
         <table>
           <thead>
             <tr>
@@ -52,8 +57,8 @@ const cellsOf = (row: DbRow) =>
           <tbody>
             {hidden.map((row) => (
               <tr>
-                {cellsOf(row).map((html) => (
-                  <td set:html={html} />
+                {cells(row).map((cell) => (
+                  <td class={cell.className} set:html={cell.html} />
                 ))}
               </tr>
             ))}
@@ -63,3 +68,35 @@ const cellsOf = (row: DbRow) =>
     </details>
   )}
 </figure>
+
+<style>
+  .database > figcaption {
+    margin: 0 0 8px;
+    color: var(--fg);
+    font-weight: 600;
+    text-align: start;
+  }
+  td {
+    white-space: nowrap;
+  }
+  .date {
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-ui);
+  }
+  .stars :global(.stars) {
+    color: var(--star);
+    letter-spacing: 1px;
+  }
+  .database-more {
+    margin-block-start: 8px;
+  }
+  .database-more > summary {
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: var(--text-ui);
+  }
+  .database-more > .table-scroll {
+    margin-block-start: 8px;
+  }
+</style>

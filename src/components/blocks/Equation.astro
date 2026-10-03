@@ -9,4 +9,11 @@ interface Props {
 const html = katex.renderToString(Astro.props.expression, { ...KATEX_OPTIONS, displayMode: true });
 ---
 
-<div class="equation" set:html={html} />
+<div class="equation" tabindex="0" role="group" aria-label="Equation" set:html={html} />
+
+<style>
+  .equation {
+    overflow-x: auto;
+    padding-block: 4px;
+  }
+</style>

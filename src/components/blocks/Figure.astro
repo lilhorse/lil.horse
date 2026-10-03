@@ -18,3 +18,14 @@ const { media, alt, caption, resolve, priority = false } = Astro.props;
   <Picture media={media} alt={alt} priority={priority} />
   {caption.length > 0 && <figcaption set:html={renderRichText(caption, resolve)} />}
 </figure>
+
+<style>
+  .figure :global(img) {
+    display: block;
+    margin-inline: auto;
+    border-radius: var(--radius-sm);
+  }
+  figcaption {
+    text-align: center;
+  }
+</style>

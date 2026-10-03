@@ -55,3 +55,76 @@ const icon =
   )}
   {node.caption.length > 0 && <figcaption set:html={renderRichText(node.caption, resolve)} />}
 </figure>
+
+<style>
+  .bookmark-link {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'title image'
+      'description image'
+      'site image';
+    align-content: start;
+    gap: 4px 16px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: none;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .bookmark-link:hover {
+    border-color: var(--accent);
+  }
+  .bookmark-title {
+    grid-area: title;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    line-height: 1.4;
+  }
+  .bookmark-description {
+    display: -webkit-box;
+    grid-area: description;
+    overflow: hidden;
+    color: var(--muted);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+  .bookmark-site {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    grid-area: site;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-ui);
+  }
+  .bookmark-link :global(picture),
+  .bookmark-link > :global(img) {
+    grid-area: image;
+    inline-size: 160px;
+  }
+  .bookmark-link :global(img:not(.bookmark-icon)) {
+    display: block;
+    inline-size: 160px;
+    block-size: 100%;
+    max-block-size: 96px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+  }
+  @media (max-width: 639.98px) {
+    .bookmark-link {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: 'title' 'description' 'site';
+    }
+    .bookmark-link :global(picture),
+    .bookmark-link > :global(img:not(.bookmark-icon)) {
+      display: none;
+    }
+  }
+</style>

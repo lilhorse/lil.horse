@@ -11,9 +11,51 @@ const { node, resolve } = Astro.props;
 ---
 
 <figure class="file">
-  <a href={node.media.src} download={node.name}>
-    {node.name}
-  </a>{' '}
-  <span class="file-size">{formatBytes(node.media.bytes)}</span>
+  <a class="card" href={node.media.src} download={node.name}>
+    <svg class="icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path
+        d="M8 2v8m-3.5-3.5L8 10l3.5-3.5M3 13h10"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+      ></path>
+    </svg>
+    <span class="name">{node.name}</span> <span class="size">{formatBytes(node.media.bytes)}</span>
+  </a>
   {node.caption.length > 0 && <figcaption set:html={renderRichText(node.caption, resolve)} />}
 </figure>
+
+<style>
+  .card {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    min-block-size: 44px;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: none;
+    color: var(--fg);
+    font-family: var(--font-mono);
+    font-size: var(--text-cmd);
+  }
+  .card:hover {
+    border-color: var(--accent);
+  }
+  .icon {
+    flex: none;
+    inline-size: 16px;
+    block-size: 16px;
+    color: var(--accent);
+  }
+  .name {
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+  }
+  .size {
+    margin-inline-start: auto;
+    color: var(--muted);
+    font-size: var(--text-ui);
+    white-space: nowrap;
+  }
+</style>
