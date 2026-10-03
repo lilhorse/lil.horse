@@ -14,6 +14,11 @@ const code = (overrides: Partial<CodeNode>): CodeNode => ({
   ...overrides,
 });
 
+const span = (colours: string, text: string) => `<span style="${colours}">${text}</span>`;
+const FUNCTION = '--0:#7AA2F7;--1:#1F4FD6';
+const STRING = '--0:#9ECE6A;--1:#2F7A2F';
+const TEXT = '--0:#C0CAF5;--1:#1F1B16';
+
 describe('CodeBlock', () => {
   it('frames shell code as a terminal in the exact colours of both themes', async () => {
     const html = await render(CodeBlock, { node: code({}), resolve: () => undefined });
@@ -28,5 +33,23 @@ describe('CodeBlock', () => {
       resolve: () => undefined,
     });
     expect(html).toContain('<span class="title">src/a.ts</span>');
+  });
+
+  it('gives a Python call the function colour on its name only', async () => {
+    const html = await render(CodeBlock, {
+      node: code({ language: 'python', code: 'print("hi")', frame: 'none' }),
+      resolve: () => undefined,
+    });
+    expect(html).toContain(
+      span(FUNCTION, 'print') + span(TEXT, '(') + span(STRING, '"hi"') + span(TEXT, ')'),
+    );
+  });
+
+  it('keeps the function colour on a JavaScript method name', async () => {
+    const html = await render(CodeBlock, {
+      node: code({ language: 'javascript', code: 'console.log(x)', frame: 'none' }),
+      resolve: () => undefined,
+    });
+    expect(html).toContain(span(FUNCTION, 'log'));
   });
 });

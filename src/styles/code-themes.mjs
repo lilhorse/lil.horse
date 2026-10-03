@@ -41,7 +41,7 @@ function theme({ name, type, ui, code }) {
           'entity.name.function',
           'support.function',
           'variable.function',
-          'meta.function-call',
+          'meta.function-call.generic',
           'entity.other.attribute-name',
         ],
         settings: { foreground: code.function },
