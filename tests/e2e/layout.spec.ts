@@ -11,10 +11,11 @@ const HOVER_LINKS = [
   ['/projects', '.card .name a'],
 ] as const;
 
-/** Controls under 44 x 44 px, leaving out links that flow inside prose text. */
+/** Rendered controls under 44 x 44 px, leaving out links that flow inside prose text. */
 function smallTargets(page: Page, selector: string): Promise<string[]> {
   return page.$$eval(selector, (elements) =>
     elements.flatMap((element) => {
+      if (!element.checkVisibility()) return [];
       const box = element.getBoundingClientRect();
       if (box.width === 0 || element.classList.contains('skip-link')) return [];
       if (element.closest('.prose') && getComputedStyle(element).display === 'inline') return [];
@@ -33,7 +34,7 @@ test('no page scrolls sideways', async ({ page }) => {
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
-    expect(overflow, path).toBeLessThanOrEqual(0);
+    expect.soft(overflow, path).toBeLessThanOrEqual(0);
   }
 });
 
@@ -42,7 +43,7 @@ test('phone tap targets are at least 44 by 44 pixels', async ({ page }, testInfo
   for (const path of [...pagePaths(), '/no-such-page']) {
     await page.goto(encodeURI(path));
     await settle(page);
-    expect(await smallTargets(page, TARGETS), path).toEqual([]);
+    expect.soft(await smallTargets(page, TARGETS), path).toEqual([]);
   }
 });
 
@@ -194,6 +195,7 @@ test('the phone menu opens from the keyboard', async ({ page }, testInfo) => {
   await expect(menu).toHaveAttribute('open', '');
   await expect(menu.getByRole('link', { name: 'contact' })).toBeVisible();
   await expect(menu.getByRole('link', { name: 'blog' })).toHaveAttribute('aria-current', 'page');
+  expect(await smallTargets(page, '.site-menu a[href]')).toEqual([]);
 });
 
 test('the 404 page names the missing path, decoded', async ({ page }) => {
