@@ -292,6 +292,26 @@ describe('syncNotion', () => {
     expect((await syncNotion(value)).posts.map((post) => post.slug)).toContain('wip');
   });
 
+  it('counts what it synced, in the singular for one', async () => {
+    const { api, config, sources, posts, projects } = workspace();
+    const summary = async (siteConfig: NotionSiteConfig) => {
+      const lines: string[] = [];
+      const { value } = await options(api, siteConfig, {
+        log: { info: (message) => lines.push(message), warn: () => undefined },
+      });
+      await syncNotion(value);
+      return lines;
+    };
+    expect(await summary(config)).toEqual(['Synced 3 posts, 2 projects and 2 pages from Notion']);
+
+    api.rows.set(sources.posts, [posts.hello]);
+    api.rows.set(sources.projects, [projects.tool]);
+    const pages = { about: config.pages.about } as NotionSiteConfig['pages'];
+    expect(await summary({ ...config, pages })).toEqual([
+      'Synced 1 post, 1 project and 1 page from Notion',
+    ]);
+  });
+
   it('reuses cached pages until the page or its inline database changes', async () => {
     const { api, config, posts, moviesDs } = workspace();
     const { root } = await options(api, config);

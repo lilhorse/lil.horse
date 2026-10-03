@@ -59,6 +59,9 @@ const byOrderThenName = (a: ProjectEntry, b: ProjectEntry) =>
 const digest = (value: unknown) =>
   createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 16);
 
+const count = (items: unknown[], noun: string) =>
+  `${items.length} ${noun}${items.length === 1 ? '' : 's'}`;
+
 // Cache checks only: written digests never contain it, so it can never match one.
 const MISSING = 'missing';
 
@@ -287,7 +290,7 @@ export async function syncNotion(options: SyncOptions): Promise<SiteContent> {
     if (entry.icon?.kind === 'image') mediaKeys.add(entry.icon.media.key);
 
   options.log.info(
-    `Synced ${postEntries.length} posts, ${projectEntries.length} projects and ${pageEntries.length} pages from Notion`,
+    `Synced ${count(postEntries, 'post')}, ${count(projectEntries, 'project')} and ${count(pageEntries, 'page')} from Notion`,
   );
   return {
     posts: postEntries.sort(byPublishedDesc),
