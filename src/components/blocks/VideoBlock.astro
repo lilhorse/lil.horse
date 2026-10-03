@@ -3,6 +3,7 @@ import { isSafeHref, relFor, renderRichText, type LinkResolver } from '../../lib
 import { plain } from '../../notion/rich-text';
 import type { VideoNode } from '../../notion/types';
 import Picture from './Picture.astro';
+import YouTubeFacadeScript from './YouTubeFacadeScript.astro';
 
 interface Props {
   node: VideoNode;
@@ -52,12 +53,7 @@ const title = plain(node.caption).trim() || 'YouTube video';
     ))}
   {node.caption.length > 0 && <figcaption set:html={renderRichText(node.caption, resolve)} />}
 </figure>
-
-<script>
-  import { enhanceYouTube } from '../../scripts/youtube-facade';
-
-  enhanceYouTube(document);
-</script>
+{source.kind === 'youtube' && <YouTubeFacadeScript />}
 
 <style>
   .youtube,

@@ -3,7 +3,7 @@ import DatabaseTable from '../../src/components/blocks/DatabaseTable.astro';
 import Equation from '../../src/components/blocks/Equation.astro';
 import VideoBlock from '../../src/components/blocks/VideoBlock.astro';
 import type { LinkResolver } from '../../src/lib/html';
-import type { DatabaseNode, RichText } from '../../src/notion/types';
+import type { DatabaseNode, RichText, VideoSource } from '../../src/notion/types';
 import { htmlErrors, render } from '../helpers/astro-render';
 
 const resolve: LinkResolver = () => undefined;
@@ -39,7 +39,7 @@ describe('VideoBlock', () => {
       '<a class="youtube" href="https://www.youtube.com/watch?v=abc_DEF-123" rel="noopener noreferrer" data-youtube="abc_DEF-123" data-title="A talk">',
     );
     expect(html).toContain('<span class="sr-only">Play video: A talk</span>');
-    expect(html).toMatch(/<script type="module" src="[^"]*VideoBlock[^"]*"><\/script>/);
+    expect(html).toMatch(/<script type="module" src="[^"]*YouTubeFacadeScript[^"]*"><\/script>/);
     expect(await htmlErrors(html)).toEqual([]);
   });
 
@@ -54,6 +54,32 @@ describe('VideoBlock', () => {
       resolve,
     });
     expect(html).toContain('title="Demo"');
+  });
+
+  it.each<VideoSource>([
+    { kind: 'vimeo', videoId: '1', hash: null },
+    {
+      kind: 'file',
+      media: {
+        key: 'clip',
+        kind: 'file',
+        mime: 'video/mp4',
+        bytes: 1024,
+        fileName: 'clip.mp4',
+        src: '/_media/clip/clip.mp4',
+        width: null,
+        height: null,
+        variants: [],
+        dominant: null,
+      },
+    },
+    { kind: 'link', url: 'https://example.com/v' },
+  ])('ships no script with a $kind video', async (source) => {
+    const html = await render(VideoBlock, {
+      node: { type: 'video', id: 'v', source, caption: [] },
+      resolve,
+    });
+    expect(html).not.toContain('<script');
   });
 });
 
