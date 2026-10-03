@@ -1,6 +1,6 @@
 ---
-import { renderRichText, type LinkResolver } from '../../lib/html';
-import type { HeadingRef, Node, RichText } from '../../notion/types';
+import { colorClass, renderRichText, type LinkResolver } from '../../lib/html';
+import type { HeadingRef, Node, NotionColor, RichText } from '../../notion/types';
 import BookmarkCard from './BookmarkCard.astro';
 import CodeBlock from './CodeBlock.astro';
 import DatabaseTable from './DatabaseTable.astro';
@@ -21,6 +21,7 @@ const { nodes, resolve, headings, priorityImageId = null } = Astro.props;
 const Self = Astro.self;
 const shared = { resolve, headings, priorityImageId };
 const rich = (text: RichText) => renderRichText(text, resolve);
+const tone = (color: NotionColor) => (color === 'default' ? undefined : colorClass(color));
 const showUnsupported = import.meta.env.DEV;
 ---
 
@@ -29,7 +30,7 @@ const showUnsupported = import.meta.env.DEV;
     case 'paragraph':
       return (
         <Fragment>
-          <p class={`c-${node.color}`} set:html={rich(node.text)} />
+          <p class={tone(node.color)} set:html={rich(node.text)} />
           {node.children.length > 0 && (
             <div class="indent">
               <Self nodes={node.children} {...shared} />
@@ -39,7 +40,7 @@ const showUnsupported = import.meta.env.DEV;
       );
     case 'heading': {
       const Tag = `h${node.level}` as 'h2' | 'h3' | 'h4' | 'h5';
-      const heading = <Tag id={node.anchor} class={`c-${node.color}`} set:html={rich(node.text)} />;
+      const heading = <Tag id={node.anchor} class={tone(node.color)} set:html={rich(node.text)} />;
       if (!node.toggleable) return heading;
       return (
         <details class="toggle-heading">
@@ -53,7 +54,7 @@ const showUnsupported = import.meta.env.DEV;
       return (
         <ListTag class={`list list-${node.style}`}>
           {node.items.map((item) => (
-            <li class={`c-${item.color}`}>
+            <li class={tone(item.color)}>
               {node.style === 'todo' && (
                 <input
                   type="checkbox"
@@ -71,14 +72,14 @@ const showUnsupported = import.meta.env.DEV;
     }
     case 'quote':
       return (
-        <blockquote class={`c-${node.color}`}>
+        <blockquote class={tone(node.color)}>
           <p set:html={rich(node.text)} />
           {node.children.length > 0 && <Self nodes={node.children} {...shared} />}
         </blockquote>
       );
     case 'callout':
       return (
-        <aside class={`callout c-${node.color}`}>
+        <aside class:list={['callout', tone(node.color)]}>
           {node.icon && <Icon icon={node.icon} />}
           <div class="callout-body">
             <p set:html={rich(node.text)} />
@@ -88,7 +89,7 @@ const showUnsupported = import.meta.env.DEV;
       );
     case 'toggle':
       return (
-        <details class={`toggle c-${node.color}`}>
+        <details class:list={['toggle', tone(node.color)]}>
           <summary set:html={rich(node.summary)} />
           <Self nodes={node.children} {...shared} />
         </details>

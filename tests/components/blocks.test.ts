@@ -173,6 +173,60 @@ describe('Blocks', () => {
     children,
   });
 
+  it('maps colours to text and highlight classes and leaves default blocks unclassed', async () => {
+    const nodes: Node[] = [
+      paragraph('default'),
+      paragraph('gray_background'),
+      {
+        type: 'heading',
+        id: 'h',
+        level: 2,
+        text: text('Heading'),
+        anchor: 'heading',
+        color: 'red',
+        toggleable: false,
+        children: [],
+      },
+      {
+        type: 'list',
+        id: 'l',
+        style: 'bulleted',
+        items: [
+          { id: 'i1', text: text('one'), color: 'default', checked: null, children: [] },
+          { id: 'i2', text: text('two'), color: 'blue_background', checked: null, children: [] },
+        ],
+      },
+      { type: 'quote', id: 'q', text: text('quote'), color: 'default', children: [] },
+      { type: 'callout', id: 'c1', icon: null, text: text('a'), color: 'default', children: [] },
+      {
+        type: 'callout',
+        id: 'c2',
+        icon: null,
+        text: text('b'),
+        color: 'yellow_background',
+        children: [],
+      },
+      { type: 'toggle', id: 't1', summary: text('c'), color: 'default', children: [] },
+      { type: 'toggle', id: 't2', summary: text('d'), color: 'purple', children: [] },
+    ];
+    const html = await render(Blocks, { nodes, resolve, headings: [] });
+    expect(html).not.toMatch(/c-default|_background/);
+    for (const tag of [
+      '<p>',
+      '<p class="hl-gray">',
+      '<h2 id="heading" class="c-red">',
+      '<li>',
+      '<li class="hl-blue">',
+      '<blockquote>',
+      '<aside class="callout">',
+      '<aside class="callout hl-yellow">',
+      '<details class="toggle">',
+      '<details class="toggle c-purple">',
+    ])
+      expect(html).toContain(tag);
+    expect(await htmlErrors(html)).toEqual([]);
+  });
+
   const nested: Node[] = [
     { type: 'page_link', id: 'pl', pageId: 'known', title: 'Known' },
     { type: 'toc', id: 'toc' },
