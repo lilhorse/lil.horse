@@ -1,8 +1,12 @@
 ---
 import { siteConfig } from '../../site.config';
+import CommandBlock from '../components/shell/CommandBlock.astro';
+import Neofetch from '../components/shell/Neofetch.astro';
+import PostList from '../components/shell/PostList.astro';
+import ProjectList from '../components/shell/ProjectList.astro';
 import Base from '../layouts/Base.astro';
 import { getSiteData } from '../lib/content';
-import { featuredProjects, homePosts, projectHref } from '../lib/selectors';
+import { featuredProjects, homePosts } from '../lib/selectors';
 
 const site = await getSiteData();
 const { profile } = site;
@@ -15,60 +19,15 @@ const projects = featuredProjects(site.projects);
   current="home"
   path="~/lil.horse"
 >
-  <section aria-labelledby="whoami">
-    <h1 id="whoami">{profile.name}</h1>
-    <dl>
-      <dt>Role</dt>
-      <dd>{profile.role}</dd>
-      <dt>Location</dt>
-      <dd>{profile.location}</dd>
-      {profile.stack.length > 0 && (
-        <Fragment>
-          <dt>Stack</dt>
-          <dd>{profile.stack.join(' · ')}</dd>
-        </Fragment>
-      )}
-      <dt>Status</dt>
-      <dd>{profile.availability}</dd>
-    </dl>
-    {profile.bio && <p>{profile.bio}</p>}
-  </section>
+  <CommandBlock full command="neofetch" heading={{ level: 1, text: profile.name }}>
+    <Neofetch profile={profile} />
+  </CommandBlock>
   {projects.length > 0 && (
-    <section aria-labelledby="projects-heading">
-      <h2 id="projects-heading">Projects</h2>
-      <ul>
-        {projects.map((project) => {
-          const href = projectHref(project);
-          return (
-            <li>
-              {href ? <a href={href}>{project.name}</a> : project.name}: {project.description}
-            </li>
-          );
-        })}
-      </ul>
-    </section>
+    <CommandBlock command="ls ~/projects" heading={{ level: 2, text: 'Projects' }}>
+      <ProjectList projects={projects} />
+    </CommandBlock>
   )}
-  <section aria-labelledby="posts-heading">
-    <h2 id="posts-heading">Latest posts</h2>
-    <ul>
-      {homePosts(site.posts).map((post) => (
-        <li>
-          <time datetime={post.published}>{post.published}</time>{' '}
-          <a href={`/blog/${post.slug}`}>{post.title}</a>
-          {post.status === 'Draft' && (
-            <Fragment>
-              {' '}
-              <span class="draft-badge">DRAFT</span>
-            </Fragment>
-          )}
-          {post.tags.map((tag) => (
-            <Fragment>
-              {' '}
-              <span class="tag">#{tag}</span>
-            </Fragment>
-          ))}
-        </li>
-      ))}
-    </ul>
-  </section>
+  <CommandBlock command="ls -lt ~/blog" pipe="| head" heading={{ level: 2, text: 'Latest posts' }}>
+    <PostList posts={homePosts(site.posts)} tags={site.tagSlugs} variant="files" />
+  </CommandBlock>
 </Base>

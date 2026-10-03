@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { socialLinks } from '../../src/lib/profile';
+import { emailHtml, socialLinks } from '../../src/lib/profile';
+
+describe('emailHtml', () => {
+  it('splits the address with comments so it never appears whole', () => {
+    expect(emailHtml('sup@lil.horse')).toBe('sup<!-- -->@<!-- -->lil.horse');
+    expect(emailHtml('sup@lil.horse')).not.toContain('sup@lil.horse');
+  });
+
+  it('escapes markup and rejects strings that are not addresses', () => {
+    expect(emailHtml('<a>@x.y')).toBe('&lt;a&gt;<!-- -->@<!-- -->x.y');
+    expect(emailHtml('nobody')).toBeNull();
+    expect(emailHtml('@lil.horse')).toBeNull();
+    expect(emailHtml('sup@')).toBeNull();
+  });
+});
 
 describe('socialLinks', () => {
   it('builds profile URLs from handles, with or without @', () => {

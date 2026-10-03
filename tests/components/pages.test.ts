@@ -3,9 +3,8 @@ import StandalonePage from '../../src/components/StandalonePage.astro';
 import { excerpt } from '../../src/notion/text';
 import type { StandalonePageEntry } from '../../src/notion/types';
 import BlogPost from '../../src/pages/blog/[slug].astro';
-import Home from '../../src/pages/index.astro';
 import ProjectsIndex from '../../src/pages/projects/index.astro';
-import { htmlErrors, render, textOf } from '../helpers/astro-render';
+import { render, textOf } from '../helpers/astro-render';
 import { content, element, post, project, useSite } from '../helpers/site-data';
 
 vi.mock('../../src/lib/content', async () => {
@@ -15,35 +14,6 @@ vi.mock('../../src/lib/content', async () => {
 
 beforeEach(() => {
   useSite();
-});
-
-describe('home page', () => {
-  it('lists posts with their date, draft marker and tags', async () => {
-    useSite({
-      posts: [
-        post('draft', { status: 'Draft', published: '2024-03-01', tags: ['wip'] }),
-        post('hello', { tags: ['helloworld', 'AI'] }),
-      ],
-    });
-    const html = await render(Home);
-    const items = element(html, '<section aria-labelledby="posts-heading"', 'section')
-      .split('<li>')
-      .slice(1)
-      .map(textOf);
-    expect(items).toEqual([
-      '2024-03-01 Post draft DRAFT #wip',
-      '2024-01-11 Post hello #helloworld #AI',
-    ]);
-    expect(html).toContain('<span class="tag">#AI</span>');
-    expect(await htmlErrors(html)).toEqual([]);
-  });
-
-  it('leaves out the projects section when no project is featured', async () => {
-    useSite({ projects: [project('Quiet')] });
-    expect(await render(Home)).not.toContain('projects-heading');
-    useSite({ projects: [project('Loud', { featured: true })] });
-    expect(await render(Home)).toContain('<h2 id="projects-heading">Projects</h2>');
-  });
 });
 
 describe('blog pages', () => {

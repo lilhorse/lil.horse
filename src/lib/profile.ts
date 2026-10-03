@@ -1,9 +1,16 @@
 import type { ProfileEntry } from '../notion/types';
-import { isSafeHref } from './html';
+import { escapeHtml, isSafeHref } from './html';
 
 export interface SocialLink {
   label: string;
   href: string;
+}
+
+/** The address as HTML with comments around "@", so the source never holds it in plain text. */
+export function emailHtml(email: string): string | null {
+  const at = email.lastIndexOf('@');
+  if (at <= 0 || at === email.length - 1) return null;
+  return `${escapeHtml(email.slice(0, at))}<!-- -->@<!-- -->${escapeHtml(email.slice(at + 1))}`;
 }
 
 function profileUrl(value: string | null, base: string): string | null {

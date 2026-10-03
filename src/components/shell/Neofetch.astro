@@ -1,0 +1,184 @@
+---
+import { emailHtml, socialLinks } from '../../lib/profile';
+import { SHELL } from '../../lib/shell';
+import type { Availability, ProfileEntry } from '../../notion/types';
+import PixelHorse from './PixelHorse.astro';
+
+interface Props {
+  profile: ProfileEntry;
+}
+
+const STATUS: Record<Availability, string> = {
+  'Open to work': 'open',
+  Freelancing: 'freelancing',
+  Busy: 'busy',
+};
+
+const { profile } = Astro.props;
+const email = profile.email ? emailHtml(profile.email) : null;
+const social = socialLinks(profile);
+---
+
+<div class="neofetch">
+  <PixelHorse grid={24} size={120} animated />
+  <div class="info">
+    <p class="title">
+      <span class="name">{SHELL.user}</span>
+      <span class="at">@</span>
+      <span class="name">{SHELL.host}</span>
+    </p>
+    <p class="rule" aria-hidden="true">
+      ------------------
+    </p>
+    <dl>
+      <div>
+        <dt>Role</dt>
+        <dd>{profile.role}</dd>
+      </div>
+      <div>
+        <dt>Location</dt>
+        <dd>{profile.location}</dd>
+      </div>
+      {profile.stack.length > 0 && (
+        <div>
+          <dt>Stack</dt>
+          <dd>{profile.stack.join(' · ')}</dd>
+        </div>
+      )}
+      <div>
+        <dt>Status</dt>
+        <dd class={`status ${STATUS[profile.availability]}`}>
+          <span class="dot" aria-hidden="true"></span>
+          {profile.availability}
+        </dd>
+      </div>
+      {(email || social.length > 0) && (
+        <div>
+          <dt>Contact</dt>
+          <dd>
+            {email && <span set:html={email} />}
+            {social.map((link, index) => (
+              <Fragment>
+                {(email || index > 0) && <span class="sep"> · </span>}
+                <a href={link.href} rel="me noopener noreferrer">
+                  {link.label}
+                </a>
+              </Fragment>
+            ))}
+          </dd>
+        </div>
+      )}
+    </dl>
+    <p class="swatches" aria-hidden="true">
+      <i></i>
+      <i></i>
+      <i></i>
+      <i></i>
+      <i></i>
+      <i></i>
+    </p>
+    {profile.bio && <p class="bio">{profile.bio}</p>}
+  </div>
+</div>
+
+<style>
+  .neofetch {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+  }
+  .info {
+    min-inline-size: 0;
+    line-height: 1.65;
+  }
+  .name {
+    color: var(--accent-2);
+    font-weight: 700;
+  }
+  .at,
+  .sep {
+    color: var(--muted);
+  }
+  .rule {
+    color: var(--faint);
+  }
+  dl > div {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 1ch;
+  }
+  dt {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  dt::after {
+    color: var(--fg);
+    content: ':';
+  }
+  .status {
+    display: inline-flex;
+    gap: 0.6ch;
+    align-items: center;
+  }
+  .dot {
+    inline-size: 0.6em;
+    block-size: 0.6em;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .open {
+    color: var(--ok);
+  }
+  .freelancing {
+    color: var(--accent);
+  }
+  .busy {
+    color: var(--muted);
+  }
+  .swatches {
+    display: flex;
+    margin-block-start: 8px;
+  }
+  .swatches i {
+    inline-size: 20px;
+    block-size: 12px;
+    background: var(--swatch-1);
+  }
+  .swatches i:nth-child(2) {
+    background: var(--swatch-2);
+  }
+  .swatches i:nth-child(3) {
+    background: var(--swatch-3);
+  }
+  .swatches i:nth-child(4) {
+    background: var(--swatch-4);
+  }
+  .swatches i:nth-child(5) {
+    background: var(--swatch-5);
+  }
+  .swatches i:nth-child(6) {
+    background: var(--swatch-6);
+  }
+  dd a {
+    text-decoration: none;
+  }
+  .bio {
+    margin-block-start: 12px;
+    color: var(--fg-soft);
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+  }
+  @media (max-width: 639.98px) {
+    .neofetch {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    dd a {
+      display: inline-flex;
+      align-items: center;
+      min-block-size: 44px;
+      min-inline-size: 44px;
+    }
+  }
+</style>

@@ -82,6 +82,18 @@ test('code blocks follow data-theme too', async ({ page }) => {
   expect(await code()).toBe('rgb(234, 237, 242)');
 });
 
+test('the glint stops when the visitor asks for less motion', async ({ page }) => {
+  const glint = () =>
+    page.evaluate(
+      () =>
+        getComputedStyle(document.querySelector('.animated .horse-glint') as Element).animationName,
+    );
+  await page.goto('/');
+  expect(await glint()).toBe('horse-glint');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  expect(await glint()).toBe('none');
+});
+
 test('the skip link appears on focus and jumps to the content', async ({ page }) => {
   await page.goto('/');
   await page.keyboard.press('Tab');

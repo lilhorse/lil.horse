@@ -1,0 +1,61 @@
+---
+import { relFor } from '../../lib/html';
+import { projectHref } from '../../lib/selectors';
+import type { ProjectEntry } from '../../notion/types';
+
+interface Props {
+  projects: ProjectEntry[];
+}
+
+const { projects } = Astro.props;
+---
+
+<ul class="projects">
+  {projects.map((project) => {
+    const href = projectHref(project);
+    return (
+      <li>
+        {href ? (
+          <a href={href} rel={relFor(href)}>
+            {project.name}/
+          </a>
+        ) : (
+          <span class="name">{project.name}/</span>
+        )}{' '}
+        <span class="description">{project.description}</span>
+      </li>
+    );
+  })}
+</ul>
+
+<style>
+  .projects {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 14px;
+    line-height: 1.8;
+  }
+  a,
+  .name {
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .description {
+    color: var(--muted);
+    font-family: var(--font-sans);
+  }
+  @media (max-width: 639.98px) {
+    a {
+      display: inline-flex;
+      align-items: center;
+      min-block-size: 44px;
+    }
+  }
+</style>
