@@ -17,7 +17,8 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "check:dist": "tsx scripts/check-dist.ts",
-    "record:fixtures": "tsx --env-file=.env scripts/record-fixtures.ts"
+    "record:fixtures": "tsx --env-file=.env scripts/record-fixtures.ts",
+    "brand": "tsx brand/build.ts"
   },
   "dependencies": {
     "@notionhq/client": "5.27.0",

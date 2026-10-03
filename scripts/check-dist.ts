@@ -9,6 +9,13 @@ const issues = await checkDist('dist', {
     'contact.html',
     '404.html',
     'blog/*.html',
+    'favicon.svg',
+    'favicon.ico',
+    'apple-touch-icon.png',
+    'site.webmanifest',
+    'icons/icon-192.png',
+    'icons/icon-512.png',
+    'icons/icon-maskable-512.png',
   ],
 });
 for (const { file, message } of issues)
