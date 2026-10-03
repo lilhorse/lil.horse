@@ -1,0 +1,139 @@
+---
+import type { Section } from '../../lib/shell';
+
+interface Props {
+  current: Section | null;
+}
+
+const ITEMS: { section: Section | 'contact'; href: string; label: string; icon: string }[] = [
+  { section: 'home', href: '/', label: 'home', icon: '~' },
+  { section: 'blog', href: '/blog', label: 'blog', icon: '▸' },
+  { section: 'projects', href: '/projects', label: 'projects', icon: '▸' },
+  { section: 'about', href: '/about', label: 'about', icon: '▸' },
+  { section: 'contact', href: '/contact', label: 'contact', icon: '▸' },
+];
+
+const { current } = Astro.props;
+---
+
+<details class="site-menu">
+  <summary>
+    <span class="button">
+      <svg class="icon-svg when-closed" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+        <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.6"></path>
+      </svg>
+      <svg class="icon-svg when-open" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+        <path d="M3.5 3.5l9 9m0-9-9 9" stroke="currentColor" stroke-width="1.6"></path>
+      </svg>
+      <span class="when-closed">menu</span>
+      <span class="when-open">close</span>
+    </span>
+  </summary>
+  <nav class="panel" aria-label="Menu">
+    <p class="label" aria-hidden="true">
+      go to
+    </p>
+    <ul>
+      {ITEMS.map((item, index) => (
+        <Fragment>
+          {index > 0 && ' '}
+          <li>
+            <a href={item.href} aria-current={item.section === current ? 'page' : undefined}>
+              <span class="icon" aria-hidden="true">
+                {item.icon}
+              </span>{' '}
+              {item.label}
+            </a>
+          </li>
+        </Fragment>
+      ))}
+    </ul>
+  </nav>
+</details>
+
+<style>
+  .site-menu {
+    display: none;
+  }
+  summary {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: 44px;
+    min-inline-size: 44px;
+    list-style: none;
+    cursor: pointer;
+  }
+  summary::-webkit-details-marker {
+    display: none;
+  }
+  .button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    block-size: 32px;
+    padding-inline: 9px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+    color: var(--fg);
+    font-size: var(--text-ui);
+  }
+  .icon-svg {
+    inline-size: 14px;
+    block-size: 14px;
+  }
+  .when-open,
+  [open] .when-closed {
+    display: none;
+  }
+  [open] .when-open {
+    display: inline-block;
+  }
+  .panel {
+    position: absolute;
+    inset-inline: 0;
+    inset-block-start: 100%;
+    z-index: 20;
+    padding: 12px;
+    background: var(--bg);
+    border-block-end: 1px solid var(--border);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 0.3);
+  }
+  .label {
+    margin: 2px 2px 6px;
+    color: var(--muted);
+    font-size: var(--text-ui);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-block-size: 44px;
+    padding-inline: 10px;
+    border-radius: var(--radius);
+    color: var(--fg);
+    font-size: var(--text-cmd);
+    text-decoration: none;
+  }
+  a[aria-current='page'] {
+    background: color-mix(in oklab, var(--accent) 14%, transparent);
+  }
+  .icon {
+    inline-size: 18px;
+    color: var(--accent);
+    text-align: center;
+  }
+  @media (max-width: 639.98px) {
+    .site-menu {
+      display: block;
+      margin-inline-start: auto;
+    }
+  }
+</style>

@@ -6,7 +6,7 @@ import { projectHref } from '../../lib/selectors';
 const site = await getSiteData();
 ---
 
-<Base title="Projects" description="Things I have built">
+<Base title="Projects" description="Things I have built" current="projects" path="~/projects">
   <h1>Projects</h1>
   <ul>
     {site.projects.map((project) => {

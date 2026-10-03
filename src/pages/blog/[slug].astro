@@ -26,6 +26,8 @@ const lang = post.language === 'zh' ? 'zh-Hans' : 'en';
   description={post.description}
   noindex={post.status !== 'Published'}
   hasMath={post.content.hasMath}
+  path={`~/blog/${post.slug}.md`}
+  file={`${post.slug}.md`}
 >
   <article lang={lang}>
     <header>

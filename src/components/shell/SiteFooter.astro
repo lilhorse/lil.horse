@@ -1,0 +1,97 @@
+---
+import type { SocialLink } from '../../lib/profile';
+import Prompt from './Prompt.astro';
+
+interface Props {
+  social: SocialLink[];
+  version: string;
+}
+
+const { social, version } = Astro.props;
+---
+
+<footer class="site-footer">
+  <div class="inner">
+    <p class="exit" aria-hidden="true">
+      <Prompt /> exit 0
+    </p>
+    <nav aria-label="Elsewhere">
+      <ul>
+        {social.map((link) => (
+          <Fragment>
+            <li>
+              <a href={link.href} rel="me noopener noreferrer">
+                {link.label}
+              </a>
+            </li>{' '}
+          </Fragment>
+        ))}
+        <li>
+          <a href="/contact">contact</a>
+        </li>
+      </ul>
+    </nav>
+    <p class="legal">
+      © Lil'Horse <span class="sep">·</span> Content{' '}
+      <a href="https://creativecommons.org/licenses/by-nc/4.0/" rel="license noopener noreferrer">
+        CC BY-NC 4.0
+      </a>{' '}
+      <span class="sep">·</span> Code{' '}
+      <a href="https://github.com/lilhorse/lil.horse/blob/main/LICENSE" rel="noopener noreferrer">
+        MIT
+      </a>{' '}
+      <span class="sep">·</span> build <span class="build">{version}</span>
+    </p>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    background: var(--bg-bar);
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: var(--text-ui);
+  }
+  .inner {
+    display: grid;
+    gap: 8px;
+    max-inline-size: calc(var(--measure) + 2 * var(--gutter));
+    margin-inline: auto;
+    padding: 16px var(--gutter) 24px;
+  }
+  .exit {
+    color: var(--fg);
+  }
+  ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  a {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: 24px;
+    color: var(--accent);
+  }
+  nav a {
+    text-decoration: none;
+  }
+  .build {
+    color: var(--fg);
+  }
+  @media (max-width: 639.98px) {
+    nav a {
+      justify-content: center;
+      min-block-size: 44px;
+      min-inline-size: 44px;
+    }
+    .legal a {
+      justify-content: center;
+      min-block-size: 44px;
+      min-inline-size: 44px;
+    }
+  }
+</style>

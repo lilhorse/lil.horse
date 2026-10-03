@@ -1,7 +1,13 @@
 ---
 import { Font } from 'astro:assets';
 import { siteConfig } from '../../site.config';
+import SiteFooter from '../components/shell/SiteFooter.astro';
+import SiteHeader from '../components/shell/SiteHeader.astro';
+import { siteVersion } from '../lib/build-info';
+import { getSiteData } from '../lib/content';
 import { KATEX_STYLESHEET } from '../lib/katex';
+import { socialLinks } from '../lib/profile';
+import type { Section } from '../lib/shell';
 import '../styles/tokens.css';
 import '../styles/base.css';
 
@@ -11,6 +17,10 @@ interface Props {
   noindex?: boolean;
   hasMath?: boolean;
   canonical?: boolean;
+  path: string;
+  current?: Section | null;
+  file?: string | null;
+  wide?: boolean;
 }
 
 // Element ids used in this layout must also be in LAYOUT_IDS in src/notion/page-content.ts.
@@ -20,7 +30,12 @@ const {
   noindex = false,
   hasMath = false,
   canonical = true,
+  path,
+  current = null,
+  file = null,
+  wide = false,
 } = Astro.props;
+const site = await getSiteData();
 const pageTitle = title === siteConfig.name ? title : `${title} · ${siteConfig.name}`;
 // With build.format 'file', Astro.url.pathname ends in .html at build time.
 const canonicalPath = Astro.url.pathname.replace(/\/index\.html$/, '/').replace(/\.html$/, '');
@@ -50,24 +65,10 @@ const canonicalUrl = new URL(canonicalPath, siteConfig.url).toString();
     <a class="skip-link" href="#main">
       Skip to content
     </a>
-    <header>
-      <nav aria-label="Primary">
-        <a href="/">~/lil.horse</a> <a href="/blog">blog</a> <a href="/projects">projects</a>{' '}
-        <a href="/about">about</a> <a href="/contact">contact</a>
-      </nav>
-    </header>
-    <main id="main">
+    <SiteHeader current={current} path={path} file={file} />
+    <main id="main" class={wide ? 'wide' : undefined}>
       <slot />
     </main>
-    <footer>
-      <p>exit 0</p>
-      <p>
-        © Lil'Horse · Content{' '}
-        <a href="https://creativecommons.org/licenses/by-nc/4.0/" rel="license">
-          CC BY-NC 4.0
-        </a>{' '}
-        · Code <a href="https://github.com/lilhorse/lil.horse/blob/main/LICENSE">MIT</a>
-      </p>
-    </footer>
+    <SiteFooter social={socialLinks(site.profile)} version={siteVersion()} />
   </body>
 </html>

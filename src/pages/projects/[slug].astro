@@ -22,7 +22,13 @@ const { project } = Astro.props;
 const site = await getSiteData();
 ---
 
-<Base title={project.name} description={project.description} hasMath={project.content.hasMath}>
+<Base
+  title={project.name}
+  description={project.description}
+  hasMath={project.content.hasMath}
+  path={`~/projects/${project.slug}.md`}
+  file={`${project.slug}.md`}
+>
   <article>
     <h1>{project.name}</h1>
     <p>{project.description}</p>

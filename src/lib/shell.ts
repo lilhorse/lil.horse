@@ -4,3 +4,5 @@ export const SHELL = {
   cwd: '~/lil.horse',
   branch: 'main',
 } as const;
+
+export type Section = 'home' | 'blog' | 'projects' | 'about' | 'contact';

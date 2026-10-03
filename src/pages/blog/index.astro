@@ -6,7 +6,7 @@ import { postsByYear } from '../../lib/selectors';
 const site = await getSiteData();
 ---
 
-<Base title="Blog" description="All posts">
+<Base title="Blog" description="All posts" current="blog" path="~/blog">
   <h1>Blog</h1>
   {postsByYear(site.posts).map((group) => (
     <section aria-labelledby={`year-${group.year}`}>

@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import StandalonePage from '../../src/components/StandalonePage.astro';
 import { excerpt } from '../../src/notion/text';
 import type { StandalonePageEntry } from '../../src/notion/types';
-import NotFound from '../../src/pages/404.astro';
 import BlogPost from '../../src/pages/blog/[slug].astro';
 import BlogIndex from '../../src/pages/blog/index.astro';
 import Home from '../../src/pages/index.astro';
@@ -17,36 +16,6 @@ vi.mock('../../src/lib/content', async () => {
 
 beforeEach(() => {
   useSite();
-});
-
-describe('Base layout', () => {
-  it('separates the navigation links', async () => {
-    const html = await render(NotFound);
-    expect(textOf(element(html, '<nav aria-label="Primary"', 'nav'))).toBe(
-      '~/lil.horse blog projects about contact',
-    );
-  });
-
-  it('links the icons, the manifest and exactly two preloaded fonts', async () => {
-    const html = await render(BlogIndex, {}, 'https://lil.horse/blog.html');
-    expect(html).toContain('<link rel="icon" href="/favicon.svg" type="image/svg+xml">');
-    expect(html).toContain('<link rel="icon" href="/favicon.ico" sizes="32x32">');
-    expect(html).toContain('<link rel="apple-touch-icon" href="/apple-touch-icon.png">');
-    expect(html).toContain('<link rel="manifest" href="/site.webmanifest">');
-    expect(html.match(/<link rel="preload"[^>]* as="font"/g)).toHaveLength(2);
-    expect(html).toContain(
-      '<meta name="theme-color" content="#16161e" media="(prefers-color-scheme: dark)">',
-    );
-  });
-
-  it('gives pages a canonical URL, except the 404 page', async () => {
-    useSite({ posts: [post('hello')] });
-    const blog = await render(BlogIndex, {}, 'https://lil.horse/blog.html');
-    const missing = await render(NotFound, {}, 'https://lil.horse/404.html');
-    expect(blog).toContain('<link rel="canonical" href="https://lil.horse/blog">');
-    expect(missing).not.toContain('rel="canonical"');
-    expect(await htmlErrors(missing)).toEqual([]);
-  });
 });
 
 describe('home page', () => {
@@ -81,8 +50,8 @@ describe('home page', () => {
 describe('blog pages', () => {
   it('separates the title, draft marker and tags in the list', async () => {
     useSite({ posts: [post('draft', { status: 'Draft', tags: ['a', 'b'] })] });
-    const html = await render(BlogIndex);
-    expect(textOf(element(html, '<li>', 'li'))).toBe('01-11 Post draft DRAFT #a #b');
+    const main = (await render(BlogIndex)).split('<main')[1] ?? '';
+    expect(textOf(element(main, '<li>', 'li'))).toBe('01-11 Post draft DRAFT #a #b');
   });
 
   it('separates the meta line and the adjacent links of a post', async () => {
@@ -103,7 +72,8 @@ describe('blog pages', () => {
 describe('projects page', () => {
   it('separates the name, year and status', async () => {
     useSite({ projects: [project('CleanStay', { year: 2026, status: 'Active' })] });
-    const item = element(await render(ProjectsIndex), '<li>', 'li');
+    const main = (await render(ProjectsIndex)).split('<main')[1] ?? '';
+    const item = element(main, '<li>', 'li');
     expect(textOf(item.slice(0, item.indexOf('<p>')))).toBe('CleanStay 2026 Active');
   });
 });

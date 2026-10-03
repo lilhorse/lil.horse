@@ -9,7 +9,12 @@ const { profile } = site;
 const projects = featuredProjects(site.projects);
 ---
 
-<Base title={siteConfig.name} description={profile.bio ?? `${profile.role} in ${profile.location}`}>
+<Base
+  title={siteConfig.name}
+  description={profile.bio ?? `${profile.role} in ${profile.location}`}
+  current="home"
+  path="~/lil.horse"
+>
   <section aria-labelledby="whoami">
     <h1 id="whoami">{profile.name}</h1>
     <dl>

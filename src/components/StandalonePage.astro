@@ -20,6 +20,9 @@ if (!page)
   title={page.title}
   description={page.content.firstParagraph ? excerpt(page.content.firstParagraph) : null}
   hasMath={page.content.hasMath}
+  current={page.key}
+  path={`~/${page.key}.md`}
+  file={page.key === 'contact' ? 'contact.md' : null}
 >
   <article>
     <h1>{page.title}</h1>
