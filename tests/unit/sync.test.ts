@@ -157,6 +157,12 @@ async function options(
 const blockFetches = (api: FakeNotionApi, pageId: string) =>
   api.calls.filter((call) => call === `listBlockChildren:${pageId}`).length;
 
+// Leave nothing else loading: work still running after the failure would write into a removed temp dir.
+async function failure(value: SyncOptions) {
+  const error = (await syncNotion(value).catch((caught: unknown) => caught)) as Error;
+  return { message: error.message, cause: (error.cause as { code?: string } | undefined)?.code };
+}
+
 describe('syncNotion', () => {
   it('assembles posts, projects, profile and pages', async () => {
     const { api, config, posts, projects } = workspace();
@@ -587,5 +593,71 @@ describe('syncNotion', () => {
     await expect(syncNotion(value)).rejects.toThrow(
       'is required when the project page has content',
     );
+  });
+
+  it('names the site.config.ts entry that Notion cannot find', async () => {
+    const database = workspace();
+    database.api.databases.delete(database.config.profileDatabaseId);
+    expect(await failure((await options(database.api, database.config)).value)).toEqual({
+      message: `Notion cannot find https://www.notion.so/${database.config.profileDatabaseId} (profileDatabaseId in site.config.ts); share it with the integration`,
+      cause: 'object_not_found',
+    });
+
+    const page = workspace();
+    page.api.pages.delete(page.config.pages.contact);
+    const pages = { contact: page.config.pages.contact } as NotionSiteConfig['pages'];
+    expect(await failure((await options(page.api, { ...page.config, pages })).value)).toEqual({
+      message: `Notion cannot find https://www.notion.so/${page.config.pages.contact} (pages.contact in site.config.ts); share it with the integration`,
+      cause: 'object_not_found',
+    });
+  });
+
+  it('names the site.config.ts entry in other Notion errors', async () => {
+    const { api, config } = workspace();
+    vi.spyOn(api, 'retrievePage').mockRejectedValue(
+      Object.assign(new Error('Bad gateway'), { code: 'bad_gateway' }),
+    );
+    const pages = { about: config.pages.about } as NotionSiteConfig['pages'];
+    expect(await failure((await options(api, { ...config, pages })).value)).toEqual({
+      message: `Could not read https://www.notion.so/${config.pages.about} (pages.about in site.config.ts): Bad gateway`,
+      cause: 'bad_gateway',
+    });
+  });
+
+  it('names the page whose cover fails to load', async () => {
+    const { api, config, sources, posts } = workspace();
+    api.rows.set(sources.posts, [posts.hello]);
+    const { value } = await options(api, config);
+    vi.spyOn(value.media, 'ensure').mockRejectedValue(
+      Object.assign(new Error('HTTP 404'), { code: 'http_404' }),
+    );
+    expect(await failure(value)).toEqual({
+      message: `Failed to load the cover of Notion page https://www.notion.so/${posts.hello.id}: HTTP 404`,
+      cause: 'http_404',
+    });
+  });
+
+  it('names the page it fails to cache', async () => {
+    const edited = workspace();
+    edited.api.rows.set(edited.sources.posts, [edited.posts.douban]);
+    vi.spyOn(edited.api, 'latestEditedTime').mockRejectedValue(
+      Object.assign(new Error('Bad gateway'), { code: 'bad_gateway' }),
+    );
+    expect(await failure((await options(edited.api, edited.config)).value)).toEqual({
+      message: `Failed to cache Notion page https://www.notion.so/${edited.posts.douban.id}: Bad gateway`,
+      cause: 'bad_gateway',
+    });
+
+    const written = workspace();
+    written.api.rows.set(written.sources.posts, [written.posts.hello]);
+    const { value } = await options(written.api, written.config);
+    vi.spyOn(value.cache, 'write').mockImplementation(async (pageId) => {
+      if (pageId === written.posts.hello.id)
+        throw Object.assign(new Error('No space left on device'), { code: 'ENOSPC' });
+    });
+    expect(await failure(value)).toEqual({
+      message: `Failed to cache Notion page https://www.notion.so/${written.posts.hello.id}: No space left on device`,
+      cause: 'ENOSPC',
+    });
   });
 });

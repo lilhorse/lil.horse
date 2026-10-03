@@ -62,6 +62,8 @@ const digest = (value: unknown) =>
 const count = (items: unknown[], noun: string) =>
   `${items.length} ${noun}${items.length === 1 ? '' : 's'}`;
 
+const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
 // Cache checks only: written digests never contain it, so it can never match one.
 const MISSING = 'missing';
 
@@ -77,8 +79,27 @@ async function editedTimeOrMissing(api: NotionApi, dataSourceId: string): Promis
   }
 }
 
-async function resolveDataSourceId(api: NotionApi, databaseId: string): Promise<string> {
-  const source = (await api.retrieveDatabase(databaseId)).data_sources[0];
+async function readConfigured<T>(entry: string, id: string, read: () => Promise<T>): Promise<T> {
+  try {
+    return await read();
+  } catch (error) {
+    const where = `${notionUrl(id)} (${entry} in site.config.ts)`;
+    throw new Error(
+      isNotFoundError(error)
+        ? `Notion cannot find ${where}; share it with the integration`
+        : `Could not read ${where}: ${messageOf(error)}`,
+      { cause: error },
+    );
+  }
+}
+
+async function resolveDataSourceId(
+  api: NotionApi,
+  entry: string,
+  databaseId: string,
+): Promise<string> {
+  const database = await readConfigured(entry, databaseId, () => api.retrieveDatabase(databaseId));
+  const source = database.data_sources[0];
   if (!source) throw new Error(`Notion database ${databaseId} has no data source`);
   return normalizeId(source.id);
 }
@@ -116,23 +137,29 @@ function contentLoader(options: SyncOptions, warn: (message: string) => void) {
         warn(located);
       },
     });
-    const childTimes = await Promise.all(
-      content.childDataSourceIds.map((id) => options.api.latestEditedTime(id)),
-    );
-    const lastEdit = Math.max(
-      ...[lastEditedTime, ...childTimes].map((time) => (time ? Date.parse(time) : 0)),
-    );
-    if (lastEdit < fetchStartedAt - SETTLE_MS) {
-      await options.cache.write(pageId, {
-        version: LOADER_VERSION,
-        digest: digestOf(lastEditedTime, childTimes),
-        childDataSourceIds: content.childDataSourceIds,
-        warnings,
-        content,
+    try {
+      const childTimes = await Promise.all(
+        content.childDataSourceIds.map((id) => options.api.latestEditedTime(id)),
+      );
+      const lastEdit = Math.max(
+        ...[lastEditedTime, ...childTimes].map((time) => (time ? Date.parse(time) : 0)),
+      );
+      if (lastEdit < fetchStartedAt - SETTLE_MS) {
+        await options.cache.write(pageId, {
+          version: LOADER_VERSION,
+          digest: digestOf(lastEditedTime, childTimes),
+          childDataSourceIds: content.childDataSourceIds,
+          warnings,
+          content,
+        });
+      } else {
+        // Trashing an inline database's newest row moves its edit time back, so an older record could match again.
+        await options.cache.delete(pageId);
+      }
+    } catch (error) {
+      throw new Error(`Failed to cache Notion page ${notionUrl(pageId)}: ${messageOf(error)}`, {
+        cause: error,
       });
-    } else {
-      // Trashing an inline database's newest row moves its edit time back, so an older record could match again.
-      await options.cache.delete(pageId);
     }
     return content;
   };
@@ -167,8 +194,8 @@ export async function syncNotion(options: SyncOptions): Promise<SiteContent> {
   const { api, media, config } = options;
 
   const [postsSource, projectsSource, profileSource] = await Promise.all(
-    [config.postsDatabaseId, config.projectsDatabaseId, config.profileDatabaseId].map((id) =>
-      resolveDataSourceId(api, id),
+    (['postsDatabaseId', 'projectsDatabaseId', 'profileDatabaseId'] as const).map((entry) =>
+      resolveDataSourceId(api, entry, config[entry]),
     ),
   );
   const [postRows, projectRows, profileRows] = await Promise.all(
@@ -182,8 +209,17 @@ export async function syncNotion(options: SyncOptions): Promise<SiteContent> {
   const issues: ValidationIssue[] = [...posts.issues, ...projects.issues, ...profile.issues];
 
   const loadContent = contentLoader(options, warn);
-  const cover = (url: string | null): Promise<MediaRef | null> =>
-    url ? media.ensure(url, { kind: 'image' }) : Promise.resolve(null);
+  const cover = async (pageId: string, url: string | null): Promise<MediaRef | null> => {
+    if (!url) return null;
+    try {
+      return await media.ensure(url, { kind: 'image' });
+    } catch (error) {
+      throw new Error(
+        `Failed to load the cover of Notion page ${notionUrl(pageId)}: ${messageOf(error)}`,
+        { cause: error },
+      );
+    }
+  };
   const limit = pLimit(4);
 
   // A project body without a Slug is a validation issue, so projects load before the check.
@@ -213,7 +249,7 @@ export async function syncNotion(options: SyncOptions): Promise<SiteContent> {
           featured: project.featured,
           order: project.order,
           year: project.year,
-          cover: await cover(project.coverUrl),
+          cover: await cover(project.id, project.coverUrl),
           lastEditedTime: project.lastEditedTime,
           content: hasBody ? content : null,
         };
@@ -244,7 +280,7 @@ export async function syncNotion(options: SyncOptions): Promise<SiteContent> {
               post.description ?? (content.firstParagraph ? excerpt(content.firstParagraph) : ''),
             language: post.language,
             featured: post.featured,
-            cover: await cover(post.coverUrl),
+            cover: await cover(post.id, post.coverUrl),
             lastEditedTime: post.lastEditedTime,
             readingMinutes: readingMinutes(content.plainText),
             content,
@@ -256,7 +292,7 @@ export async function syncNotion(options: SyncOptions): Promise<SiteContent> {
   const pageEntries = await Promise.all(
     (Object.entries(config.pages) as [StandalonePageKey, string][]).map(([key, id]) =>
       limit(async (): Promise<StandalonePageEntry> => {
-        const notionPage = await api.retrievePage(id);
+        const notionPage = await readConfigured(`pages.${key}`, id, () => api.retrievePage(id));
         const pageId = normalizeId(notionPage.id);
         const title = readTitle(notionPage.properties);
         if (notionPage.icon?.type === 'icon') {
@@ -269,7 +305,7 @@ export async function syncNotion(options: SyncOptions): Promise<SiteContent> {
           key,
           title,
           icon: await toIcon(notionPage.icon, media),
-          cover: await cover(coverUrl(notionPage)),
+          cover: await cover(pageId, coverUrl(notionPage)),
           lastEditedTime: notionPage.last_edited_time,
           content: await loadContent(pageId, notionPage.last_edited_time),
         };
