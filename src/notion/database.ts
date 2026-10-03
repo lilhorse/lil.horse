@@ -317,31 +317,32 @@ export async function buildDatabaseNode(
 ): Promise<DatabaseNode | null> {
   const databaseId = normalizeId(block.id);
   const blockTitle = block.child_database.title;
+  // A skipped table is not in the page's cache digest, so sharing it later leaves the cached page as is.
+  const skip = (problem: string, remedy: string): null => {
+    deps.warn(
+      `Inline database "${blockTitle}" (${databaseId}) ${problem}; skipped; ${remedy}, then rebuild with NOTION_FULL_REFRESH=1`,
+    );
+    return null;
+  };
   let database: DatabaseObjectResponse;
   try {
     database = await deps.api.retrieveDatabase(databaseId);
   } catch (error) {
     if (!isNotFoundError(error)) throw error;
-    deps.warn(
-      `Inline database "${blockTitle}" (${databaseId}) is not shared with the integration; skipped`,
-    );
-    return null;
+    return skip('is not shared with the integration', 'share it');
   }
   // A linked view has no data source of its own; its views point at the source.
   const views =
     database.data_sources.length === 0 ? await readViews(databaseId, deps.api) : undefined;
-  if (views === null) {
-    deps.warn(
-      `Inline database "${blockTitle}" (${databaseId}) is a linked view whose views or source database are not shared with the integration; skipped`,
+  if (views === null)
+    return skip(
+      'is a linked view whose views or source database are not shared with the integration',
+      'share them',
     );
-    return null;
-  }
   const sourceView = views?.find((view) => view.type === 'table') ?? views?.[0];
   const reference = database.data_sources[0]?.id ?? sourceView?.data_source_id;
-  if (!reference) {
-    deps.warn(`Inline database "${blockTitle}" (${databaseId}) has no data source; skipped`);
-    return null;
-  }
+  if (!reference)
+    return skip('has no data source', 'if it is a linked view, share its source database');
   const dataSourceId = normalizeId(reference);
   let dataSource: DataSourceObjectResponse;
   let rows: PageObjectResponse[];
@@ -352,10 +353,10 @@ export async function buildDatabaseNode(
     ]);
   } catch (error) {
     if (!isNotFoundError(error)) throw error;
-    deps.warn(
-      `Inline database "${blockTitle}" (${databaseId}) reads data source ${dataSourceId}, which is not shared with the integration; skipped`,
+    return skip(
+      `reads data source ${dataSourceId}, which is not shared with the integration`,
+      'share its database',
     );
-    return null;
   }
   deps.onDataSource(dataSourceId);
   // The API titles an unnamed linked view "Untitled"; Notion shows the source's name.

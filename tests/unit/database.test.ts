@@ -170,7 +170,9 @@ describe('buildDatabaseNode', () => {
     const api = new FakeNotionApi();
     const { value, warnings, sources } = deps(api);
     await expect(buildDatabaseNode(childDatabase('9'.repeat(32)), value)).resolves.toBeNull();
-    expect(warnings[0]).toContain('not shared with the integration');
+    expect(warnings).toEqual([
+      `Inline database "Watched Movies" (${'9'.repeat(32)}) is not shared with the integration; skipped; share it, then rebuild with NOTION_FULL_REFRESH=1`,
+    ]);
     expect(sources).toEqual([]);
   });
 
@@ -220,8 +222,8 @@ describe('buildDatabaseNode', () => {
     linkTo(api, null);
     await expect(buildDatabaseNode(childDatabase(LINKED, 'Untitled'), value)).resolves.toBeNull();
     expect(warnings).toEqual([
-      expect.stringContaining('not shared with the integration'),
-      expect.stringContaining('has no data source'),
+      `Inline database "Untitled" (${LINKED}) reads data source ${'4'.repeat(32)}, which is not shared with the integration; skipped; share its database, then rebuild with NOTION_FULL_REFRESH=1`,
+      `Inline database "Untitled" (${LINKED}) has no data source; skipped; if it is a linked view, share its source database, then rebuild with NOTION_FULL_REFRESH=1`,
     ]);
     expect(sources).toEqual([]);
   });
@@ -233,7 +235,7 @@ describe('buildDatabaseNode', () => {
     const { value, warnings, sources } = deps(api);
     await expect(buildDatabaseNode(childDatabase(LINKED, 'Untitled'), value)).resolves.toBeNull();
     expect(warnings).toEqual([
-      expect.stringContaining('views or source database are not shared with the integration'),
+      `Inline database "Untitled" (${LINKED}) is a linked view whose views or source database are not shared with the integration; skipped; share them, then rebuild with NOTION_FULL_REFRESH=1`,
     ]);
     expect(sources).toEqual([]);
   });
