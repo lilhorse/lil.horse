@@ -1,6 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import StandalonePage from '../../src/components/StandalonePage.astro';
 import type { SiteData } from '../../src/lib/content';
-import type { PageContent, PostEntry, ProfileEntry, ProjectEntry } from '../../src/notion/types';
+import { excerpt } from '../../src/notion/text';
+import type {
+  PageContent,
+  PostEntry,
+  ProfileEntry,
+  ProjectEntry,
+  StandalonePageEntry,
+} from '../../src/notion/types';
 import NotFound from '../../src/pages/404.astro';
 import BlogPost from '../../src/pages/blog/[slug].astro';
 import BlogIndex from '../../src/pages/blog/index.astro';
@@ -161,5 +169,25 @@ describe('projects page', () => {
     useSite({ projects: [project('CleanStay', { year: 2026, status: 'Active' })] });
     const item = element(await render(ProjectsIndex), '<li>', 'li');
     expect(textOf(item.slice(0, item.indexOf('<p>')))).toBe('CleanStay 2026 Active');
+  });
+});
+
+describe('standalone pages', () => {
+  it('truncates the first paragraph for the meta description', async () => {
+    const firstParagraph = `${'word '.repeat(60)}end`;
+    const page: StandalonePageEntry = {
+      id: 'about',
+      key: 'about',
+      title: 'About',
+      icon: null,
+      cover: null,
+      lastEditedTime: '2024-01-11T00:00:00.000Z',
+      content: content({ firstParagraph }),
+    };
+    useSite({ pages: [page] });
+    const html = await render(StandalonePage, { pageKey: 'about' });
+    const description = /<meta name="description" content="([^"]*)">/.exec(html)?.[1];
+    expect(description).toBe(excerpt(firstParagraph));
+    expect(description).toMatch(/…$/);
   });
 });
