@@ -34,7 +34,10 @@ const lang = post.language === 'zh' ? 'zh-Hans' : 'en';
       <p>
         <time datetime={post.published}>{post.published}</time> · {post.readingMinutes} min read
         {post.tags.map((tag) => (
-          <span class="tag">#{tag}</span>
+          <Fragment>
+            {' '}
+            <span class="tag">#{tag}</span>
+          </Fragment>
         ))}
       </p>
       {post.updated && (
@@ -56,7 +59,7 @@ const lang = post.language === 'zh' ? 'zh-Hans' : 'en';
       <a rel="prev" href={`/blog/${previous.slug}`}>
         Older: {previous.title}
       </a>
-    )}
+    )}{' '}
     {next && (
       <a rel="next" href={`/blog/${next.slug}`}>
         Newer: {next.title}

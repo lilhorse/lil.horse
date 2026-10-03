@@ -14,8 +14,18 @@ const site = await getSiteData();
       return (
         <li>
           {href ? <a href={href}>{project.name}</a> : project.name}
-          {project.year && <span class="year">{project.year}</span>}
-          {project.status && <span class="status">{project.status}</span>}
+          {project.year && (
+            <Fragment>
+              {' '}
+              <span class="year">{project.year}</span>
+            </Fragment>
+          )}
+          {project.status && (
+            <Fragment>
+              {' '}
+              <span class="status">{project.status}</span>
+            </Fragment>
+          )}
           <p>{project.description}</p>
           {project.stack.length > 0 && <p class="stack">{project.stack.join(' · ')}</p>}
         </li>

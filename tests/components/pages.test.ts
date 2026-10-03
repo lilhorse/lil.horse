@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SiteData } from '../../src/lib/content';
 import type { PageContent, PostEntry, ProfileEntry, ProjectEntry } from '../../src/notion/types';
+import NotFound from '../../src/pages/404.astro';
+import BlogPost from '../../src/pages/blog/[slug].astro';
+import BlogIndex from '../../src/pages/blog/index.astro';
 import Home from '../../src/pages/index.astro';
+import ProjectsIndex from '../../src/pages/projects/index.astro';
 import { htmlErrors, render, textOf } from '../helpers/astro-render';
 
 const site = vi.hoisted(() => ({ data: undefined as unknown as SiteData }));
@@ -92,6 +96,15 @@ beforeEach(() => {
   useSite({});
 });
 
+describe('Base layout', () => {
+  it('separates the navigation links', async () => {
+    const html = await render(NotFound);
+    expect(textOf(element(html, '<nav aria-label="Primary"', 'nav'))).toBe(
+      '~/lil.horse blog projects about contact',
+    );
+  });
+});
+
 describe('home page', () => {
   it('lists posts with their date, draft marker and tags', async () => {
     useSite({
@@ -118,5 +131,35 @@ describe('home page', () => {
     expect(await render(Home)).not.toContain('projects-heading');
     useSite({ projects: [project('Loud', { featured: true })] });
     expect(await render(Home)).toContain('<h2 id="projects-heading">Projects</h2>');
+  });
+});
+
+describe('blog pages', () => {
+  it('separates the title, draft marker and tags in the list', async () => {
+    useSite({ posts: [post('draft', { status: 'Draft', tags: ['a', 'b'] })] });
+    const html = await render(BlogIndex);
+    expect(textOf(element(html, '<li>', 'li'))).toBe('01-11 Post draft DRAFT #a #b');
+  });
+
+  it('separates the meta line and the adjacent links of a post', async () => {
+    const posts = [
+      post('new', { published: '2024-03-01' }),
+      post('middle', { published: '2024-02-01', tags: ['helloworld', 'AI'] }),
+      post('old', { published: '2024-01-01' }),
+    ];
+    useSite({ posts });
+    const html = await render(BlogPost, { post: posts[1] });
+    expect(textOf(element(html, '<p><time', 'p'))).toBe('2024-02-01 · 2 min read #helloworld #AI');
+    expect(textOf(element(html, '<nav aria-label="Adjacent posts"', 'nav'))).toBe(
+      'Older: Post old Newer: Post new',
+    );
+  });
+});
+
+describe('projects page', () => {
+  it('separates the name, year and status', async () => {
+    useSite({ projects: [project('CleanStay', { year: 2026, status: 'Active' })] });
+    const item = element(await render(ProjectsIndex), '<li>', 'li');
+    expect(textOf(item.slice(0, item.indexOf('<p>')))).toBe('CleanStay 2026 Active');
   });
 });

@@ -16,9 +16,17 @@ const site = await getSiteData();
           <li>
             <time datetime={post.published}>{post.published.slice(5)}</time>{' '}
             <a href={`/blog/${post.slug}`}>{post.title}</a>
-            {post.status === 'Draft' && <span class="draft-badge">DRAFT</span>}
+            {post.status === 'Draft' && (
+              <Fragment>
+                {' '}
+                <span class="draft-badge">DRAFT</span>
+              </Fragment>
+            )}
             {post.tags.map((tag) => (
-              <span class="tag">#{tag}</span>
+              <Fragment>
+                {' '}
+                <span class="tag">#{tag}</span>
+              </Fragment>
             ))}
           </li>
         ))}

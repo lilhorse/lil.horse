@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import Blocks from '../../src/components/blocks/Blocks.astro';
 import BookmarkCard from '../../src/components/blocks/BookmarkCard.astro';
+import FileCard from '../../src/components/blocks/FileCard.astro';
 import Picture from '../../src/components/blocks/Picture.astro';
 import VideoBlock from '../../src/components/blocks/VideoBlock.astro';
 import type { LinkResolver } from '../../src/lib/html';
@@ -162,6 +163,26 @@ describe('BookmarkCard', () => {
       resolve,
     });
     expect(textOf(html)).toBe('A post What it says Example Site example.com');
+  });
+});
+
+describe('FileCard', () => {
+  it('separates the file name from its size', async () => {
+    const file = media('f', {
+      kind: 'file',
+      mime: 'application/pdf',
+      bytes: 2048,
+      fileName: 'report.pdf',
+      src: '/_media/f/report.pdf',
+      width: null,
+      height: null,
+      variants: [],
+    });
+    const html = await render(FileCard, {
+      node: { type: 'file', id: 'f', media: file, name: 'report.pdf', caption: [] },
+      resolve,
+    });
+    expect(textOf(html)).toBe('report.pdf 2.0 KB');
   });
 });
 
