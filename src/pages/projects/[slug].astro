@@ -66,7 +66,7 @@ const neighbour = (entry: ProjectEntry | null) =>
               {index > 0 && ' '}
               <li>
                 <a href={link.href} rel={relFor(link.href)}>
-                  <span aria-hidden="true">↗</span> {link.label}
+                  <span aria-hidden="true">↗</span> <span class="label">{link.label}</span>
                 </a>
               </li>
             </Fragment>
@@ -124,15 +124,19 @@ const neighbour = (entry: ProjectEntry | null) =>
     list-style: none;
   }
   .links a {
-    text-decoration: none;
+    text-decoration-line: none;
     display: inline-flex;
     gap: 0.5ch;
     align-items: center;
     min-block-size: 24px;
   }
+  .links a:hover .label {
+    text-decoration-line: underline;
+  }
   @media (max-width: 639.98px) {
     .links a {
       min-block-size: 44px;
+      min-inline-size: 44px;
     }
   }
 </style>

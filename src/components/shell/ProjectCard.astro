@@ -55,7 +55,7 @@ const meta = [project.year ? String(project.year) : null, project.status].filter
           {index > 0 && ' '}
           <li>
             <a href={link.href} rel={relFor(link.href)}>
-              <span aria-hidden="true">↗</span> {link.label}
+              <span aria-hidden="true">↗</span> <span class="label">{link.label}</span>
             </a>
           </li>
         </Fragment>
@@ -81,7 +81,11 @@ const meta = [project.year ? String(project.year) : null, project.status].filter
   }
   .name a,
   .links a {
-    text-decoration: none;
+    text-decoration-line: none;
+  }
+  .name a:hover,
+  .links a:hover .label {
+    text-decoration-line: underline;
   }
   .meta,
   .sep {
@@ -145,6 +149,7 @@ const meta = [project.year ? String(project.year) : null, project.status].filter
       display: inline-flex;
       align-items: center;
       min-block-size: 44px;
+      min-inline-size: 44px;
     }
   }
 </style>

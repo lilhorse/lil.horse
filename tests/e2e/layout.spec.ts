@@ -8,6 +8,7 @@ const HOVER_LINKS = [
   ['/blog', '.posts .name a'],
   ['/', '.neofetch dd a'],
   ['/', 'footer nav a'],
+  ['/projects', '.card .name a'],
 ] as const;
 
 /** Controls under 44 x 44 px, leaving out links that flow inside prose text. */
