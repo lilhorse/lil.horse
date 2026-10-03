@@ -62,7 +62,10 @@ const { posts, tags, variant, date = 'full' } = Astro.props;
   }
   .name a {
     color: var(--fg);
-    text-decoration: none;
+    text-decoration-line: none;
+  }
+  .name a:hover {
+    text-decoration-line: underline;
   }
   .titles li {
     display: grid;

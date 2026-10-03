@@ -94,6 +94,19 @@ test('the glint stops when the visitor asks for less motion', async ({ page }) =
   expect(await glint()).toBe('none');
 });
 
+test('post links are underlined only while the mouse is over them', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'needs a mouse');
+  for (const path of ['/', '/blog']) {
+    await page.goto(path);
+    const link = page.locator('.posts .name a').first();
+    await expect(link).toHaveCSS('text-decoration-line', 'none');
+    await link.hover();
+    await expect(link).toHaveCSS('text-decoration-line', 'underline');
+    await page.mouse.move(0, 0);
+    await expect(link).toHaveCSS('text-decoration-line', 'none');
+  }
+});
+
 test('the skip link appears on focus and jumps to the content', async ({ page }) => {
   await page.goto('/');
   await page.keyboard.press('Tab');
