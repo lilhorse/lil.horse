@@ -78,6 +78,7 @@ describe('SiteFooter', () => {
       '<a href="https://github.com/lilhorse" rel="me noopener noreferrer">github</a>',
     );
     expect(html).toContain('<a href="/contact">contact</a>');
+    expect(html).toContain('<a href="/feed.xml">rss</a>');
     expect(html).toContain('rel="license noopener noreferrer">CC BY-NC 4.0</a>');
     expect(html).toContain(
       '<a href="https://github.com/lilhorse/lil.horse/blob/main/LICENSE" rel="noopener noreferrer">MIT</a>',
@@ -104,6 +105,9 @@ describe('Base layout', () => {
     expect(html).toContain('<link rel="icon" href="/favicon.ico" sizes="32x32">');
     expect(html).toContain('<link rel="apple-touch-icon" href="/apple-touch-icon.png">');
     expect(html).toContain('<link rel="manifest" href="/site.webmanifest">');
+    expect(html).toMatch(
+      /<link rel="alternate" type="application\/rss\+xml" title="Lil(&#39;|')Horse" href="\/feed\.xml">/,
+    );
     expect(html.match(/<link rel="preload"[^>]* as="font"/g)).toHaveLength(2);
     expect(html).toContain(
       '<meta name="theme-color" content="#16161e" media="(prefers-color-scheme: dark)">',

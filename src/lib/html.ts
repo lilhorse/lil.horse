@@ -74,9 +74,15 @@ function spanHref(span: RichTextSpan, resolve: LinkResolver): string | null {
   return span.href && isSafeHref(span.href) ? span.href : null;
 }
 
-function renderSpan(span: RichTextSpan): string {
+export type MathOutput = 'htmlAndMathml' | 'mathml';
+
+function renderSpan(span: RichTextSpan, math: MathOutput): string {
   if (span.kind === 'equation') {
-    return katex.renderToString(span.expression, { ...KATEX_OPTIONS, displayMode: false });
+    return katex.renderToString(span.expression, {
+      ...KATEX_OPTIONS,
+      output: math,
+      displayMode: false,
+    });
   }
   let html =
     span.kind === 'date'
@@ -94,20 +100,24 @@ function renderSpan(span: RichTextSpan): string {
 }
 
 /** Notion splits a link wherever its formatting changes; spans that share a target become one link. */
-export function renderRichText(text: RichText, resolve: LinkResolver): string {
+export function renderRichText(
+  text: RichText,
+  resolve: LinkResolver,
+  { math = 'htmlAndMathml' }: { math?: MathOutput } = {},
+): string {
   let html = '';
   let index = 0;
   while (index < text.length) {
     const span = text[index] as RichTextSpan;
     const href = spanHref(span, resolve);
     if (!href) {
-      html += renderSpan(span);
+      html += renderSpan(span, math);
       index += 1;
       continue;
     }
     let inner = '';
     while (index < text.length && spanHref(text[index] as RichTextSpan, resolve) === href) {
-      inner += renderSpan(text[index] as RichTextSpan);
+      inner += renderSpan(text[index] as RichTextSpan, math);
       index += 1;
     }
     html += linkHtml(href, inner);
