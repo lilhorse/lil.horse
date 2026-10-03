@@ -67,6 +67,21 @@ test('a very long tag wraps instead of widening the page', async ({ page }) => {
   }
 });
 
+test('a toggle with a background colour keeps its text off the edge', async ({ page }) => {
+  const path = pageContaining('class="prose"');
+  test.skip(!path, 'no page has prose');
+  await page.goto(encodeURI(path ?? '/'));
+  const padding = await page.evaluate(() => {
+    const prose = document.querySelector('.prose') as Element;
+    prose.insertAdjacentHTML(
+      'beforeend',
+      '<details class="toggle hl-yellow"><summary>x</summary><p>y</p></details>',
+    );
+    return parseFloat(getComputedStyle(prose.lastElementChild as Element).paddingLeft);
+  });
+  expect(padding).toBeGreaterThan(0);
+});
+
 test('no footer line starts with a separator', async ({ page }) => {
   await page.goto('/');
   const offsets = await page.$$eval('.legal .sep', (separators) =>

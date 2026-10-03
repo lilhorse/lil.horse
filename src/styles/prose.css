@@ -256,7 +256,7 @@
     box-decoration-break: clone;
   }
 
-  .prose :is(p, li, h2, h3, h4, h5, blockquote):is([class^='hl-']) {
+  .prose :is(p, li, h2, h3, h4, h5, blockquote, details):is([class^='hl-'], [class*=' hl-']) {
     padding: 0.2em 0.5em;
     border-radius: 4px;
   }
