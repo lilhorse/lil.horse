@@ -22,5 +22,19 @@ export default defineConfig([
   astro.configs.recommended,
   // astro check already reports undefined names; core no-undef misfires on ambient types such as ImageMetadata.
   { files: ['**/*.astro'], rules: { 'no-undef': 'off' } },
+  {
+    files: ['src/notion/**', 'src/env.ts', 'integrations/**', 'scripts/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "MemberExpression[object.meta.name='import']:matches([property.name='env'], [property.value='env'])",
+          message:
+            'Vite inlines every env var into build output, the Notion token included. Read process.env instead.',
+        },
+      ],
+    },
+  },
   { languageOptions: { globals: { ...globals.node } } },
 ]);
