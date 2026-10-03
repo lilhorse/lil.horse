@@ -66,7 +66,13 @@ const toc = hasToc(headings);
       inset-block-start: 24px;
       align-self: start;
       max-inline-size: 260px;
-      padding-block-start: 24px;
+      max-block-size: calc(100dvh - 48px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      /* 4px keeps the focus outline (2px wide, 2px offset) inside the scrollport. */
+      padding-block: 24px 4px;
+      padding-inline-end: 4px;
+      scroll-padding-block: 4px;
     }
   }
 </style>
