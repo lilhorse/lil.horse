@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { HtmlValidate, StaticConfigLoader } from 'html-validate';
 import { afterEach, describe, expect, it } from 'vitest';
+import { REQUIRED_ROUTES } from '../../scripts/check-dist';
 import { checkDist } from '../../src/lib/dist-check';
 
 const page = (body: string) =>
@@ -350,5 +351,17 @@ describe('checkDist', () => {
     expect(messages).toEqual([
       expect.stringMatching(/^html-validate element-permitted-content: .* under <ul>/),
     ]);
+  });
+});
+
+describe('REQUIRED_ROUTES', () => {
+  it('passes a site whose posts carry no tags', async () => {
+    const files = REQUIRED_ROUTES.map((route) => route.replace('*', 'post')).filter(
+      (file) => !file.startsWith('blog/tags/'),
+    );
+    const root = await dist(
+      Object.fromEntries(files.map((file) => [file, file.endsWith('.html') ? page('') : ''])),
+    );
+    expect(await checkDist(root, { ...noValidation, routes: REQUIRED_ROUTES })).toEqual([]);
   });
 });
