@@ -22,7 +22,8 @@ interface StartTag {
   text: string;
 }
 
-const EXPIRING = /X-Amz-|prod-files-secure|secure\.notion-static\.com|file\.notion\.so/;
+const EXPIRING =
+  /X-Amz-|prod-files-secure|secure\.notion-static\.com|file\.notion\.so|img\.notionusercontent\.com/;
 const STATIC_IMPORT = /\b(?:import|export)\s*(?:[\w$*{}\s,]+?\s*from\s*)?["']([^"']+)["']/g;
 // These narrow character classes keep the scan linear on malformed markup.
 const START_TAG_OR_COMMENT =

@@ -105,6 +105,7 @@ describe('helpers', () => {
     ).toBe(ID);
     expect(pageIdFromHref(`https://example.com/${ID}`)).toBeNull();
     expect(pageIdFromHref(`https://evilnotion.so/${ID}`)).toBeNull();
+    expect(pageIdFromHref(`https://notion.com.evil.io/${ID}`)).toBeNull();
     expect(pageIdFromHref(`//example.com/?p=${ID}`)).toBeNull();
     expect(pageIdFromHref(null)).toBeNull();
   });

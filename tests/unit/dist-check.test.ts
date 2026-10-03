@@ -72,6 +72,17 @@ describe('checkDist', () => {
     },
   );
 
+  it('reports URLs of the Notion image proxy as expiring', async () => {
+    const root = await dist({
+      'index.html': page(
+        '<img src="https://img.notionusercontent.com/ext/https%3A%2F%2Fexample.com%2Fa.png/size/w=2000?exp=1&amp;sig=abc" alt="">',
+      ),
+    });
+    expect(await checkDist(root, noValidation)).toEqual([
+      { file: 'index.html', message: 'contains an expiring Notion file URL' },
+    ]);
+  });
+
   it('treats a directory as a missing page', async () => {
     const root = await dist({
       'index.html': page('<a href="/blog">blog</a>'),

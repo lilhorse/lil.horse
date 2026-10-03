@@ -54,6 +54,9 @@ describe('renderRichText', () => {
     );
     expect(renderRichText([span('b', {}, { href: '//evil.example/x' })], resolve)).toBe('b');
     expect(renderRichText([span('c', {}, { href: '/\\evil.example/x' })], resolve)).toBe('c');
+    expect(renderRichText([span('d', {}, { href: '/\n/evil.example/x' })], resolve)).toBe('d');
+    expect(renderRichText([span('e', {}, { href: '/\t/evil.example/x' })], resolve)).toBe('e');
+    expect(renderRichText([span('f', {}, { href: '/\r/evil.example/x' })], resolve)).toBe('f');
   });
 
   it('links a resolved page to its site URL, whatever its href', () => {

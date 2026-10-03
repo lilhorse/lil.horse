@@ -15,8 +15,9 @@ export function escapeAttr(value: string): string {
 }
 
 export function isSafeHref(href: string): boolean {
-  // Browsers read '\' as '/', so '/\host' is as off-site as '//host'.
-  return /^(https?:|mailto:|tel:)/i.test(href) || /^\/(?![/\\])/.test(href) || href.startsWith('#');
+  // Browsers drop tabs and newlines and read '\' as '/', so '/\n/host' and '/\host' mean '//host'.
+  const url = href.replace(/[\t\n\r]/g, '');
+  return /^(https?:|mailto:|tel:)/i.test(url) || /^\/(?![/\\])/.test(url) || url.startsWith('#');
 }
 
 export function colorClass(color: string): string {
