@@ -37,7 +37,7 @@ describe('standalone pages', () => {
 
   it('cats about.md under the about tab', async () => {
     const html = await render(StandalonePage, { pageKey: 'about' });
-    expect(html).toContain('cat about.md');
+    expect(html).toContain('cat ~/about.md');
     expect(html).toContain('<a class="tab active" href="/about" aria-current="page">about</a>');
     expect(textOf(element(html, '<h1 class="title"', 'h1'))).toBe('# About');
     expect(await htmlErrors(html)).toEqual([]);
@@ -45,7 +45,7 @@ describe('standalone pages', () => {
 
   it('opens contact.md in its own tab', async () => {
     const html = await render(StandalonePage, { pageKey: 'contact' });
-    expect(html).toContain('cat contact.md');
+    expect(html).toContain('cat ~/contact.md');
     expect(html).toContain('<span class="tab active">contact.md</span>');
   });
 });
