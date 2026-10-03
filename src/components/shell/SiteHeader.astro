@@ -111,6 +111,13 @@ const isPage = (section: Section) => section === current;
     background: var(--bg-bar);
     border-bottom: 1px solid var(--border);
     font-size: var(--text-ui);
+    view-transition-name: site-header;
+    /* view-transition-name makes this a stacking context; z-index keeps the menu above positioned content. */
+    z-index: 20;
+  }
+  .tab :global(.pixel-horse),
+  .home :global(.pixel-horse) {
+    view-transition-name: site-logo;
   }
   .dots {
     display: flex;

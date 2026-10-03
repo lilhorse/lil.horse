@@ -7,6 +7,7 @@ import { siteVersion } from '../lib/build-info';
 import { getSiteData } from '../lib/content';
 import { KATEX_STYLESHEET } from '../lib/katex';
 import { socialLinks } from '../lib/profile';
+import { SPECULATION_RULES } from '../lib/speculation';
 import { THEME_INIT_SCRIPT } from '../lib/theme-init';
 import type { Section } from '../lib/shell';
 import '../styles/tokens.css';
@@ -67,6 +68,7 @@ const canonicalUrl = new URL(canonicalPath, siteConfig.url).toString();
     <script>
       import '../scripts/entry';
     </script>
+    <script type="speculationrules" set:html={SPECULATION_RULES} />
   </head>
   <body>
     <a class="skip-link" href="#main">

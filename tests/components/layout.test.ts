@@ -122,6 +122,15 @@ describe('Base layout', () => {
     expect(html.indexOf('let p="system"')).toBeLessThan(html.indexOf('<body'));
   });
 
+  it('asks the browser to prerender hovered page links', async () => {
+    const html = await render(BlogIndex, {}, 'https://lil.horse/blog.html');
+    const rules = /<script type="speculationrules">(.*?)<\/script>/s.exec(html)?.[1] ?? '';
+    const parsed = JSON.parse(rules) as { prerender: { eagerness: string; where: unknown }[] };
+    expect(parsed.prerender).toHaveLength(1);
+    expect(parsed.prerender[0]?.eagerness).toBe('moderate');
+    expect(JSON.stringify(parsed.prerender[0]?.where)).toContain('/feed.xml');
+  });
+
   it('gives pages a canonical URL, except the 404 page', async () => {
     useSite({ posts: [post('hello')] });
     const blog = await render(BlogIndex, {}, 'https://lil.horse/blog.html');
