@@ -28,14 +28,19 @@ export interface FixtureSanitizer {
 
 const NOTION_FILE_HOST =
   /(^|\.)(amazonaws\.com|notion-static\.com|notionusercontent\.com)$|^file\.notion\.so$/;
-const ANONYMOUS_USER = { object: 'user', id: '00000000-0000-0000-0000-000000000000' };
+const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+// The workspace UUID sits right before the file UUID; the image proxy percent-encodes the slash.
+const WORKSPACE_ID = new RegExp(`(?<=/|%2F)${UUID}(?=(?:/|%2F)${UUID}(?:/|%2F|$))`, 'gi');
+const ZERO_ID = '00000000-0000-0000-0000-000000000000';
+const ANONYMOUS_USER = { object: 'user', id: ZERO_ID };
 
-function stripSignedQuery(value: string): string {
+function scrubFileUrl(value: string): string {
   if (!/^https?:\/\//.test(value)) return value;
   try {
     const url = new URL(value);
     if (!NOTION_FILE_HOST.test(url.hostname)) return value;
     url.search = '';
+    url.pathname = url.pathname.replace(WORKSPACE_ID, ZERO_ID);
     return url.toString();
   } catch {
     return value;
@@ -47,7 +52,7 @@ const isFilled = (value: unknown) =>
 
 export function scrub(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(scrub);
-  if (typeof value === 'string') return stripSignedQuery(value);
+  if (typeof value === 'string') return scrubFileUrl(value);
   if (value === null || typeof value !== 'object') return value;
   if ('object' in value && value.object === 'user') return ANONYMOUS_USER;
   const out: Record<string, unknown> = {};

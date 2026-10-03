@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { NotionApi } from '../../src/notion/api';
 import { BookmarkFetcher } from '../../src/notion/bookmarks';
 import { createFixtureApi, createRecordingApi } from '../../src/notion/fixture-api';
-import { MediaStore } from '../../src/notion/media';
+import { mediaCacheKey, MediaStore } from '../../src/notion/media';
 import { PageCache } from '../../src/notion/page-cache';
 import { placeholderFetch } from '../../src/notion/placeholder-fetch';
 import { plain } from '../../src/notion/rich-text';
@@ -33,19 +33,29 @@ import {
 } from '../helpers/notion-factory';
 import { tempDir } from '../helpers/temp-dir';
 
-const notionFile = (name: string) => ({
-  type: 'file' as const,
-  file: {
-    url: `https://prod-files-secure.s3.us-west-2.amazonaws.com/space/file/${name}?X-Amz-Signature=abc`,
-    expiry_time: '2024-01-01T01:00:00.000Z',
-  },
-});
+const WORKSPACE_ID = '7f3d2c1b-4a5e-4f60-8b9c-0d1e2f3a4b5c';
+const FILE_ID = 'c4b3a291-8076-4e5d-9c3b-2a1f0e9d8c7b';
+const ZERO_ID = '00000000-0000-0000-0000-000000000000';
+
+const fileUrl = (workspaceId: string, name: string) =>
+  `https://prod-files-secure.s3.us-west-2.amazonaws.com/${workspaceId}/${FILE_ID}/${name}`;
 
 const text = (content: string) =>
   block('paragraph', { rich_text: [rt(content)], color: 'default' });
 
 function workspace() {
   const api = new FakeNotionApi();
+  const notionFiles: string[] = [];
+  const notionFile = (name: string) => {
+    notionFiles.push(name);
+    return {
+      type: 'file' as const,
+      file: {
+        url: `${fileUrl(WORKSPACE_ID, name)}?X-Amz-Signature=abc`,
+        expiry_time: '2024-01-01T01:00:00.000Z',
+      },
+    };
+  };
   const parent = (type: string, data: Record<string, unknown>, children: BlockObjectResponse[]) => {
     const item = block(type, data, { hasChildren: true });
     api.setChildren(item.id, children);
@@ -338,7 +348,7 @@ function workspace() {
       },
     },
   };
-  return { api, config, ids: { thanks: thanks.id, contactsDb } };
+  return { api, config, ids: { thanks: thanks.id, contactsDb }, notionFiles };
 }
 
 function contents(site: SiteContent): PageContent[] {
@@ -368,24 +378,37 @@ function emailCell(site: SiteContent, databaseId: string): string | null {
   return cell?.kind === 'text' ? plain(cell.text) : null;
 }
 
-// Fixtures scrub emails and user names on purpose.
-function withScrubbedValues(site: SiteContent): SiteContent {
-  const json = JSON.stringify(site)
+// Fixtures scrub emails, user names and the workspace ID of Notion files on purpose.
+function withScrubbedValues(site: SiteContent, notionFiles: string[]): SiteContent {
+  let json = JSON.stringify(site)
     .replaceAll('me@lil.horse', 'hello@example.com')
     .replaceAll('ada@lil.horse', 'hello@example.com')
     .replaceAll('@Real Name', '@someone');
-  return JSON.parse(json) as SiteContent;
+  for (const name of notionFiles)
+    json = json.replaceAll(
+      mediaCacheKey(fileUrl(WORKSPACE_ID, name)),
+      mediaCacheKey(fileUrl(ZERO_ID, name)),
+    );
+  const scrubbed = JSON.parse(json) as SiteContent;
+  return { ...scrubbed, mediaKeys: scrubbed.mediaKeys.sort() };
 }
+
+const coverKey = (site: SiteContent) =>
+  site.posts.find((post) => post.slug === 'helloworld')?.cover?.key;
 
 // Pages load concurrently, so warnings arrive in no fixed order.
 const comparable = (site: SiteContent) => ({ ...site, warnings: [...site.warnings].sort() });
 
 describe('recorded fixtures', () => {
   it('replay offline to the same site the live sync built', async () => {
-    const { api, config, ids } = workspace();
+    const { api, config, ids, notionFiles } = workspace();
     const root = await tempDir('sync-fixtures-');
     const fixtures = join(root, 'fixtures');
-    const media = new MediaStore({ cacheDir: join(root, 'media'), fetch: placeholderFetch });
+    const media = new MediaStore({
+      cacheDir: join(root, 'media'),
+      // One image for every URL, so a scrubbed file URL changes nothing but the media key.
+      fetch: (_url, init) => placeholderFetch('https://placeholder.test/', init),
+    });
     const bookmarks = new BookmarkFetcher({
       cacheDir: join(root, 'bookmarks'),
       media,
@@ -465,6 +488,10 @@ describe('recorded fixtures', () => {
       'Thanks to @Real Name for reading my Douban backup and About on January 11, 2024 with x^2.',
       'Thanks to @someone for reading my Douban backup and About on January 11, 2024 with x^2.',
     ]);
-    expect(comparable(replayed)).toEqual(comparable(withScrubbedValues(live)));
+    expect([coverKey(live), coverKey(replayed)]).toEqual([
+      mediaCacheKey(fileUrl(WORKSPACE_ID, 'cover.png')),
+      mediaCacheKey(fileUrl(ZERO_ID, 'cover.png')),
+    ]);
+    expect(comparable(replayed)).toEqual(comparable(withScrubbedValues(live, notionFiles)));
   });
 });

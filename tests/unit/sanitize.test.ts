@@ -135,6 +135,38 @@ describe('scrub', () => {
     });
   });
 
+  it('replaces the workspace ID in Notion file URLs, but keeps the file ID and name', () => {
+    const workspace = '7f3d2c1b-4a5e-4f60-8b9c-0d1e2f3a4b5c';
+    const file = 'c4b3a291-8076-4e5d-9c3b-2a1f0e9d8c7b';
+    const zero = '00000000-0000-0000-0000-000000000000';
+    const input = {
+      cover: {
+        type: 'file',
+        file: {
+          url: `https://prod-files-secure.s3.us-west-2.amazonaws.com/${workspace}/${file}/My%20photo.jpg?X-Amz-Signature=abc`,
+          expiry_time: 'x',
+        },
+      },
+      links: [
+        `https://file.notion.so/f/f/${workspace}/${file}/notes.pdf?spaceId=${workspace}&signature=abc`,
+        `https://img.notionusercontent.com/s3/prod-files-secure%2F${workspace}%2F${file}%2Fa.png/size/w=2000?exp=1&sig=abc`,
+      ],
+    };
+    expect(scrub(input)).toEqual({
+      cover: {
+        type: 'file',
+        file: {
+          url: `https://prod-files-secure.s3.us-west-2.amazonaws.com/${zero}/${file}/My%20photo.jpg`,
+          expiry_time: 'x',
+        },
+      },
+      links: [
+        `https://file.notion.so/f/f/${zero}/${file}/notes.pdf`,
+        `https://img.notionusercontent.com/s3/prod-files-secure%2F${zero}%2F${file}%2Fa.png/size/w=2000`,
+      ],
+    });
+  });
+
   it('drops the public Notion URL of pages, databases and data sources, but not a column of that name', () => {
     const column = { id: 'p', type: 'url', url: 'https://example.com' };
     for (const object of ['page', 'database', 'data_source']) {
