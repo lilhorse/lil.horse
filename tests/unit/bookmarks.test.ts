@@ -139,6 +139,7 @@ const MALFORMED_CACHE: Record<string, unknown> = {
   'an icon that is not an object': { fetchedAt: 0, meta: { ...CACHED, icon: '/_media/icon.png' } },
   'a fetchedAt that is not a number': { fetchedAt: '0', meta: CACHED },
   'a title that is not text': { fetchedAt: 0, meta: { ...CACHED, title: 5 } },
+  'warnings that are not text': { fetchedAt: 0, meta: CACHED, warnings: [5] },
   'no object at all': 5,
 };
 
@@ -463,6 +464,43 @@ describe('BookmarkFetcher', () => {
     await subject.get(`${server.url}/broken-image`, (message) => own.push(message));
     await subject.get('not a url', (message) => own.push(message));
     expect(own).toHaveLength(3);
+    expect(warnings).toEqual([]);
+  });
+
+  it('repeats download warnings to a later page that hits the cache', async () => {
+    const { fetcher: subject } = await setup();
+    const path = '/broken-image?replay=1';
+    const first: string[] = [];
+    const later: string[] = [];
+    await subject.get(`${server.url}${path}`, (message) => first.push(message));
+    await subject.get(`${server.url}${path}`, (message) => later.push(message));
+    expect(server.hits.get(path)).toBe(1);
+    expect(first).toHaveLength(2);
+    expect(later).toEqual(first);
+  });
+
+  it('gives every concurrent caller the warnings', async () => {
+    const { fetcher: subject } = await setup();
+    const path = '/broken-image?concurrent=1';
+    const first: string[] = [];
+    const second: string[] = [];
+    await Promise.all([
+      subject.get(`${server.url}${path}`, (message) => first.push(message)),
+      subject.get(`${server.url}${path}`, (message) => second.push(message)),
+    ]);
+    expect(server.hits.get(path)).toBe(1);
+    expect(first).toHaveLength(2);
+    expect(second).toEqual(first);
+  });
+
+  it('reads cache entries written without warnings', async () => {
+    const { dir, fetcher: subject, warnings } = await setup();
+    const path = '/plain?legacy=1';
+    await subject.get(`${server.url}${path}`);
+    const [file] = (await readdir(dir)).filter((name) => name.endsWith('.json'));
+    await writeFile(join(dir, file), JSON.stringify({ fetchedAt: 0, meta: CACHED }));
+    await expect(subject.get(`${server.url}${path}`)).resolves.toEqual(CACHED);
+    expect(server.hits.get(path)).toBe(1);
     expect(warnings).toEqual([]);
   });
 

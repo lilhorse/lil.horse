@@ -193,6 +193,12 @@ function reason(error: unknown): string {
 interface CachedBookmark {
   fetchedAt: number;
   meta: BookmarkMeta;
+  warnings?: string[];
+}
+
+interface BookmarkResult {
+  meta: BookmarkMeta | null;
+  warnings: string[];
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -200,11 +206,20 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 const isText = (value: unknown) => value === null || typeof value === 'string';
 const isRef = (value: unknown) =>
   value === null || (isObject(value) && typeof value.key === 'string');
+const isTextList = (value: unknown) =>
+  Array.isArray(value) && value.every((item) => typeof item === 'string');
 
 function isCachedBookmark(value: unknown): value is CachedBookmark {
   if (!isObject(value) || !Number.isFinite(value.fetchedAt) || !isObject(value.meta)) return false;
   const { title, description, siteName, image, icon } = value.meta;
-  return isText(title) && isText(description) && isText(siteName) && isRef(image) && isRef(icon);
+  return (
+    isText(title) &&
+    isText(description) &&
+    isText(siteName) &&
+    isRef(image) &&
+    isRef(icon) &&
+    (value.warnings === undefined || isTextList(value.warnings))
+  );
 }
 
 export interface BookmarkFetcherOptions {
@@ -225,7 +240,7 @@ export class BookmarkFetcher {
   readonly #now: () => number;
   readonly #timeoutMs: number;
   readonly #warn: (message: string) => void;
-  readonly #pending = new Map<string, Promise<BookmarkMeta | null>>();
+  readonly #pending = new Map<string, Promise<BookmarkResult>>();
 
   constructor(options: BookmarkFetcherOptions) {
     this.#cacheDir = options.cacheDir;
@@ -237,19 +252,28 @@ export class BookmarkFetcher {
     this.#warn = options.warn ?? (() => undefined);
   }
 
-  // A request already in flight for the same URL reports its warnings to the first caller only.
-  get(url: string, warn: (message: string) => void = this.#warn): Promise<BookmarkMeta | null> {
-    const pending = this.#pending.get(url);
-    if (pending) return pending;
-    const task = this.#get(url, warn).finally(() => this.#pending.delete(url));
-    this.#pending.set(url, task);
-    return task;
+  async get(
+    url: string,
+    warn: (message: string) => void = this.#warn,
+  ): Promise<BookmarkMeta | null> {
+    let pending = this.#pending.get(url);
+    if (!pending) {
+      pending = this.#get(url).finally(() => this.#pending.delete(url));
+      this.#pending.set(url, pending);
+    }
+    const { meta, warnings } = await pending;
+    for (const message of warnings) warn(message);
+    return meta;
   }
 
-  async #get(url: string, warn: (message: string) => void): Promise<BookmarkMeta | null> {
+  async #get(url: string): Promise<BookmarkResult> {
+    const warnings: string[] = [];
+    const warn = (message: string) => {
+      warnings.push(message);
+    };
     if (!httpUrl(url)) {
       warn(`Bookmark metadata unavailable for ${url}: not an http(s) URL`);
-      return null;
+      return { meta: null, warnings };
     }
     const file = join(
       this.#cacheDir,
@@ -263,20 +287,21 @@ export class BookmarkFetcher {
       !missing(cached.meta.image) &&
       !missing(cached.meta.icon)
     )
-      return cached.meta;
+      return { meta: cached.meta, warnings: cached.warnings ?? [] };
 
     const page = await this.#fetchPage(url).catch((error: unknown) => {
       warn(`Bookmark metadata unavailable for ${url}: ${reason(error)}`);
       return null;
     });
     if (!page) {
-      if (!cached) return null;
+      if (!cached) return { meta: null, warnings };
       const { image, icon } = cached.meta;
-      return {
+      const meta = {
         ...cached.meta,
         image: missing(image) ? null : image,
         icon: missing(icon) ? null : icon,
       };
+      return { meta, warnings };
     }
 
     const meta: BookmarkMeta = {
@@ -287,11 +312,11 @@ export class BookmarkFetcher {
       icon: await this.#download(url, 'icon', page.icons, warn),
     };
     try {
-      await this.#write(file, { fetchedAt: this.#now(), meta });
+      await this.#write(file, { fetchedAt: this.#now(), meta, warnings });
     } catch (error) {
       warn(`Could not cache bookmark metadata for ${url}: ${reason(error)}`);
     }
-    return meta;
+    return { meta, warnings };
   }
 
   async #fetchPage(url: string) {
