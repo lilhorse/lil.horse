@@ -1,7 +1,9 @@
+import { once } from 'node:events';
 import { mkdir, writeFile } from 'node:fs/promises';
+import type { AddressInfo } from 'node:net';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { resolveDistFile } from '../../scripts/serve-dist';
+import { resolveDistFile, serveDist } from '../../scripts/serve-dist';
 import { tempDir } from '../helpers/temp-dir';
 
 async function dist(): Promise<string> {
@@ -43,5 +45,22 @@ describe('resolveDistFile', () => {
     expect(resolveDistFile(root, '/blog/')).toEqual(missing);
     expect(resolveDistFile(root, '/%2e%2e/%2e%2e/etc/passwd')).toEqual(missing);
     expect(resolveDistFile(root, '/%E0%A4%A')).toEqual(missing);
+  });
+});
+
+describe('serveDist', () => {
+  it('keeps serving while dist/ is empty during a rebuild', async () => {
+    const server = serveDist(await tempDir('serve-empty-'), 0);
+    await once(server, 'listening');
+    const { port } = server.address() as AddressInfo;
+    try {
+      for (const path of ['/', '/blog']) {
+        const response = await fetch(`http://127.0.0.1:${port}${path}`);
+        expect(response.status).toBe(404);
+        await response.text();
+      }
+    } finally {
+      server.close();
+    }
   });
 });

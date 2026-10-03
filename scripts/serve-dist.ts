@@ -60,7 +60,9 @@ export function serveDist(dist: string, port: number) {
     response.writeHead(status, {
       'content-type': TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream',
     });
-    createReadStream(file).pipe(response);
+    createReadStream(file)
+      .on('error', () => response.end())
+      .pipe(response);
   }).listen(port, '127.0.0.1');
 }
 
