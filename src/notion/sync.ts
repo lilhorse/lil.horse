@@ -30,7 +30,7 @@ import type {
 } from './types';
 
 // Bump whenever PageContent or the AST changes shape.
-export const LOADER_VERSION = 1;
+export const LOADER_VERSION = 2;
 
 export interface SyncOptions {
   api: NotionApi;

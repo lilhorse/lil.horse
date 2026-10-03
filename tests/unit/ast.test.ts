@@ -133,6 +133,19 @@ describe('blocksToAst', () => {
     expect(mapLanguage('C++')).toBe('cpp');
   });
 
+  it.each([
+    ['an empty', []],
+    ['a whitespace-only', [rt(' \n\t')]],
+  ])('skips %s code block with a warning', async (_, richText) => {
+    const empty = leaf(block('code', { rich_text: richText, caption: [], language: 'python' }));
+    const { ctx, warnings } = context();
+    expect(await blocksToAst([paragraph('before'), empty, paragraph('after')], ctx)).toMatchObject([
+      { type: 'paragraph' },
+      { type: 'paragraph' },
+    ]);
+    expect(warnings).toEqual([`Code block ${empty.block.id} is empty; skipped`]);
+  });
+
   it('builds tables, columns, callouts and containers', async () => {
     const table = leaf(
       block(

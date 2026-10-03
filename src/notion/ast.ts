@@ -224,8 +224,12 @@ async function convert({ block, children }: BlockNode, ctx: AstContext): Promise
     }
     case 'divider':
       return { type: 'divider', id: block.id };
-    case 'code':
-      return toCodeNode(block);
+    case 'code': {
+      const node = toCodeNode(block);
+      if (node.code.trim()) return node;
+      ctx.warn(`Code block ${block.id} is empty; skipped`);
+      return null;
+    }
     case 'equation':
       return { type: 'equation', id: block.id, expression: block.equation.expression };
     case 'table':
