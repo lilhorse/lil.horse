@@ -25,6 +25,7 @@ describe('tagSlug', () => {
 
   it('ignores stray spaces', () => {
     expect(tagSlug('  spaced  ')).toBe('spaced');
+    expect(tagSlug(' C++ ')).toBe(tagSlug('C++'));
   });
 
   it('adds a stable hash of the full name when slugging drops characters', () => {
@@ -48,6 +49,11 @@ describe('tagSlug', () => {
     expect(tagSlug('🎬')).toMatch(/^tag-[0-9a-f]{6}$/);
     expect(tagSlug('🎬')).toBe(tagSlug('🎬'));
     expect(tagSlug('!!!')).not.toBe(tagSlug('🎬'));
+  });
+
+  it('hashes the UTF-8 bytes of a name, not its code points', () => {
+    expect(tagSlug('🎬 Movies')).toBe('movies-e93383');
+    expect(tagSlug('🎬')).toBe('tag-53d74f');
   });
 
   it('keeps a slug of up to 100 UTF-8 bytes whole', () => {
@@ -107,6 +113,19 @@ describe('tagIndex', () => {
       post('c', '2024-01-03', ['AI']),
     ]);
     expect(index[0]?.name).toBe('AI');
+  });
+
+  it('breaks a tie between spellings in code point order, not by post date', () => {
+    const index = tagIndex([post('new', '2024-01-02', ['ai']), post('old', '2024-01-01', ['AI'])]);
+    expect(index[0]?.name).toBe('AI');
+  });
+
+  it('orders tags by slug, not by post date', () => {
+    const index = tagIndex([
+      post('new', '2024-01-02', ['Zed']),
+      post('old', '2024-01-01', ['Apple']),
+    ]);
+    expect(index.map((tag) => tag.slug)).toEqual(['apple', 'zed']);
   });
 
   it('keeps tags that only slug alike on separate pages, never throwing', () => {
