@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { LoaderContext } from 'astro/loaders';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   entriesFor,
   notionLoader,
@@ -19,6 +19,22 @@ const site = {
   mediaKeys: [],
   warnings: [],
 } as unknown as SiteContent;
+
+beforeEach(() => {
+  vi.stubEnv('NOTION_SKIP_SYNC', undefined);
+  // Without a token or fixtures, any sync attempt fails instead of reaching Notion.
+  vi.stubEnv('NOTION_TOKEN', undefined);
+  vi.stubEnv('NOTION_FIXTURES', undefined);
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+async function freshLoaders() {
+  vi.resetModules();
+  return import('../../src/notion/loaders');
+}
 
 describe('entriesFor', () => {
   it('keys each collection the way the routes expect', () => {
@@ -47,16 +63,22 @@ describe('writeMediaManifest', () => {
   });
 });
 
-describe('notionLoader', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
+describe('loadSiteContent', () => {
+  it('runs a fresh sync after a failed one', async () => {
+    const { loadSiteContent } = await freshLoaders();
+    const logger = { info: vi.fn(), warn: vi.fn() } as unknown as LoaderContext['logger'];
+    const first: unknown = await loadSiteContent(logger).catch((error: unknown) => error);
+    const second: unknown = await loadSiteContent(logger).catch((error: unknown) => error);
+    expect(first).toMatchObject({ message: expect.stringContaining('NOTION_TOKEN is not set') });
+    expect(second).toMatchObject({ message: expect.stringContaining('NOTION_TOKEN is not set') });
+    // A memoised failure would hand back the same error.
+    expect(second).not.toBe(first);
   });
+});
 
+describe('notionLoader', () => {
   it('skips the sync and leaves the store alone when NOTION_SKIP_SYNC is set', async () => {
     vi.stubEnv('NOTION_SKIP_SYNC', '1');
-    // Without a token or fixtures, any sync attempt fails instead of reaching Notion.
-    vi.stubEnv('NOTION_TOKEN', undefined);
-    vi.stubEnv('NOTION_FIXTURES', undefined);
     const store = { clear: vi.fn(), set: vi.fn() };
     const logger = { info: vi.fn(), warn: vi.fn() };
     const context = { store, logger, generateDigest: () => 'digest' };

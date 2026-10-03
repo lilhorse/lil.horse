@@ -64,9 +64,12 @@ async function runSync(logger: Logger): Promise<SiteContent> {
   return site;
 }
 
-// All four collections share one sync per process; restart `astro dev` to pull new Notion edits.
+// All four collections share one successful sync per process; restart `astro dev` to pull new Notion edits.
 export function loadSiteContent(logger: Logger): Promise<SiteContent> {
-  pending ??= runSync(logger);
+  pending ??= runSync(logger).catch((error: unknown) => {
+    pending = undefined;
+    throw error;
+  });
   return pending;
 }
 
