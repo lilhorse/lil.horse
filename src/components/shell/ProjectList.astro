@@ -17,10 +17,14 @@ const { projects } = Astro.props;
       <li>
         {href ? (
           <a href={href} rel={relFor(href)}>
-            {project.name}/
+            {project.name}
+            <span aria-hidden="true">/</span>
           </a>
         ) : (
-          <span class="name">{project.name}/</span>
+          <span class="name">
+            {project.name}
+            <span aria-hidden="true">/</span>
+          </span>
         )}{' '}
         <span class="description">{project.description}</span>
       </li>

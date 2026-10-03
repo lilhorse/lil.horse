@@ -19,10 +19,14 @@ const meta = [project.year ? String(project.year) : null, project.status].filter
   <h2 class="name">
     {href ? (
       <a href={href} rel={relFor(href)}>
-        {project.name}/
+        {project.name}
+        <span aria-hidden="true">/</span>
       </a>
     ) : (
-      `${project.name}/`
+      <Fragment>
+        {project.name}
+        <span aria-hidden="true">/</span>
+      </Fragment>
     )}
   </h2>
   {meta.length > 0 && (

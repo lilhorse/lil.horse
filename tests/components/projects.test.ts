@@ -26,8 +26,9 @@ describe('ProjectCard', () => {
       }),
     });
     expect(html).toContain(
-      '<a href="https://www.cleanstay.co.nz" rel="noopener noreferrer">CleanStay/</a>',
+      '<a href="https://www.cleanstay.co.nz" rel="noopener noreferrer">CleanStay<span aria-hidden="true">/</span></a>',
     );
+    expect(textOf(element(html, '<h2 class="name"', 'h2'))).toBe('CleanStay/');
     expect(textOf(element(html, '<p class="meta"', 'p'))).toBe('2026 · Active');
     expect(html).toContain('<span class="status status-active">');
     expect(textOf(element(html, '<ul class="stack"', 'ul'))).toBe('TypeScript');
@@ -38,6 +39,9 @@ describe('ProjectCard', () => {
   it('names a project without any link as plain text', async () => {
     const html = await render(ProjectCard, { project: project('Secret', { link: null }) });
     expect(textOf(element(html, '<h2 class="name"', 'h2'))).toBe('Secret/');
+    expect(element(html, '<h2 class="name"', 'h2')).toContain(
+      'Secret<span aria-hidden="true">/</span>',
+    );
     expect(element(html, '<h2 class="name"', 'h2')).not.toContain('<a');
   });
 });

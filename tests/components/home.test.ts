@@ -77,6 +77,15 @@ describe('home page', () => {
     useSite({ projects: [project('Loud', { featured: true })] });
     const html = await render(Home);
     expect(html).toContain('<h2 class="sr-only">Projects</h2>');
-    expect(html).toContain('<a href="https://example.com" rel="noopener noreferrer">Loud/</a>');
+    expect(html).toContain(
+      '<a href="https://example.com" rel="noopener noreferrer">Loud<span aria-hidden="true">/</span></a>',
+    );
+  });
+
+  it('names a featured project without any link as plain text', async () => {
+    useSite({ projects: [project('Plain', { featured: true, link: null })] });
+    expect(await render(Home)).toContain(
+      '<span class="name">Plain<span aria-hidden="true">/</span></span>',
+    );
   });
 });
