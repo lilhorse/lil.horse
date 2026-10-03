@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 import pLimit from 'p-limit';
+// TODO: take the URL builder as an option so this module stops knowing the site's routes.
+// eslint-disable-next-line no-restricted-imports -- maps Notion page IDs to site URLs; the only site import here
 import { buildLinkMap } from '../lib/links';
 import { isNotFoundError, type NotionApi } from './api';
 import { toIcon } from './ast';

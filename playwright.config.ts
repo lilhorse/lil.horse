@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const PORT = 4322;
+// Worktrees that run e2e at the same time each need their own port.
+const PORT = Number(process.env.E2E_PORT ?? 4322);
 
 export default defineConfig({
   testDir: 'tests/e2e',
