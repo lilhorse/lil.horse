@@ -7,14 +7,21 @@ interface Props {
   description?: string | null;
   noindex?: boolean;
   hasMath?: boolean;
+  canonical?: boolean;
 }
 
 // Element ids used in this layout must also be in LAYOUT_IDS in src/notion/page-content.ts.
-const { title, description = null, noindex = false, hasMath = false } = Astro.props;
+const {
+  title,
+  description = null,
+  noindex = false,
+  hasMath = false,
+  canonical = true,
+} = Astro.props;
 const pageTitle = title === siteConfig.name ? title : `${title} · ${siteConfig.name}`;
 // With build.format 'file', Astro.url.pathname ends in .html at build time.
 const canonicalPath = Astro.url.pathname.replace(/\/index\.html$/, '/').replace(/\.html$/, '');
-const canonical = new URL(canonicalPath, siteConfig.url).toString();
+const canonicalUrl = new URL(canonicalPath, siteConfig.url).toString();
 ---
 
 <!doctype html>
@@ -24,7 +31,7 @@ const canonical = new URL(canonicalPath, siteConfig.url).toString();
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{pageTitle}</title>
     {description && <meta name="description" content={description} />}
-    <link rel="canonical" href={canonical} />
+    {canonical && <link rel="canonical" href={canonicalUrl} />}
     {noindex && <meta name="robots" content="noindex" />}
     {hasMath && <link rel="stylesheet" href={KATEX_STYLESHEET} />}
   </head>

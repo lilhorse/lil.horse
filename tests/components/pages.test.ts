@@ -111,6 +111,15 @@ describe('Base layout', () => {
       '~/lil.horse blog projects about contact',
     );
   });
+
+  it('gives pages a canonical URL, except the 404 page', async () => {
+    useSite({ posts: [post('hello')] });
+    const blog = await render(BlogIndex, {}, 'https://lil.horse/blog.html');
+    const missing = await render(NotFound, {}, 'https://lil.horse/404.html');
+    expect(blog).toContain('<link rel="canonical" href="https://lil.horse/blog">');
+    expect(missing).not.toContain('rel="canonical"');
+    expect(await htmlErrors(missing)).toEqual([]);
+  });
 });
 
 describe('home page', () => {
