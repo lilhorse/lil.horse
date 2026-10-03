@@ -16,6 +16,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "check:dist": "tsx scripts/check-dist.ts",
     "record:fixtures": "tsx --env-file=.env scripts/record-fixtures.ts",
     "brand": "tsx brand/build.ts"
@@ -33,7 +34,9 @@
   },
   "devDependencies": {
     "@astrojs/check": "0.9.10",
+    "@axe-core/playwright": "4.13.0",
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
     "@types/node": "~24.19.1",
     "eslint": "10.11.0",
     "eslint-plugin-astro": "3.2.1",
