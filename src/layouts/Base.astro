@@ -1,6 +1,9 @@
 ---
+import { Font } from 'astro:assets';
 import { siteConfig } from '../../site.config';
 import { KATEX_STYLESHEET } from '../lib/katex';
+import '../styles/tokens.css';
+import '../styles/base.css';
 
 interface Props {
   title: string;
@@ -33,10 +36,20 @@ const canonicalUrl = new URL(canonicalPath, siteConfig.url).toString();
     {description && <meta name="description" content={description} />}
     {canonical && <link rel="canonical" href={canonicalUrl} />}
     {noindex && <meta name="robots" content="noindex" />}
+    <meta name="theme-color" content="#e6e9ef" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#16161e" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <Font cssVariable="--font-jetbrains-mono" preload={[{ weight: 400, style: 'normal' }]} />
+    <Font cssVariable="--font-ibm-plex-sans" preload={[{ weight: 400, style: 'normal' }]} />
     {hasMath && <link rel="stylesheet" href={KATEX_STYLESHEET} />}
   </head>
   <body>
-    <a href="#main">Skip to content</a>
+    <a class="skip-link" href="#main">
+      Skip to content
+    </a>
     <header>
       <nav aria-label="Primary">
         <a href="/">~/lil.horse</a> <a href="/blog">blog</a> <a href="/projects">projects</a>{' '}

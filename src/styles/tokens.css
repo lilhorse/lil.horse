@@ -1,0 +1,81 @@
+@layer tokens, base, prose;
+
+@layer tokens {
+  :root {
+    color-scheme: light dark;
+
+    --bg: light-dark(#f2f4f7, #1a1b26);
+    --bg-bar: light-dark(#e6e9ef, #16161e);
+    --bg-code: light-dark(#eaedf2, #16161e);
+    --border: light-dark(#d8dde6, #292e42);
+    --rule: light-dark(#e4e8ee, #222436);
+    --fg: light-dark(#1f1b16, #c0caf5);
+    --fg-soft: light-dark(#3d362d, #a9b1d6);
+    --muted: light-dark(#6b6152, #8089b3);
+    --faint: light-dark(#aab1bf, #565f89);
+    --heading-mark: light-dark(#c92a2a, #565f89);
+    --accent: light-dark(#1f4fd6, #7aa2f7);
+    --accent-2: light-dark(#a35530, #bb9af7);
+    --prompt: light-dark(#c92a2a, #9ece6a);
+    --branch: light-dark(#c92a2a, #bb9af7);
+    --user: light-dark(#a35530, #7dcfff);
+    --ok: light-dark(#2f7a2f, #9ece6a);
+    --danger: light-dark(#c92a2a, #f7768e);
+    --star: light-dark(#c92a2a, #e0af68);
+    --hl-yellow: light-dark(#ffe27a, color-mix(in oklab, #e0af68 22%, var(--bg)));
+    --hl-pink: light-dark(#ffc2d9, color-mix(in oklab, #f7768e 22%, var(--bg)));
+    --hl-green: light-dark(#c4efb0, color-mix(in oklab, #9ece6a 22%, var(--bg)));
+    --hl-blue: light-dark(#c9e2ff, color-mix(in oklab, #7aa2f7 22%, var(--bg)));
+
+    --text-brown: light-dark(#a35530, #e0af68);
+    --text-orange: light-dark(#a35530, #ff9e64);
+    --text-yellow: light-dark(#a35530, #e0af68);
+    --text-purple: light-dark(#7c3f58, #bb9af7);
+
+    --tag-yellow-bg: light-dark(#ffe27a, color-mix(in oklab, #e0af68 16%, var(--bg)));
+    --tag-yellow-fg: light-dark(#1f1b16, #e0af68);
+    --tag-pink-bg: light-dark(#ffc2d9, color-mix(in oklab, #f7768e 16%, var(--bg)));
+    --tag-pink-fg: light-dark(#1f1b16, #f7768e);
+    --tag-green-bg: light-dark(#c4efb0, color-mix(in oklab, #9ece6a 16%, var(--bg)));
+    --tag-green-fg: light-dark(#1f1b16, #9ece6a);
+    --tag-blue-bg: light-dark(#c9e2ff, color-mix(in oklab, #7aa2f7 16%, var(--bg)));
+    --tag-blue-fg: light-dark(#1f1b16, #7aa2f7);
+
+    --dot-1: light-dark(#ffc2d9, #292e42);
+    --dot-2: light-dark(#ffe27a, #292e42);
+    --dot-3: light-dark(#c4efb0, #292e42);
+    --swatch-1: light-dark(#c92a2a, #f7768e);
+    --swatch-2: light-dark(#a35530, #e0af68);
+    --swatch-3: light-dark(#ffe27a, #9ece6a);
+    --swatch-4: light-dark(#2f7a2f, #7dcfff);
+    --swatch-5: light-dark(#1f4fd6, #7aa2f7);
+    --swatch-6: light-dark(#ffc2d9, #bb9af7);
+
+    --font-mono: var(--font-jetbrains-mono);
+    --font-sans: var(--font-ibm-plex-sans);
+    --text-ui: 0.8125rem;
+    --text-cmd: 0.875rem;
+    --text-body: 1.0625rem;
+    --leading-en: 1.75;
+    --leading-zh: 1.85;
+    --measure: 720px;
+    --gutter: 18px;
+    --radius: 8px;
+    --radius-sm: 6px;
+  }
+
+  :root[data-theme='light'] {
+    color-scheme: light;
+  }
+
+  :root[data-theme='dark'] {
+    color-scheme: dark;
+  }
+
+  @media (max-width: 639.98px) {
+    :root {
+      --text-body: 1rem;
+      --gutter: 16px;
+    }
+  }
+}

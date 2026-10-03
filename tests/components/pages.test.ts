@@ -27,6 +27,18 @@ describe('Base layout', () => {
     );
   });
 
+  it('links the icons, the manifest and exactly two preloaded fonts', async () => {
+    const html = await render(BlogIndex, {}, 'https://lil.horse/blog.html');
+    expect(html).toContain('<link rel="icon" href="/favicon.svg" type="image/svg+xml">');
+    expect(html).toContain('<link rel="icon" href="/favicon.ico" sizes="32x32">');
+    expect(html).toContain('<link rel="apple-touch-icon" href="/apple-touch-icon.png">');
+    expect(html).toContain('<link rel="manifest" href="/site.webmanifest">');
+    expect(html.match(/<link rel="preload"[^>]* as="font"/g)).toHaveLength(2);
+    expect(html).toContain(
+      '<meta name="theme-color" content="#16161e" media="(prefers-color-scheme: dark)">',
+    );
+  });
+
   it('gives pages a canonical URL, except the 404 page', async () => {
     useSite({ posts: [post('hello')] });
     const blog = await render(BlogIndex, {}, 'https://lil.horse/blog.html');

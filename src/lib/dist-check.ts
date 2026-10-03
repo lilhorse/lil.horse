@@ -12,6 +12,7 @@ export interface DistIssue {
 interface Options {
   jsBudgetBytes: number;
   cssBudgetBytes: number;
+  fontPreloadBudget: number;
   validator: HtmlValidate | null;
   routes: string[];
 }
@@ -144,10 +145,11 @@ function moduleSize(dist: string, url: string, seen: Set<string>): number {
   return size;
 }
 
-function assetSizes(dist: string, html: string): { js: number; css: number } {
+function assetSizes(dist: string, html: string): { js: number; css: number; fonts: number } {
   const modules = new Set<string>();
   let js = 0;
   let css = 0;
+  let fonts = 0;
   for (const { tag, name, text } of startTags(html)) {
     if (name === 'style') css += gzipSync(text).length;
     else if (name === 'script' && !/type="(application\/ld\+json|speculationrules)"/.test(tag)) {
@@ -160,9 +162,10 @@ function assetSizes(dist: string, html: string): { js: number; css: number } {
       const types = attribute(tag, 'rel')?.split(/\s+/) ?? [];
       if (types.includes('modulepreload')) js += moduleSize(dist, href, modules);
       if (types.includes('stylesheet')) css += gzippedFile(dist, href);
+      if (types.includes('preload') && attribute(tag, 'as') === 'font') fonts += 1;
     }
   }
-  return { js, css };
+  return { js, css, fonts };
 }
 
 export async function checkDist(
@@ -172,6 +175,7 @@ export async function checkDist(
   const options: Options = {
     jsBudgetBytes: 15 * 1024,
     cssBudgetBytes: 20 * 1024,
+    fontPreloadBudget: 2,
     validator: new HtmlValidate(new FileSystemConfigLoader()),
     routes: [],
     ...overrides,
@@ -212,6 +216,12 @@ export async function checkDist(
       issues.push({
         file: name,
         message: `CSS is ${sizes.css} bytes gzipped; the budget is ${options.cssBudgetBytes}`,
+      });
+    }
+    if (sizes.fonts > options.fontPreloadBudget) {
+      issues.push({
+        file: name,
+        message: `preloads ${sizes.fonts} font files; the budget is ${options.fontPreloadBudget}`,
       });
     }
     if (options.validator) {

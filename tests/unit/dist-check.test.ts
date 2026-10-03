@@ -221,6 +221,22 @@ describe('checkDist', () => {
     ]);
   });
 
+  it('reports pages that preload more than two font files', async () => {
+    const font = (name: string) =>
+      `<link rel="preload" href="/_astro/fonts/${name}.woff2" as="font" type="font/woff2" crossorigin>`;
+    const files = {
+      '_astro/fonts/a.woff2': 'a',
+      '_astro/fonts/b.woff2': 'b',
+      '_astro/fonts/c.woff2': 'c',
+    };
+    const two = await dist({ ...files, 'index.html': page(font('a') + font('b')) });
+    const three = await dist({ ...files, 'index.html': page(font('a') + font('b') + font('c')) });
+    expect(await checkDist(two, noValidation)).toEqual([]);
+    expect(await checkDist(three, noValidation)).toEqual([
+      { file: 'index.html', message: 'preloads 3 font files; the budget is 2' },
+    ]);
+  });
+
   it('reads rel as a list of link types', async () => {
     const root = await dist({
       'index.html': page('<link rel="preload stylesheet" as="style" href="/_astro/a.css">'),

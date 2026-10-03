@@ -1,0 +1,129 @@
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    min-block-size: 100vh;
+    min-block-size: 100dvh;
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-mono);
+    font-size: var(--text-cmd);
+    line-height: 1.6;
+    overflow-wrap: break-word;
+  }
+
+  main {
+    flex: 1;
+    inline-size: 100%;
+    max-inline-size: calc(var(--measure) + 2 * var(--gutter));
+    margin-inline: auto;
+    padding: 8px var(--gutter) 56px;
+  }
+
+  main.wide {
+    max-inline-size: none;
+  }
+
+  :where(h1, h2, h3, h4, h5, h6, p, ul, ol, dl, dd, figure, blockquote) {
+    margin: 0;
+  }
+
+  a {
+    color: var(--accent);
+    text-decoration-line: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+
+  img,
+  video {
+    max-inline-size: 100%;
+    block-size: auto;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--hl-blue);
+    color: var(--fg);
+  }
+
+  .sr-only {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .skip-link {
+    position: absolute;
+    inset-block-start: -100px;
+    inset-inline-start: 12px;
+    z-index: 30;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--fg);
+  }
+
+  .skip-link:focus {
+    inset-block-start: 12px;
+  }
+
+  .theme-light {
+    display: contents;
+  }
+
+  .theme-dark {
+    display: none;
+  }
+
+  :root[data-theme='dark'] .theme-light {
+    display: none;
+  }
+
+  :root[data-theme='dark'] .theme-dark {
+    display: contents;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) .theme-light {
+      display: none;
+    }
+
+    :root:not([data-theme='light']) .theme-dark {
+      display: contents;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation: none !important;
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
