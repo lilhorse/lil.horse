@@ -22,7 +22,10 @@ type FileEntry = Extract<Value, { type: 'files' }>['files'][number];
 
 export interface FixtureSanitizer {
   (method: Method, arg: string, value: unknown): unknown;
-  /** Writes the recorded inline tables and block lists, cut down to what the site renders. */
+  /**
+   * Writes the recorded inline tables and block lists, cut down to what the site renders.
+   * Each table keeps only its first maxInlineRows rows (25 by default).
+   */
   prune(dir: string): Promise<void>;
 }
 
