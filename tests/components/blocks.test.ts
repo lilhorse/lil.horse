@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import Blocks from '../../src/components/blocks/Blocks.astro';
 import BookmarkCard from '../../src/components/blocks/BookmarkCard.astro';
+import Picture from '../../src/components/blocks/Picture.astro';
 import VideoBlock from '../../src/components/blocks/VideoBlock.astro';
 import type { LinkResolver } from '../../src/lib/html';
 import type {
@@ -161,6 +162,22 @@ describe('BookmarkCard', () => {
       resolve,
     });
     expect(textOf(html)).toBe('A post What it says Example Site example.com');
+  });
+});
+
+describe('Picture', () => {
+  it('prioritises an image that has no variants', async () => {
+    const gif = media('gif', {
+      mime: 'image/gif',
+      fileName: 'a.gif',
+      src: '/_media/gif/a.gif',
+      variants: [],
+    });
+    const priority = await render(Picture, { media: gif, alt: 'A GIF', priority: true });
+    const lazy = await render(Picture, { media: gif, alt: 'A GIF' });
+    expect(priority).toContain('fetchpriority="high"');
+    expect(priority).toContain('loading="eager"');
+    expect(lazy).not.toContain('fetchpriority');
   });
 });
 

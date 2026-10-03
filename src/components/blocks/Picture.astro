@@ -43,6 +43,7 @@ const loading = priority ? 'eager' : 'lazy';
     height={media.height ?? undefined}
     loading={loading}
     decoding="async"
+    fetchpriority={priority ? 'high' : undefined}
     style={style}
   />
 )}
