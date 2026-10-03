@@ -48,7 +48,17 @@ const { node, ctx, Blocks } = Astro.props;
   .callout.hl-purple {
     --callout-stripe: var(--hl-blue);
   }
-  .callout[class*='c-'] {
+  .callout:is(
+    .c-gray,
+    .c-brown,
+    .c-orange,
+    .c-yellow,
+    .c-green,
+    .c-blue,
+    .c-purple,
+    .c-pink,
+    .c-red
+  ) {
     --callout-stripe: currentColor;
   }
   .callout-body {
