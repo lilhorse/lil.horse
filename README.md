@@ -71,3 +71,7 @@ A visible project needs a `Description`. If its page has content, it also needs 
 ## History
 
 This repository used to host a Next.js site based on [nextjs-notion-starter-kit](https://github.com/transitive-bullshit/nextjs-notion-starter-kit). That version is kept on the `archive/v1-nextjs` branch.
+
+## License
+
+The code is released under the [MIT License](LICENSE).
