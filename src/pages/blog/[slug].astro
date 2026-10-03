@@ -36,11 +36,17 @@ const neighbour = (entry: PostEntry | null) =>
   file={`${post.slug}.md`}
   wide
 >
-  <DocLayout headings={post.content.headings} lang={lang}>
+  <DocLayout
+    headings={post.content.headings}
+    lang={lang}
+    search={post.status === 'Published' ? { type: 'post' } : null}
+  >
     <DocHeader command={`cat ~/blog/${post.slug}.md`} title={post.title}>
-      <div class="doc-meta" slot="meta">
-        <time datetime={post.published}>{post.published}</time> <span class="sep">·</span>{' '}
-        {post.readingMinutes} min read
+      <div class="doc-meta" slot="meta" data-pagefind-ignore>
+        <time datetime={post.published} data-pagefind-meta="date">
+          {post.published}
+        </time>{' '}
+        <span class="sep">·</span> {post.readingMinutes} min read
         {post.status === 'Draft' && (
           <Fragment>
             {' '}
@@ -69,7 +75,7 @@ const neighbour = (entry: PostEntry | null) =>
       />
     </div>
     {post.updated && (
-      <p class="doc-updated">
+      <p class="doc-updated" data-pagefind-ignore>
         Updated <time datetime={post.updated}>{post.updated}</time>
       </p>
     )}

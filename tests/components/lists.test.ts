@@ -8,9 +8,11 @@ describe('TagList', () => {
   it('links tags that have a page and colours each by its slug', async () => {
     const html = await render(TagList, { tags: ['AI', 'secret'], linked: new Set(['ai']) });
     expect(html).toMatch(
-      /<li><a href="\/blog\/tags\/ai"><span class="pill tag-(yellow|pink|green|blue)">#AI<\/span><\/a><\/li>/,
+      /<li><a href="\/blog\/tags\/ai"><span class="pill tag-(yellow|pink|green|blue)" data-pagefind-filter="tag\[data-tag\]" data-tag="AI">#AI<\/span><\/a><\/li>/,
     );
-    expect(html).toMatch(/<li><span class="pill tag-\w+">#secret<\/span><\/li>/);
+    expect(html).toMatch(
+      /<li><span class="pill tag-\w+" data-pagefind-filter="tag\[data-tag\]" data-tag="secret">#secret<\/span><\/li>/,
+    );
     expect(textOf(html)).toBe('#AI #secret');
     expect(await htmlErrors(html)).toEqual([]);
   });

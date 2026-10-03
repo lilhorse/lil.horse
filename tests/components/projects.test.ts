@@ -55,6 +55,16 @@ describe('projects pages', () => {
     expect(await htmlErrors(html)).toEqual([]);
   });
 
+  it('marks project pages for the search index', async () => {
+    const alpha = project('Alpha', { slug: 'alpha', content: content() });
+    useSite({ projects: [alpha] });
+    const html = await render(ProjectPage, { project: alpha });
+    expect(html).toContain(
+      '<article class="doc-main" data-pagefind-body data-pagefind-meta="type:project">',
+    );
+    expect(html).toContain('data-title="Alpha"');
+  });
+
   it('gives a project page the article layout without comments', async () => {
     const alpha = project('Alpha', { slug: 'alpha', content: content(), order: 1 });
     const beta = project('Beta', {

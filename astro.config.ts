@@ -1,5 +1,6 @@
 import { defineConfig, fontProviders } from 'astro/config';
 import expressiveCode from 'astro-expressive-code';
+import { searchIndex } from './integrations/pagefind';
 import { staticAssets } from './integrations/static-assets';
 
 const LATIN = [
@@ -77,5 +78,5 @@ export default defineConfig({
       options: { variants: [sans(400), sans(400, 'italic'), sans(500), sans(600)] },
     },
   ],
-  integrations: [expressiveCode(), staticAssets()],
+  integrations: [expressiveCode(), staticAssets(), searchIndex()],
 });

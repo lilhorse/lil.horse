@@ -27,7 +27,7 @@ if (!page) throw new Error(`The "${pageKey}" page is missing from the pages coll
   file={pageKey === 'contact' ? 'contact.md' : null}
   wide
 >
-  <DocLayout headings={page.content.headings}>
+  <DocLayout headings={page.content.headings} search={{ type: 'page' }}>
     <DocHeader command={`cat ~/${pageKey}.md`} title={page.title} />
     {page.cover && (
       <div class="doc-cover">

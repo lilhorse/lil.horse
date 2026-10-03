@@ -16,6 +16,8 @@ export const REQUIRED_ROUTES = [
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/icon-maskable-512.png',
+  'pagefind/pagefind.js',
+  'pagefind/pagefind-entry.json',
 ];
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {

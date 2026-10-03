@@ -22,7 +22,9 @@ describe('blog index', () => {
     expect(textOf(element(html, '<ul class="posts titles"', 'section'))).toBe(
       '01-11 Post draft DRAFT #a #b',
     );
-    expect(html).toMatch(/<a href="\/blog\/tags\/a"><span class="pill tag-\w+">#a<\/span><\/a>/);
+    expect(html).toMatch(
+      /<a href="\/blog\/tags\/a"><span class="pill tag-\w+"[^>]*>#a<\/span><\/a>/,
+    );
     expect(await htmlErrors(html)).toEqual([]);
   });
 

@@ -39,10 +39,10 @@ const neighbour = (entry: ProjectEntry | null) =>
   file={`${project.slug}.md`}
   wide
 >
-  <DocLayout headings={project.content.headings}>
+  <DocLayout headings={project.content.headings} search={{ type: 'project' }}>
     <DocHeader command={`cat ~/projects/${project.slug}.md`} title={project.name}>
       {(project.year || project.status || project.stack.length > 0) && (
-        <div class="doc-meta" slot="meta">
+        <div class="doc-meta" slot="meta" data-pagefind-ignore>
           {project.year && <span>{project.year}</span>}
           {project.status && (
             <Fragment>
@@ -60,7 +60,7 @@ const neighbour = (entry: ProjectEntry | null) =>
       )}
       <p class="lead">{project.description}</p>
       {links.length > 0 && (
-        <ul class="links">
+        <ul class="links" data-pagefind-ignore>
           {links.map((link, index) => (
             <Fragment>
               {index > 0 && ' '}

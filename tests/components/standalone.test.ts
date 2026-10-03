@@ -40,6 +40,9 @@ describe('standalone pages', () => {
     expect(html).toContain('cat ~/about.md');
     expect(html).toContain('<a class="tab active" href="/about" aria-current="page">about</a>');
     expect(textOf(element(html, '<h1 class="title"', 'h1'))).toBe('# About');
+    expect(html).toContain(
+      '<article class="doc-main" data-pagefind-body data-pagefind-meta="type:page">',
+    );
     expect(await htmlErrors(html)).toEqual([]);
   });
 

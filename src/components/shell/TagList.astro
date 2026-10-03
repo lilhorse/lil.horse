@@ -13,7 +13,15 @@ const { tags, linked } = Astro.props;
   <ul class="tags">
     {tags.map((name, index) => {
       const slug = tagSlug(name);
-      const pill = <span class={`pill tag-${tagColor(slug)}`}>#{name}</span>;
+      const pill = (
+        <span
+          class={`pill tag-${tagColor(slug)}`}
+          data-pagefind-filter="tag[data-tag]"
+          data-tag={name}
+        >
+          #{name}
+        </span>
+      );
       return (
         <Fragment>
           {index > 0 && ' '}

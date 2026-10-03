@@ -76,6 +76,24 @@ describe('post page', () => {
     expect(html).toContain('<meta name="robots" content="noindex">');
   });
 
+  it('marks Published posts for the search index and leaves the others out', async () => {
+    const published = post('pub', { tags: ['AI'], updated: '2024-02-10' });
+    const unlisted = post('hidden', { status: 'Unlisted' });
+    useSite({ posts: [published, unlisted] });
+    const html = await render(BlogPost, { post: published });
+    expect(html).toContain(
+      '<article class="doc-main" lang="en" data-pagefind-body data-pagefind-meta="type:post">',
+    );
+    expect(html).toContain('<p class="command" aria-hidden="true" data-pagefind-ignore>');
+    expect(html).toContain('data-pagefind-meta="title[data-title]" data-title="Post pub"');
+    expect(html).toContain('<div class="doc-meta" data-pagefind-ignore>');
+    expect(html).toContain('<time datetime="2024-01-11" data-pagefind-meta="date">');
+    expect(html).toContain('data-pagefind-filter="tag[data-tag]" data-tag="AI"');
+    expect(html).toContain('<p class="doc-updated" data-pagefind-ignore>');
+    expect(await render(BlogPost, { post: unlisted })).not.toContain('data-pagefind-body');
+    expect(await htmlErrors(html)).toEqual([]);
+  });
+
   it('adds the tree outline only for three or more headings', async () => {
     const two = post('two', { content: content({ headings: [heading('A'), heading('B')] }) });
     const three = post('three', {

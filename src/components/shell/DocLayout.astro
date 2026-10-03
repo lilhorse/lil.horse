@@ -6,14 +6,20 @@ import TableOfContents from './TableOfContents.astro';
 interface Props {
   headings: HeadingRef[];
   lang?: string;
+  search?: { type: 'post' | 'project' | 'page' } | null;
 }
 
-const { headings, lang } = Astro.props;
+const { headings, lang, search = null } = Astro.props;
 const toc = hasToc(headings);
 ---
 
 <div class:list={['doc', { 'has-toc': toc }]}>
-  <article class="doc-main" lang={lang}>
+  <article
+    class="doc-main"
+    lang={lang}
+    data-pagefind-body={search ? '' : undefined}
+    data-pagefind-meta={search ? `type:${search.type}` : undefined}
+  >
     <slot />
   </article>
   {toc && (

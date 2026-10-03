@@ -10,11 +10,11 @@ const { command, title } = Astro.props;
 ---
 
 <header class="doc-header">
-  <p class="command" aria-hidden="true">
+  <p class="command" aria-hidden="true" data-pagefind-ignore>
     <Prompt /> {command}
   </p>
   <slot name="meta" />
-  <h1 class="title">
+  <h1 class="title" data-pagefind-meta="title[data-title]" data-title={title}>
     <span class="heading-mark" aria-hidden="true">
       #
     </span>{' '}
