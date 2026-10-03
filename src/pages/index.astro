@@ -6,6 +6,7 @@ import { featuredProjects, homePosts, projectHref } from '../lib/selectors';
 
 const site = await getSiteData();
 const { profile } = site;
+const projects = featuredProjects(site.projects);
 ---
 
 <Base title={siteConfig.name} description={profile.bio ?? `${profile.role} in ${profile.location}`}>
@@ -27,19 +28,21 @@ const { profile } = site;
     </dl>
     {profile.bio && <p>{profile.bio}</p>}
   </section>
-  <section aria-labelledby="projects-heading">
-    <h2 id="projects-heading">Projects</h2>
-    <ul>
-      {featuredProjects(site.projects).map((project) => {
-        const href = projectHref(project);
-        return (
-          <li>
-            {href ? <a href={href}>{project.name}</a> : project.name}: {project.description}
-          </li>
-        );
-      })}
-    </ul>
-  </section>
+  {projects.length > 0 && (
+    <section aria-labelledby="projects-heading">
+      <h2 id="projects-heading">Projects</h2>
+      <ul>
+        {projects.map((project) => {
+          const href = projectHref(project);
+          return (
+            <li>
+              {href ? <a href={href}>{project.name}</a> : project.name}: {project.description}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  )}
   <section aria-labelledby="posts-heading">
     <h2 id="posts-heading">Latest posts</h2>
     <ul>

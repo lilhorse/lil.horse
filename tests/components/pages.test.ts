@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SiteData } from '../../src/lib/content';
-import type { PageContent, PostEntry, ProfileEntry } from '../../src/notion/types';
+import type { PageContent, PostEntry, ProfileEntry, ProjectEntry } from '../../src/notion/types';
 import Home from '../../src/pages/index.astro';
 import { htmlErrors, render, textOf } from '../helpers/astro-render';
 
@@ -36,6 +36,24 @@ const post = (slug: string, overrides: Partial<PostEntry> = {}): PostEntry => ({
   lastEditedTime: '2024-01-11T00:00:00.000Z',
   readingMinutes: 2,
   content: content(),
+  ...overrides,
+});
+
+const project = (name: string, overrides: Partial<ProjectEntry> = {}): ProjectEntry => ({
+  id: `id-${name}`,
+  name,
+  slug: null,
+  description: `${name} does things`,
+  stack: [],
+  link: 'https://example.com',
+  repo: null,
+  status: null,
+  featured: false,
+  order: null,
+  year: null,
+  cover: null,
+  lastEditedTime: '2024-01-11T00:00:00.000Z',
+  content: null,
   ...overrides,
 });
 
@@ -93,5 +111,12 @@ describe('home page', () => {
     ]);
     expect(html).toContain('<span class="tag">#AI</span>');
     expect(await htmlErrors(html)).toEqual([]);
+  });
+
+  it('leaves out the projects section when no project is featured', async () => {
+    useSite({ projects: [project('Quiet')] });
+    expect(await render(Home)).not.toContain('projects-heading');
+    useSite({ projects: [project('Loud', { featured: true })] });
+    expect(await render(Home)).toContain('<h2 id="projects-heading">Projects</h2>');
   });
 });
