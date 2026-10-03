@@ -1,0 +1,130 @@
+[
+  {
+    "object": "page",
+    "id": "3ed4bd3d-0b2b-803a-9209-d5d6cb6ac847",
+    "created_time": "2026-10-02T08:34:00.000Z",
+    "last_edited_time": "2026-10-03T01:12:00.000Z",
+    "created_by": {
+      "object": "user",
+      "id": "00000000-0000-0000-0000-000000000000"
+    },
+    "last_edited_by": {
+      "object": "user",
+      "id": "00000000-0000-0000-0000-000000000000"
+    },
+    "cover": null,
+    "icon": null,
+    "parent": {
+      "type": "data_source_id",
+      "data_source_id": "bf36a6a6-d3f1-41f5-8438-9b42736fd205",
+      "database_id": "b95fcd08-69a5-47d3-aafa-d78b5325afbc"
+    },
+    "in_trash": false,
+    "is_archived": false,
+    "is_locked": false,
+    "properties": {
+      "Order": {
+        "id": "ENDK",
+        "type": "number",
+        "number": null
+      },
+      "Link": {
+        "id": "GL%5Ea",
+        "type": "url",
+        "url": "https://www.cleanstay.co.nz"
+      },
+      "Status": {
+        "id": "HVn%3D",
+        "type": "select",
+        "select": {
+          "id": "2e06d544-f713-48a7-8a13-92337a848b30",
+          "name": "Active",
+          "color": "green"
+        }
+      },
+      "Description": {
+        "id": "Ui%7Cy",
+        "type": "rich_text",
+        "rich_text": [
+          {
+            "type": "text",
+            "text": {
+              "content": "Website for CleanStay, a cleaning and linen service for Airbnb apartments across Auckland.",
+              "link": null
+            },
+            "annotations": {
+              "bold": false,
+              "italic": false,
+              "strikethrough": false,
+              "underline": false,
+              "code": false,
+              "color": "default"
+            },
+            "plain_text": "Website for CleanStay, a cleaning and linen service for Airbnb apartments across Auckland.",
+            "href": null
+          }
+        ]
+      },
+      "Slug": {
+        "id": "UlAS",
+        "type": "rich_text",
+        "rich_text": []
+      },
+      "Visible": {
+        "id": "Zj%7CA",
+        "type": "checkbox",
+        "checkbox": true
+      },
+      "Stack": {
+        "id": "daUY",
+        "type": "multi_select",
+        "multi_select": [
+          {
+            "id": "ec608778-55f0-4c32-b20f-eb56c179135c",
+            "name": "TypeScript",
+            "color": "blue"
+          }
+        ]
+      },
+      "Year": {
+        "id": "uKtA",
+        "type": "number",
+        "number": 2026
+      },
+      "Repo": {
+        "id": "vLvv",
+        "type": "url",
+        "url": null
+      },
+      "Featured": {
+        "id": "~IQa",
+        "type": "checkbox",
+        "checkbox": false
+      },
+      "Name": {
+        "id": "title",
+        "type": "title",
+        "title": [
+          {
+            "type": "text",
+            "text": {
+              "content": "CleanStay",
+              "link": null
+            },
+            "annotations": {
+              "bold": false,
+              "italic": false,
+              "strikethrough": false,
+              "underline": false,
+              "code": false,
+              "color": "default"
+            },
+            "plain_text": "CleanStay",
+            "href": null
+          }
+        ]
+      }
+    },
+    "url": "https://app.notion.com/p/CleanStay-3ed4bd3d0b2b803a9209d5d6cb6ac847"
+  }
+]

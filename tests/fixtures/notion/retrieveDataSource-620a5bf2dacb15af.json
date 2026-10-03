@@ -1,0 +1,46 @@
+{
+  "object": "data_source",
+  "id": "1174bd3d-0b2b-8124-ae96-000b6c0d974c",
+  "title": [
+    {
+      "plain_text": "Watched Movies"
+    }
+  ],
+  "properties": {
+    "个人评分": {
+      "id": "AMwN",
+      "name": "个人评分",
+      "type": "multi_select",
+      "multi_select": {
+        "options": [
+          {
+            "name": "2",
+            "color": "pink"
+          },
+          {
+            "name": "3",
+            "color": "default"
+          },
+          {
+            "name": "4",
+            "color": "gray"
+          },
+          {
+            "name": "5",
+            "color": "purple"
+          }
+        ]
+      }
+    },
+    "打分日期": {
+      "id": "%7Cpkg",
+      "name": "打分日期",
+      "type": "date"
+    },
+    "电影/电视剧/番组": {
+      "id": "title",
+      "name": "电影/电视剧/番组",
+      "type": "title"
+    }
+  }
+}

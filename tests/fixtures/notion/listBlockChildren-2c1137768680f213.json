@@ -1,0 +1,133 @@
+[
+  {
+    "object": "block",
+    "id": "9ed098be-317c-40df-b723-5b7b0f2e4c9f",
+    "parent": {
+      "type": "page_id",
+      "page_id": "47088e3f-3cb4-48ac-b439-045cbcf61680"
+    },
+    "created_time": "2024-01-10T12:19:00.000Z",
+    "last_edited_time": "2024-06-19T17:24:00.000Z",
+    "created_by": {
+      "object": "user",
+      "id": "00000000-0000-0000-0000-000000000000"
+    },
+    "last_edited_by": {
+      "object": "user",
+      "id": "00000000-0000-0000-0000-000000000000"
+    },
+    "has_children": false,
+    "in_trash": false,
+    "type": "paragraph",
+    "paragraph": {
+      "rich_text": [
+        {
+          "type": "text",
+          "text": {
+            "content": "📧 c3VwQGxpbC5ob3JzZQ==",
+            "link": null
+          },
+          "annotations": {
+            "bold": false,
+            "italic": false,
+            "strikethrough": false,
+            "underline": false,
+            "code": false,
+            "color": "default"
+          },
+          "plain_text": "📧 c3VwQGxpbC5ob3JzZQ==",
+          "href": null
+        }
+      ],
+      "icon": null,
+      "color": "default"
+    }
+  },
+  {
+    "object": "block",
+    "id": "dd366c29-faf3-4693-a347-8df8fd0f1782",
+    "parent": {
+      "type": "page_id",
+      "page_id": "47088e3f-3cb4-48ac-b439-045cbcf61680"
+    },
+    "created_time": "2024-06-19T17:24:00.000Z",
+    "last_edited_time": "2024-07-13T12:20:00.000Z",
+    "created_by": {
+      "object": "user",
+      "id": "00000000-0000-0000-0000-000000000000"
+    },
+    "last_edited_by": {
+      "object": "user",
+      "id": "00000000-0000-0000-0000-000000000000"
+    },
+    "has_children": false,
+    "in_trash": false,
+    "type": "paragraph",
+    "paragraph": {
+      "rich_text": [
+        {
+          "type": "text",
+          "text": {
+            "content": "X & Github",
+            "link": null
+          },
+          "annotations": {
+            "bold": true,
+            "italic": false,
+            "strikethrough": false,
+            "underline": false,
+            "code": false,
+            "color": "default"
+          },
+          "plain_text": "X & Github",
+          "href": null
+        },
+        {
+          "type": "text",
+          "text": {
+            "content": ": LOOK 👉🏻 or 👇🏻",
+            "link": null
+          },
+          "annotations": {
+            "bold": false,
+            "italic": false,
+            "strikethrough": false,
+            "underline": false,
+            "code": false,
+            "color": "default"
+          },
+          "plain_text": ": LOOK 👉🏻 or 👇🏻",
+          "href": null
+        }
+      ],
+      "icon": null,
+      "color": "default"
+    }
+  },
+  {
+    "object": "block",
+    "id": "1935a080-d6e7-4fea-87e0-29e9b5231203",
+    "parent": {
+      "type": "page_id",
+      "page_id": "47088e3f-3cb4-48ac-b439-045cbcf61680"
+    },
+    "created_time": "2024-06-19T17:33:00.000Z",
+    "last_edited_time": "2024-06-19T17:33:00.000Z",
+    "created_by": {
+      "object": "user",
+      "id": "00000000-0000-0000-0000-000000000000"
+    },
+    "last_edited_by": {
+      "object": "user",
+      "id": "00000000-0000-0000-0000-000000000000"
+    },
+    "has_children": false,
+    "in_trash": false,
+    "type": "paragraph",
+    "paragraph": {
+      "rich_text": [],
+      "icon": null,
+      "color": "default"
+    }
+  }
+]

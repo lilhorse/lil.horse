@@ -1,0 +1,58 @@
+{
+  "object": "page",
+  "id": "055e3684-4431-4f2f-953c-65a79982553c",
+  "created_time": "2024-01-10T12:19:00.000Z",
+  "last_edited_time": "2024-10-07T10:44:00.000Z",
+  "created_by": {
+    "object": "user",
+    "id": "00000000-0000-0000-0000-000000000000"
+  },
+  "last_edited_by": {
+    "object": "user",
+    "id": "00000000-0000-0000-0000-000000000000"
+  },
+  "cover": {
+    "type": "file",
+    "file": {
+      "url": "https://prod-files-secure.s3.us-west-2.amazonaws.com/00000000-0000-0000-0000-000000000000/c8028bee-f4c7-4736-8c36-fffcab5d977e/wp5493885.jpg",
+      "expiry_time": "2026-10-03T09:25:21.327Z"
+    }
+  },
+  "icon": {
+    "type": "emoji",
+    "emoji": "👋"
+  },
+  "parent": {
+    "type": "block_id",
+    "block_id": "9de2fb8b-32c8-40f6-bb97-4411e8d2de88"
+  },
+  "in_trash": false,
+  "is_archived": false,
+  "is_locked": false,
+  "properties": {
+    "title": {
+      "id": "title",
+      "type": "title",
+      "title": [
+        {
+          "type": "text",
+          "text": {
+            "content": "About",
+            "link": null
+          },
+          "annotations": {
+            "bold": false,
+            "italic": false,
+            "strikethrough": false,
+            "underline": false,
+            "code": false,
+            "color": "default"
+          },
+          "plain_text": "About",
+          "href": null
+        }
+      ]
+    }
+  },
+  "url": "https://app.notion.com/p/About-055e368444314f2f953c65a79982553c"
+}

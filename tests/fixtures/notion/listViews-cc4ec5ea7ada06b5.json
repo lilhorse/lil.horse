@@ -1,0 +1,25 @@
+[
+  {
+    "object": "view",
+    "id": "1174bd3d-0b2b-8076-afa5-000c2934146a",
+    "type": "table",
+    "data_source_id": "1174bd3d-0b2b-8124-ae96-000b6c0d974c",
+    "configuration": {
+      "type": "table",
+      "properties": [
+        {
+          "property_id": "title",
+          "visible": true
+        },
+        {
+          "property_id": "AMwN",
+          "visible": true
+        },
+        {
+          "property_id": "|pkg",
+          "visible": true
+        }
+      ]
+    }
+  }
+]

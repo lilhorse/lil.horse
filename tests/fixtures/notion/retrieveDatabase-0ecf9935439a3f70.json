@@ -1,0 +1,43 @@
+{
+  "object": "database",
+  "id": "b95fcd08-69a5-47d3-aafa-d78b5325afbc",
+  "title": [
+    {
+      "type": "text",
+      "text": {
+        "content": "Projects",
+        "link": null
+      },
+      "annotations": {
+        "bold": false,
+        "italic": false,
+        "strikethrough": false,
+        "underline": false,
+        "code": false,
+        "color": "default"
+      },
+      "plain_text": "Projects",
+      "href": null
+    }
+  ],
+  "description": [],
+  "parent": {
+    "type": "page_id",
+    "page_id": "7015941c-cb76-4404-a4b3-c5b13f02b852"
+  },
+  "is_inline": false,
+  "database_type": null,
+  "in_trash": false,
+  "is_locked": false,
+  "created_time": "2026-10-02T08:02:47.457+00:00",
+  "last_edited_time": "2026-10-02T08:34:47.284+00:00",
+  "data_sources": [
+    {
+      "id": "bf36a6a6-d3f1-41f5-8438-9b42736fd205",
+      "name": "Projects"
+    }
+  ],
+  "icon": null,
+  "cover": null,
+  "url": "https://app.notion.com/p/b95fcd0869a547d3aafad78b5325afbc"
+}
