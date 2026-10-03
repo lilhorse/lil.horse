@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { buildLinkMap } from '../../src/lib/links';
 import {
   adjacentPosts,
+  adjacentProjects,
   featuredProjects,
   homePosts,
   postsByYear,
   projectHref,
+  projectLinks,
   sortProjects,
 } from '../../src/lib/selectors';
 import type {
@@ -132,5 +134,35 @@ describe('buildLinkMap', () => {
       'site-id': '/projects/site',
       'about-id': '/about',
     });
+  });
+});
+
+describe('adjacentProjects', () => {
+  it('steps through projects that have a detail page, in list order', () => {
+    const list = [
+      project('a', { slug: 'a', content, order: 1 }),
+      project('b', { order: 2 }),
+      project('c', { slug: 'c', content, order: 3 }),
+    ];
+    expect(adjacentProjects(list, 'c')).toMatchObject({ previous: { name: 'a' }, next: null });
+    expect(adjacentProjects(list, 'a')).toMatchObject({ previous: null, next: { name: 'c' } });
+    expect(adjacentProjects(list, 'b')).toEqual({ previous: null, next: null });
+  });
+});
+
+describe('projectLinks', () => {
+  it('lists the site and the repo the title does not already link to', () => {
+    expect(
+      projectLinks(project('a', { link: 'https://www.a.dev/', repo: 'https://github.com/x/a' })),
+    ).toEqual([{ label: 'source', href: 'https://github.com/x/a' }]);
+    expect(
+      projectLinks(
+        project('b', { slug: 'b', content, link: 'https://b.dev', repo: 'https://github.com/x/b' }),
+      ),
+    ).toEqual([
+      { label: 'b.dev', href: 'https://b.dev' },
+      { label: 'source', href: 'https://github.com/x/b' },
+    ]);
+    expect(projectLinks(project('c', { repo: 'https://github.com/x/c' }))).toEqual([]);
   });
 });

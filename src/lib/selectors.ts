@@ -1,4 +1,5 @@
 import type { PostEntry, ProjectEntry } from '../notion/types';
+import { hostnameOf } from './html';
 
 const COLLATOR = new Intl.Collator('zh');
 
@@ -55,4 +56,24 @@ export function featuredProjects(projects: ProjectEntry[], limit = 4): ProjectEn
 export function projectHref(project: ProjectEntry): string | null {
   if (project.content && project.slug) return `/projects/${project.slug}`;
   return project.link ?? project.repo ?? null;
+}
+
+export function adjacentProjects(
+  projects: ProjectEntry[],
+  slug: string,
+): { previous: ProjectEntry | null; next: ProjectEntry | null } {
+  const pages = sortProjects(projects).filter((project) => project.content && project.slug);
+  const index = pages.findIndex((project) => project.slug === slug);
+  if (index === -1) return { previous: null, next: null };
+  return { previous: pages[index - 1] ?? null, next: pages[index + 1] ?? null };
+}
+
+/** The project's live site and repository, minus whichever the card's title already links to. */
+export function projectLinks(project: ProjectEntry): { label: string; href: string }[] {
+  const primary = projectHref(project);
+  const links: { label: string; href: string }[] = [];
+  if (project.link && project.link !== primary)
+    links.push({ label: hostnameOf(project.link), href: project.link });
+  if (project.repo && project.repo !== primary) links.push({ label: 'source', href: project.repo });
+  return links;
 }

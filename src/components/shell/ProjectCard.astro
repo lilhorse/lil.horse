@@ -1,0 +1,150 @@
+---
+import { relFor } from '../../lib/html';
+import { projectHref, projectLinks } from '../../lib/selectors';
+import type { ProjectEntry } from '../../notion/types';
+
+interface Props {
+  project: ProjectEntry;
+}
+
+const { project } = Astro.props;
+const href = projectHref(project);
+const links = projectLinks(project);
+const meta = [project.year ? String(project.year) : null, project.status].filter(
+  (part): part is string => Boolean(part),
+);
+---
+
+<article class="card">
+  <h2 class="name">
+    {href ? (
+      <a href={href} rel={relFor(href)}>
+        {project.name}/
+      </a>
+    ) : (
+      `${project.name}/`
+    )}
+  </h2>
+  {meta.length > 0 && (
+    <p class="meta">
+      {project.year && <span>{project.year}</span>}
+      {project.year && project.status && <span class="sep"> · </span>}
+      {project.status && (
+        <span class={`status status-${project.status.toLowerCase()}`}>
+          <span class="dot" aria-hidden="true" />
+          {project.status}
+        </span>
+      )}
+    </p>
+  )}
+  <p class="description">{project.description}</p>
+  {project.stack.length > 0 && (
+    <ul class="stack">
+      {project.stack.map((item, index) => (
+        <Fragment>
+          {index > 0 && ' '}
+          <li>{item}</li>
+        </Fragment>
+      ))}
+    </ul>
+  )}
+  {links.length > 0 && (
+    <ul class="links">
+      {links.map((link, index) => (
+        <Fragment>
+          {index > 0 && ' '}
+          <li>
+            <a href={link.href} rel={relFor(link.href)}>
+              <span aria-hidden="true">↗</span> {link.label}
+            </a>
+          </li>
+        </Fragment>
+      ))}
+    </ul>
+  )}
+</article>
+
+<style>
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    block-size: 100%;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .name {
+    color: var(--accent);
+    font-size: var(--text-cmd);
+    font-weight: 600;
+  }
+  .name a,
+  .links a {
+    text-decoration: none;
+  }
+  .meta,
+  .sep {
+    color: var(--muted);
+    font-size: var(--text-ui);
+  }
+  .status {
+    display: inline-flex;
+    gap: 0.6ch;
+    align-items: center;
+  }
+  .dot {
+    inline-size: 0.6em;
+    block-size: 0.6em;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .status-active {
+    color: var(--ok);
+  }
+  .status-maintained {
+    color: var(--accent);
+  }
+  .status-archived {
+    color: var(--muted);
+  }
+  .description {
+    color: var(--fg-soft);
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+  }
+  .stack,
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--text-ui);
+  }
+  .stack li {
+    padding: 0 7px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--muted);
+  }
+  .links {
+    margin-block-start: auto;
+  }
+  .links a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5ch;
+    min-block-size: 24px;
+  }
+  @media (max-width: 639.98px) {
+    .name a,
+    .links a {
+      display: inline-flex;
+      align-items: center;
+      min-block-size: 44px;
+    }
+  }
+</style>

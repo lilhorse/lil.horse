@@ -1,35 +1,38 @@
 ---
+import CommandBlock from '../../components/shell/CommandBlock.astro';
+import ProjectCard from '../../components/shell/ProjectCard.astro';
 import Base from '../../layouts/Base.astro';
 import { getSiteData } from '../../lib/content';
-import { projectHref } from '../../lib/selectors';
 
 const site = await getSiteData();
 ---
 
 <Base title="Projects" description="Things I have built" current="projects" path="~/projects">
-  <h1>Projects</h1>
-  <ul>
-    {site.projects.map((project) => {
-      const href = projectHref(project);
-      return (
-        <li>
-          {href ? <a href={href}>{project.name}</a> : project.name}
-          {project.year && (
-            <Fragment>
-              {' '}
-              <span class="year">{project.year}</span>
-            </Fragment>
-          )}
-          {project.status && (
-            <Fragment>
-              {' '}
-              <span class="status">{project.status}</span>
-            </Fragment>
-          )}
-          <p>{project.description}</p>
-          {project.stack.length > 0 && <p class="stack">{project.stack.join(' · ')}</p>}
-        </li>
-      );
-    })}
-  </ul>
+  <CommandBlock command="ls -la ~/projects" heading={{ level: 1, text: 'Projects' }}>
+    {site.projects.length === 0 ? (
+      <p class="empty">total 0</p>
+    ) : (
+      <ul class="cards">
+        {site.projects.map((project) => (
+          <li>
+            <ProjectCard project={project} />
+          </li>
+        ))}
+      </ul>
+    )}
+  </CommandBlock>
 </Base>
+
+<style>
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+    gap: 14px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .empty {
+    color: var(--muted);
+  }
+</style>
