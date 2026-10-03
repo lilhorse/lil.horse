@@ -49,6 +49,28 @@ describe('tagSlug', () => {
     expect(tagSlug('🎬')).toBe(tagSlug('🎬'));
     expect(tagSlug('!!!')).not.toBe(tagSlug('🎬'));
   });
+
+  it('keeps a slug of up to 100 UTF-8 bytes whole', () => {
+    expect(tagSlug('a'.repeat(100))).toBe('a'.repeat(100));
+  });
+
+  it('clips a longer slug to 100 bytes at a character boundary and adds the hash', () => {
+    expect(tagSlug('a'.repeat(101))).toMatch(/^a{100}-[0-9a-f]{6}$/);
+    const cjk = tagSlug('豆瓣'.repeat(45));
+    expect(new TextEncoder().encode(cjk).length).toBeLessThanOrEqual(107);
+    expect(cjk).toMatch(/^[豆瓣]+-[0-9a-f]{6}$/);
+  });
+
+  it('keeps clipped tags apart by the part after the cut', () => {
+    const long = 'a'.repeat(120);
+    expect(tagSlug(`${long}x`)).not.toBe(tagSlug(`${long}y`));
+  });
+
+  it('drops a hyphen left at the end of a clipped slug', () => {
+    const slug = tagSlug(`${'a'.repeat(99)}-bbbb`);
+    expect(slug).not.toContain('--');
+    expect(slug).toMatch(/^a{99}-[0-9a-f]{6}$/);
+  });
 });
 
 describe('tagHref and tagColor', () => {

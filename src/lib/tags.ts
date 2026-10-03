@@ -12,6 +12,8 @@ export interface TagInfo {
 }
 
 const COLORS: readonly TagColor[] = ['yellow', 'pink', 'green', 'blue'];
+// A slug becomes a file name, and file names are limited to 255 bytes.
+const MAX_SLUG_BYTES = 100;
 
 export function fnv1a(text: string): number {
   let hash = 0x811c9dc5;
@@ -24,13 +26,19 @@ export function fnv1a(text: string): number {
 
 const tidy = (text: string) => text.replace(/-{2,}/g, '-').replace(/^-|-$/g, '');
 const shortHash = (text: string) => fnv1a(text).toString(16).padStart(8, '0').slice(0, 6);
+// encodeInto writes whole code points only.
+const clip = (text: string, bytes: number) =>
+  text.slice(0, new TextEncoder().encodeInto(text, new Uint8Array(bytes)).read);
 
 export function tagSlug(name: string): string {
   const key = name.normalize('NFKC').trim().toLowerCase();
-  const base = tidy(slug(key));
-  if (!base) return `tag-${shortHash(key)}`;
+  const full = tidy(slug(key));
+  if (!full) return `tag-${shortHash(key)}`;
+  const base = tidy(clip(full, MAX_SLUG_BYTES));
   // A slug that dropped characters could equal another tag's, so it carries a hash of the full name.
-  return base === tidy(key.replace(/\s+/g, '-')) ? base : `${base}-${shortHash(key)}`;
+  return base === full && base === tidy(key.replace(/\s+/g, '-'))
+    ? base
+    : `${base}-${shortHash(key)}`;
 }
 
 export function tagHref(tag: string): string {
