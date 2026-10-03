@@ -1,5 +1,5 @@
 ---
-import { hostnameOf, renderRichText, type LinkResolver } from '../../lib/html';
+import { hostnameOf, isSafeHref, renderRichText, type LinkResolver } from '../../lib/html';
 import type { BookmarkNode } from '../../notion/types';
 import Picture from './Picture.astro';
 
@@ -10,10 +10,11 @@ interface Props {
 
 const { node, resolve } = Astro.props;
 const host = hostnameOf(node.url);
+const href = isSafeHref(node.url) ? node.url : undefined;
 ---
 
 <figure class="bookmark">
-  <a class="bookmark-link" href={node.url} rel="noopener noreferrer">
+  <a class="bookmark-link" href={href} rel={href ? 'noopener noreferrer' : undefined}>
     <span class="bookmark-title">{node.meta?.title ?? host}</span>
     {node.meta?.description && <span class="bookmark-description">{node.meta.description}</span>}
     <span class="bookmark-host">{host}</span>

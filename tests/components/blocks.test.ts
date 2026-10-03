@@ -12,7 +12,7 @@ import type {
   RichText,
   VideoNode,
 } from '../../src/notion/types';
-import { render } from '../helpers/astro-render';
+import { htmlErrors, render } from '../helpers/astro-render';
 
 const resolve: LinkResolver = (pageId) =>
   pageId === 'known' ? { url: '/blog/known', title: 'Known post' } : undefined;
@@ -75,6 +75,25 @@ const videoLink = (url: string): VideoNode => ({
 });
 
 describe('href policy', () => {
+  it.each(['javascript:alert(1)', 'JaVaScRiPt:alert(2)'])(
+    'renders a bookmark to %s without a link target',
+    async (url) => {
+      for (const node of [bookmark(url), bookmark(url, meta)]) {
+        const html = await render(BookmarkCard, { node, resolve });
+        expect(html).not.toMatch(/\shref=/);
+        expect(html).not.toMatch(/\srel=/);
+        expect(await htmlErrors(html)).toEqual([]);
+      }
+    },
+  );
+
+  it('renders a video link to an unsafe URL as plain text', async () => {
+    const html = await render(VideoBlock, { node: videoLink('javascript:alert(3)'), resolve });
+    expect(html).not.toContain('<a');
+    expect(html).toContain('javascript:alert(3)');
+    expect(await htmlErrors(html)).toEqual([]);
+  });
+
   it('keeps safe bookmark and video links', async () => {
     const card = await render(BookmarkCard, {
       node: bookmark('https://example.com/a', meta),

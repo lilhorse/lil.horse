@@ -1,5 +1,5 @@
 ---
-import { renderRichText, type LinkResolver } from '../../lib/html';
+import { isSafeHref, renderRichText, type LinkResolver } from '../../lib/html';
 import type { VideoNode } from '../../notion/types';
 import Picture from './Picture.astro';
 
@@ -36,10 +36,13 @@ const { source } = node;
     />
   )}
   {source.kind === 'file' && <video controls preload="none" src={source.media.src} />}
-  {source.kind === 'link' && (
-    <a href={source.url} rel="noopener noreferrer">
-      {source.url}
-    </a>
-  )}
+  {source.kind === 'link' &&
+    (isSafeHref(source.url) ? (
+      <a href={source.url} rel="noopener noreferrer">
+        {source.url}
+      </a>
+    ) : (
+      source.url
+    ))}
   {node.caption.length > 0 && <figcaption set:html={renderRichText(node.caption, resolve)} />}
 </figure>
