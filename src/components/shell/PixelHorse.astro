@@ -1,0 +1,59 @@
+---
+import chestnut16 from '../../assets/brand/horse-chestnut-16.svg?raw';
+import chestnut24 from '../../assets/brand/horse-chestnut.svg?raw';
+import night16 from '../../assets/brand/horse-night-16.svg?raw';
+import night24 from '../../assets/brand/horse-night.svg?raw';
+
+interface Props {
+  grid: 16 | 24;
+  size: number;
+  animated?: boolean;
+}
+
+const { grid, size, animated = false } = Astro.props;
+const [light, dark] = (grid === 16 ? [chestnut16, night16] : [chestnut24, night24]).map((svg) =>
+  svg.trim(),
+);
+---
+
+<span
+  class:list={['pixel-horse', { animated }]}
+  style={`--horse-size: ${size}px`}
+  aria-hidden="true"
+>
+  <span class="theme-light" set:html={light} />
+  <span class="theme-dark" set:html={dark} />
+</span>
+
+<style>
+  .pixel-horse {
+    display: inline-block;
+    flex: none;
+    inline-size: var(--horse-size);
+    block-size: var(--horse-size);
+    line-height: 0;
+  }
+  .pixel-horse :global(svg) {
+    display: block;
+    inline-size: 100%;
+    block-size: 100%;
+  }
+  .animated :global(.horse-glint) {
+    animation: horse-glint 3s steps(1) infinite;
+  }
+  @keyframes horse-glint {
+    0%,
+    70%,
+    78%,
+    100% {
+      opacity: 1;
+    }
+    72%,
+    76% {
+      opacity: 0;
+    }
+    74% {
+      opacity: 1;
+    }
+  }
+</style>
