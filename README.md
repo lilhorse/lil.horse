@@ -75,3 +75,5 @@ This repository used to host a Next.js site based on [nextjs-notion-starter-kit]
 ## License
 
 The code is released under the [MIT License](LICENSE).
+
+The site's content is licensed under [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). This covers the posts and other writing published on lil.horse, including the copies recorded in `tests/fixtures`. Third-party material on the site, such as link-preview images, keeps its own license.
