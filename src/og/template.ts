@@ -33,6 +33,8 @@ const el = (type: string, props: Record<string, unknown>, ...children: Child[]):
 
 const FONT = '"JetBrains Mono", "Noto Sans SC"';
 const HORSE = `data:image/svg+xml;base64,${Buffer.from(horseSvg(GRID_24, PALETTES.night)).toString('base64')}`;
+// Stops text at the horse's left edge (x = 922).
+const TEXT_WIDTH = 832;
 
 const dot = (color: string) =>
   el('div', { style: { width: 14, height: 14, borderRadius: 7, backgroundColor: color } });
@@ -47,6 +49,15 @@ const prompt = el(
     strokeWidth: 3,
   }),
 );
+
+const isTag = (item: string) => item.startsWith('#');
+
+const metaItems = (meta: string[]) =>
+  meta.flatMap((item, index) => {
+    const span = el('span', {}, item);
+    const plain = index > 0 && !isTag(item) && !isTag(meta[index - 1]);
+    return plain ? [el('span', {}, '·'), span] : [span];
+  });
 
 export function ogTree(target: Pick<OgTarget, 'title' | 'command' | 'path' | 'meta'>): OgElement {
   return el(
@@ -120,7 +131,7 @@ export function ogTree(target: Pick<OgTarget, 'title' | 'command' | 'path' | 'me
             style: {
               display: 'block',
               marginTop: 30,
-              maxWidth: 840,
+              maxWidth: TEXT_WIDTH,
               fontSize: 60,
               lineHeight: 1.2,
               lineClamp: 3,
@@ -137,12 +148,12 @@ export function ogTree(target: Pick<OgTarget, 'title' | 'command' | 'path' | 'me
               alignItems: 'baseline',
               gap: 20,
               marginTop: 'auto',
-              maxWidth: 840,
+              maxWidth: TEXT_WIDTH,
               color: NIGHT.muted,
               fontSize: 24,
             },
           },
-          ...target.meta.map((item) => el('span', {}, item)),
+          ...metaItems(target.meta),
         ),
         el(
           'div',

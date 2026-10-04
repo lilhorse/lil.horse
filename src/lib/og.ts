@@ -20,7 +20,10 @@ export function ogImagePath(type: OgType, slug: string): string {
 /** Satori draws boxes for emoji it has no font for, so titles lose them before rendering. */
 export function stripEmoji(text: string): string {
   return text
-    .replace(/\p{Extended_Pictographic}|\p{Emoji_Presentation}|\u{FE0F}|\u{200D}/gu, '')
+    .replace(
+      /\p{Emoji_Presentation}|\p{Emoji}?\u{FE0F}|\u{200D}|\u{20E3}|[\u{E0020}-\u{E007F}]/gu,
+      '',
+    )
     .replace(/\s{2,}/g, ' ')
     .trim();
 }

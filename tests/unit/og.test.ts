@@ -2,10 +2,20 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ogImagePath, ogTargets, stripEmoji } from '../../src/lib/og';
 import { renderOg } from '../../src/og/render';
-import { NIGHT, ogTree } from '../../src/og/template';
+import { NIGHT, ogTree, type OgElement } from '../../src/og/template';
 import { content, post, profile, project } from '../helpers/site-data';
 
 const pngSize = (png: Buffer) => ({ width: png.readUInt32BE(16), height: png.readUInt32BE(20) });
+
+type OgNode = OgElement | string;
+const childrenOf = (node?: OgNode): OgNode[] =>
+  typeof node === 'object' ? ([node.props.children ?? []].flat() as OgNode[]) : [];
+const elementsOf = (node: OgNode): OgElement[] =>
+  typeof node === 'object' ? [node, ...childrenOf(node).flatMap(elementsOf)] : [];
+const parentOf = (root: OgElement, child: OgNode | undefined) =>
+  elementsOf(root).find((node) => childrenOf(node).some((each) => each === child));
+const styleOf = (node?: OgNode) =>
+  (typeof node === 'object' ? (node.props.style ?? {}) : {}) as Record<string, unknown>;
 
 describe('ogTargets', () => {
   it('covers the home page, every post, project pages and the two standalone pages', () => {
@@ -49,14 +59,34 @@ describe('ogTargets', () => {
 });
 
 describe('stripEmoji', () => {
-  it('removes emoji and tidies the spaces they leave', () => {
+  it('removes emoji, whole sequences included, and tidies the spaces they leave', () => {
     expect(stripEmoji('Hello 👋🏻 World ✨')).toBe('Hello World');
     expect(stripEmoji('我的豆瓣备份')).toBe('我的豆瓣备份');
     expect(stripEmoji('🎬')).toBe('');
+    expect(stripEmoji('🎬 Movies')).toBe('Movies');
+    expect(stripEmoji('I \u{2764}\u{FE0F} it')).toBe('I it');
+    expect(stripEmoji('\u{1F469}\u{200D}\u{1F4BB} Code')).toBe('Code');
+    expect(stripEmoji('#\u{FE0F}\u{20E3} Tags')).toBe('Tags');
+    expect(
+      stripEmoji('Go \u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F} Scot'),
+    ).toBe('Go Scot');
+  });
+
+  it('keeps symbols that default to text presentation', () => {
+    expect(stripEmoji('© 2024 Notes')).toBe('© 2024 Notes');
+    expect(stripEmoji('A™')).toBe('A™');
+    expect(stripEmoji('Left ↔ right ®')).toBe('Left ↔ right ®');
+    expect(stripEmoji('Next →\u{FE0F}')).toBe('Next →');
   });
 });
 
 describe('ogTree', () => {
+  const tree = (meta: string[]) => ogTree({ title: 'Title', command: 'c', path: 'p', meta });
+  const metaRow = (meta: string[]) => {
+    const root = tree(meta);
+    return parentOf(root, parentOf(root, meta[0]));
+  };
+
   it('uses only the night theme values from tokens.css', () => {
     const tokens = readFileSync('src/styles/tokens.css', 'utf8');
     const dark = new Set(
@@ -72,6 +102,20 @@ describe('ogTree', () => {
     expect(json).toContain('"display":"block"');
     expect(json).toContain('"lineClamp":3');
     expect(json).toContain('"src":"data:image/svg+xml;base64,');
+  });
+
+  it('puts a muted dot between plain meta items but not beside tags', () => {
+    const texts = (meta: string[]) => childrenOf(metaRow(meta)).map((span) => childrenOf(span)[0]);
+    expect(texts(['Developer', 'Auckland'])).toEqual(['Developer', '·', 'Auckland']);
+    expect(texts(['2026', 'Astro', 'Notion'])).toEqual(['2026', '·', 'Astro', '·', 'Notion']);
+    expect(texts(['2024-02-29', '#豆瓣', '#AI'])).toEqual(['2024-02-29', '#豆瓣', '#AI']);
+    const row = metaRow(['Developer', 'Auckland']);
+    expect(styleOf(childrenOf(row)[1]).color ?? styleOf(row).color).toBe(NIGHT.muted);
+  });
+
+  it('keeps the title and meta out of the horse’s column', () => {
+    expect(styleOf(parentOf(tree([]), 'Title')).maxWidth).toBeLessThanOrEqual(832);
+    expect(styleOf(metaRow(['2024-02-29'])).maxWidth).toBeLessThanOrEqual(832);
   });
 });
 
