@@ -108,17 +108,17 @@ To rotate the token, first delete the secret with `pnpm exec wrangler secret del
 
 The deploy workflow and the `preview` job read the GitHub secrets, and the Worker reads its own:
 
-| Where          | Secret                  | Scope                                                                            |
-| -------------- | ----------------------- | -------------------------------------------------------------------------------- |
-| GitHub Actions | `NOTION_TOKEN`          | The read-only Notion integration token                                           |
-| GitHub Actions | `CLOUDFLARE_API_TOKEN`  | Cloudflare API token with Account → Workers Scripts → Edit on this account only  |
-| GitHub Actions | `CLOUDFLARE_ACCOUNT_ID` | The Cloudflare account ID                                                        |
-| Worker         | `NOTION_WEBHOOK_SECRET` | The webhook subscription's verification token                                    |
-| Worker         | `GITHUB_DISPATCH_TOKEN` | Fine-grained GitHub token for this repository only, with Contents read and write |
+| Where          | Secret                  | Scope                                                                                                                              |
+| -------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| GitHub Actions | `NOTION_TOKEN`          | The read-only Notion integration token                                                                                             |
+| GitHub Actions | `CLOUDFLARE_API_TOKEN`  | Account-owned Cloudflare API token with the Workers Editor role on this account, which deploys but cannot create or delete Workers |
+| GitHub Actions | `CLOUDFLARE_ACCOUNT_ID` | The Cloudflare account ID                                                                                                          |
+| Worker         | `NOTION_WEBHOOK_SECRET` | The webhook subscription's verification token                                                                                      |
+| Worker         | `GITHUB_DISPATCH_TOKEN` | Fine-grained GitHub token for this repository only, with Contents read and write                                                   |
 
 Nothing secret is in the repository or in `wrangler.jsonc`.
 
-Set secrets from the clipboard, so a value never appears on screen, in the shell history or in a file. Copy the value where it is created, then pipe it in, as here for a GitHub secret and a Worker secret:
+Set secrets from the clipboard, so a value never appears on screen, in the shell history or in a file. Put the command on the prompt first, then copy the value where it is created, then run the command: copying the command after the value would replace the value on the clipboard. As here for a GitHub secret and a Worker secret:
 
 ```bash
 pbpaste | tr -d '\n' | gh secret set CLOUDFLARE_API_TOKEN --repo lilhorse/lil.horse
