@@ -8,7 +8,7 @@ import worker, {
   timingSafeEqual,
   verifySignature,
   type Env,
-} from '../../src/worker/index';
+} from '../../src/worker/hook';
 
 const SECRET = 'secret_fake-verification-token-for-tests';
 const HOOK = 'https://lil.horse/hooks/notion';
@@ -243,5 +243,11 @@ describe('worker.fetch', () => {
     expect((await worker.fetch(new Request('https://lil.horse/hooks/other'), e)).status).toBe(404);
     expect((await worker.fetch(new Request('https://lil.horse/hooks/notion'), e)).status).toBe(405);
     expect(e.ASSETS.fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe('the entry module', () => {
+  it('exports only the default handler, because workerd treats every export as an entrypoint', async () => {
+    expect(Object.keys(await import('../../src/worker/index'))).toEqual(['default']);
   });
 });
