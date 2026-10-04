@@ -191,6 +191,38 @@ describe('renderFeedNodes', () => {
     expect(html).toContain('<p>Left</p><p>Right</p>');
   });
 
+  it('renders equations in database cells as MathML only, like body equations', () => {
+    const annotations = {
+      bold: false,
+      italic: false,
+      strikethrough: false,
+      underline: false,
+      code: false,
+      color: 'default' as const,
+    };
+    const html = render([
+      {
+        type: 'database',
+        id: 'db',
+        title: 'Formulas',
+        columns: [{ id: 'f', name: 'Formula', type: 'rich_text', format: null }],
+        rows: [
+          {
+            id: 'r',
+            cells: {
+              f: {
+                kind: 'text',
+                text: [{ kind: 'equation', expression: 'e^{i\\pi}', annotations }],
+              },
+            },
+          },
+        ],
+      },
+    ]);
+    expect(html).toContain('<td><span class="katex"><math');
+    expect(html).not.toContain('katex-html');
+  });
+
   it('keeps the hash that an unlisted Vimeo video needs', () => {
     const html = render([
       {

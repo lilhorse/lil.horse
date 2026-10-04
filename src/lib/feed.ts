@@ -119,7 +119,10 @@ function database(node: DatabaseNode, ctx: FeedContext): string {
   const rows = node.rows.map(
     (row) =>
       `<tr>${node.columns
-        .map((column) => `<td>${renderCell(row.cells[column.id], ctx.resolve)}</td>`)
+        .map(
+          (column) =>
+            `<td>${renderCell(row.cells[column.id], ctx.resolve, { math: 'mathml' })}</td>`,
+        )
         .join('')}</tr>`,
   );
   return `<figure><figcaption>${escapeHtml(node.title)}</figcaption><table><thead><tr>${head.join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></figure>`;

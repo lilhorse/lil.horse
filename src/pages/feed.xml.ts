@@ -11,7 +11,11 @@ export const GET: APIRoute = async () => {
     description: site.profile.bio ?? `${site.profile.role} in ${site.profile.location}`,
     site: siteConfig.url,
     trailingSlash: false,
-    xmlns: { atom: 'http://www.w3.org/2005/Atom' },
+    // @astrojs/rss declares content: only when some item has content, yet writes an empty content:encoded too.
+    xmlns: {
+      content: 'http://purl.org/rss/1.0/modules/content/',
+      atom: 'http://www.w3.org/2005/Atom',
+    },
     customData: [
       '<language>en</language>',
       "<copyright>Content © Lil'Horse, licensed under CC BY-NC 4.0 (https://creativecommons.org/licenses/by-nc/4.0/)</copyright>",

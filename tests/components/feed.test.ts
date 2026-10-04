@@ -75,4 +75,13 @@ describe('feed.xml', () => {
     expect(xml).not.toContain('/blog/hidden');
     expect(xml).not.toMatch(/<link>[^<]*\/<\/link>/);
   });
+
+  it('declares the content namespace even when every post is empty', async () => {
+    useSite({ posts: [post('a'), post('b')] });
+    const xml = await (await GET({} as APIContext)).text();
+    expect(xml).toContain('<content:encoded/>');
+    expect(xml).toContain(
+      '<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom">',
+    );
+  });
 });

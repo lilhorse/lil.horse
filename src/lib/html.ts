@@ -133,13 +133,17 @@ function thumbnail(media: MediaRef): string {
   return `<img src="${escapeAttr(src)}" alt="" width="${width}" height="${height}" loading="lazy" decoding="async">`;
 }
 
-export function renderCell(cell: DbCell | undefined, resolve: LinkResolver): string {
+export function renderCell(
+  cell: DbCell | undefined,
+  resolve: LinkResolver,
+  options: { math?: MathOutput } = {},
+): string {
   if (!cell) return '';
   switch (cell.kind) {
     case 'empty':
       return '';
     case 'text':
-      return renderRichText(cell.text, resolve);
+      return renderRichText(cell.text, resolve, options);
     case 'chips':
       return cell.values
         .map((value) => {

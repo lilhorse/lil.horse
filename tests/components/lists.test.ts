@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import PostList from '../../src/components/shell/PostList.astro';
 import TagList from '../../src/components/shell/TagList.astro';
+import { tagSlug } from '../../src/lib/tags';
 import { htmlErrors, render, textOf } from '../helpers/astro-render';
 import { post } from '../helpers/site-data';
 
@@ -19,6 +20,23 @@ describe('TagList', () => {
 
   it('renders nothing without tags', async () => {
     expect((await render(TagList, { tags: [], linked: new Set() })).trim()).toBe('');
+  });
+
+  it('marks a tag name with Chinese characters as Chinese', async () => {
+    const html = await render(TagList, {
+      tags: ['AI', '豆瓣', 'AI绘画'],
+      linked: new Set([tagSlug('豆瓣')]),
+    });
+    const pills = (html.match(/<span class="pill[^>]*>[^<]*<\/span>/g) ?? []).map((pill) => [
+      />#([^<]*)</.exec(pill)?.[1],
+      /\slang="([^"]*)"/.exec(pill)?.[1] ?? null,
+    ]);
+    expect(pills).toEqual([
+      ['AI', null],
+      ['豆瓣', 'zh-Hans'],
+      ['AI绘画', 'zh-Hans'],
+    ]);
+    expect(await htmlErrors(html)).toEqual([]);
   });
 });
 
