@@ -61,5 +61,7 @@ export default defineConfig([
       ],
     },
   },
+  // Lighthouse CI loads its config with require(), so that file stays CommonJS.
+  { files: ['**/*.cjs'], rules: { '@typescript-eslint/no-require-imports': 'off' } },
   { languageOptions: { globals: { ...globals.node } } },
 ]);
