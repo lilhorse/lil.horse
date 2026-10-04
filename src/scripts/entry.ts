@@ -1,6 +1,6 @@
 import type { Help } from './help';
 import type { Palette } from './palette';
-import { initShortcuts } from './shortcuts';
+import { initShortcuts, singleKeysSwitch } from './shortcuts';
 import { initTheme } from './theme';
 
 function storage(): Storage | null {
@@ -16,20 +16,29 @@ const theme = initTheme(document, {
   storage: store,
   media: matchMedia('(prefers-color-scheme: dark)'),
 });
+const singleKeys = singleKeysSwitch(store);
 const navigate = (href: string) => location.assign(href);
 
 const paletteDialog = document.querySelector<HTMLDialogElement>('dialog[data-palette]');
 const helpDialog = document.querySelector<HTMLDialogElement>('dialog[data-help]');
 let palette: Promise<Palette> | undefined;
 let help: Promise<Help> | undefined;
+let failedLoads = 0;
+
+function afterFailedLoad(): void {
+  failedLoads += 1;
+  // Chromium keeps a failed import for the page's life; after a deploy, only new HTML names the new chunks.
+  if (failedLoads > 1 && navigator.onLine) location.reload();
+}
 
 function openHelp(): void {
   if (!helpDialog) return;
-  help ??= import('./help').then(({ setupHelp }) => setupHelp(helpDialog, store));
+  help ??= import('./help').then(({ setupHelp }) => setupHelp(helpDialog, singleKeys));
   void help.then(
     (ready) => ready.open(),
     () => {
       help = undefined;
+      afterFailedLoad();
     },
   );
 }
@@ -53,8 +62,9 @@ function openPalette(): Promise<void> {
   );
 }
 
-const ignore = () => undefined;
-const showPalette = () => void openPalette().catch(ignore);
+const showPalette = () => {
+  if (paletteDialog) void openPalette().catch(afterFailedLoad);
+};
 
 for (const button of document.querySelectorAll('[data-palette-open]'))
   button.addEventListener('click', showPalette);
@@ -68,7 +78,7 @@ menu?.querySelector('summary')?.addEventListener('click', (event) => {
   });
 });
 initShortcuts(document, {
-  storage: store,
+  singleKeys,
   openPalette: showPalette,
   openHelp,
   cycleTheme: theme.cycle,

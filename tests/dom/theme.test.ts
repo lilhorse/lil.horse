@@ -130,6 +130,19 @@ describe('initTheme', () => {
     expect(state()).toEqual({ theme: 'light', pref: 'light' });
   });
 
+  it('announces nothing when the system scheme changes under a fixed theme', () => {
+    const system = media(false);
+    const theme = initTheme(document, { storage: new MemoryStorage(), media: system });
+    theme.set('dark');
+    const seen: unknown[] = [];
+    const listener = (event: Event) => seen.push((event as CustomEvent).detail);
+    document.addEventListener('themechange', listener);
+    system.change(true);
+    system.change(false);
+    document.removeEventListener('themechange', listener);
+    expect(seen).toEqual([]);
+  });
+
   it('works without storage and when storage refuses writes', () => {
     initTheme(document, { storage: null, media: media(false) });
     (document.querySelector('[data-theme-toggle]') as HTMLButtonElement).click();

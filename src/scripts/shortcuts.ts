@@ -2,8 +2,13 @@ export const SHORTCUTS_KEY = 'shortcuts';
 export const GO: Record<string, string> = { h: '/', b: '/blog', p: '/projects', a: '/about' };
 const SEQUENCE_MS = 1000;
 
+export interface SingleKeys {
+  enabled(): boolean;
+  set(on: boolean): void;
+}
+
 export interface ShortcutDeps {
-  storage: Pick<Storage, 'getItem' | 'setItem'> | null;
+  singleKeys: SingleKeys;
   openPalette(): void;
   openHelp(): void;
   cycleTheme(): void;
@@ -11,20 +16,27 @@ export interface ShortcutDeps {
   now?(): number;
 }
 
-export function shortcutsEnabled(storage: Pick<Storage, 'getItem'> | null): boolean {
-  try {
-    return storage?.getItem(SHORTCUTS_KEY) !== 'off';
-  } catch {
-    return true;
-  }
-}
-
-export function setShortcutsEnabled(storage: Pick<Storage, 'setItem'> | null, on: boolean): void {
-  try {
-    storage?.setItem(SHORTCUTS_KEY, on ? 'on' : 'off');
-  } catch {
-    // Storage can refuse writes; the shortcuts then stay as they were.
-  }
+/** The single-key switch: stored when storage allows, and kept for the page's life either way. */
+export function singleKeysSwitch(storage: Pick<Storage, 'getItem' | 'setItem'> | null): SingleKeys {
+  let chosen: boolean | undefined;
+  return {
+    enabled() {
+      if (chosen !== undefined) return chosen;
+      try {
+        return storage?.getItem(SHORTCUTS_KEY) !== 'off';
+      } catch {
+        return true;
+      }
+    },
+    set(on) {
+      chosen = on;
+      try {
+        storage?.setItem(SHORTCUTS_KEY, on ? 'on' : 'off');
+      } catch {
+        // Storage can refuse writes; the choice then lasts for this page only.
+      }
+    },
+  };
 }
 
 export function isEditable(target: EventTarget | null): boolean {
@@ -46,7 +58,7 @@ export function initShortcuts(doc: Document, deps: ShortcutDeps): () => void {
     }
     if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return;
     if (isEditable(event.target) || doc.querySelector('dialog[open]')) return;
-    if (!shortcutsEnabled(deps.storage)) return;
+    if (!deps.singleKeys.enabled()) return;
     const time = now();
     if (pendingGo && time - pendingGo <= SEQUENCE_MS) {
       pendingGo = 0;

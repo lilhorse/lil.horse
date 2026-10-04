@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { setupHelp, type Help } from '../../src/scripts/help';
+import { singleKeysSwitch } from '../../src/scripts/shortcuts';
 
 class MemoryStorage {
   readonly items = new Map<string, string>();
@@ -16,11 +17,13 @@ let help: Help;
 const dialog = () => document.querySelector('dialog') as HTMLDialogElement;
 const toggle = () => document.querySelector('[data-shortcuts-toggle]') as HTMLInputElement;
 
+const MARKUP =
+  '<dialog data-help><button type="button" data-help-close>esc</button><label><input type="checkbox" data-shortcuts-toggle checked> Single-key shortcuts</label></dialog>';
+
 beforeEach(() => {
-  document.body.innerHTML =
-    '<dialog data-help><button type="button" data-help-close>esc</button><label><input type="checkbox" data-shortcuts-toggle checked> Single-key shortcuts</label></dialog>';
+  document.body.innerHTML = MARKUP;
   storage = new MemoryStorage();
-  help = setupHelp(dialog(), storage);
+  help = setupHelp(dialog(), singleKeysSwitch(storage));
 });
 
 describe('setupHelp', () => {
@@ -39,6 +42,18 @@ describe('setupHelp', () => {
     toggle().checked = true;
     toggle().dispatchEvent(new Event('change'));
     expect(storage.getItem('shortcuts')).toBe('on');
+  });
+
+  it('shows the switch as left for the page when storage is unavailable', () => {
+    document.body.innerHTML = MARKUP;
+    const withoutStorage = setupHelp(dialog(), singleKeysSwitch(null));
+    withoutStorage.open();
+    toggle().checked = false;
+    toggle().dispatchEvent(new Event('change'));
+    dialog().close();
+    toggle().checked = true;
+    withoutStorage.open();
+    expect(toggle().checked).toBe(false);
   });
 
   it('closes from the button and the backdrop', () => {

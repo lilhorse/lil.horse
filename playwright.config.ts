@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 // Worktrees that run e2e at the same time each need their own port.
-const PORT = Number(process.env.E2E_PORT ?? 4322);
+const PORT = Number(process.env.E2E_PORT || 4322);
 const DESKTOP = { width: 1280, height: 800 };
 const ENGINE_CHECKS = /browsers\.spec\.ts/;
 

@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   initShortcuts,
   isEditable,
-  setShortcutsEnabled,
-  shortcutsEnabled,
+  singleKeysSwitch,
   type ShortcutDeps,
+  type SingleKeys,
 } from '../../src/scripts/shortcuts';
 
 class MemoryStorage {
@@ -17,19 +17,30 @@ class MemoryStorage {
   }
 }
 
+const refusing = {
+  getItem: (): string | null => {
+    throw new Error('SecurityError');
+  },
+  setItem: () => {
+    throw new Error('QuotaExceededError');
+  },
+};
+
 let calls: string[];
 let clock: number;
 let storage: MemoryStorage;
+let singleKeys: SingleKeys;
 let dispose = () => {};
 
-function mount(extra = '') {
+function mount(extra = '', keys?: SingleKeys) {
   dispose();
   document.body.innerHTML = `<input id="field"><div id="note" contenteditable="true"></div>${extra}`;
   calls = [];
   clock = 1000;
   storage = new MemoryStorage();
+  singleKeys = keys ?? singleKeysSwitch(storage);
   const deps: ShortcutDeps = {
-    storage,
+    singleKeys,
     openPalette: () => calls.push('palette'),
     openHelp: () => calls.push('help'),
     cycleTheme: () => calls.push('theme'),
@@ -51,13 +62,25 @@ afterEach(() => dispose());
 
 describe('switch', () => {
   it('is on until the visitor stores off', () => {
-    expect(shortcutsEnabled(storage)).toBe(true);
-    setShortcutsEnabled(storage, false);
+    expect(singleKeys.enabled()).toBe(true);
+    singleKeys.set(false);
     expect(storage.getItem('shortcuts')).toBe('off');
-    expect(shortcutsEnabled(storage)).toBe(false);
-    setShortcutsEnabled(storage, true);
-    expect(shortcutsEnabled(storage)).toBe(true);
-    expect(shortcutsEnabled(null)).toBe(true);
+    expect(singleKeys.enabled()).toBe(false);
+    expect(singleKeysSwitch(storage).enabled()).toBe(false);
+    singleKeys.set(true);
+    expect(singleKeys.enabled()).toBe(true);
+    expect(singleKeysSwitch(null).enabled()).toBe(true);
+    expect(singleKeysSwitch(refusing).enabled()).toBe(true);
+  });
+
+  it('keeps the choice for the page when storage is unavailable', () => {
+    for (const unavailable of [null, refusing]) {
+      const keys = singleKeysSwitch(unavailable);
+      keys.set(false);
+      expect(keys.enabled()).toBe(false);
+      keys.set(true);
+      expect(keys.enabled()).toBe(true);
+    }
   });
 
   it('recognises form fields and editable regions', () => {
@@ -147,7 +170,7 @@ describe('when single keys must stay quiet', () => {
   });
 
   it('keeps only ⌘K and Ctrl+K once the visitor switches shortcuts off', () => {
-    setShortcutsEnabled(storage, false);
+    singleKeys.set(false);
     press('t');
     press('/');
     press('g');
@@ -156,5 +179,13 @@ describe('when single keys must stay quiet', () => {
     expect(calls).toEqual([]);
     press('k', { metaKey: true });
     expect(calls).toEqual(['palette']);
+  });
+
+  it('stays switched off without storage', () => {
+    mount('', singleKeysSwitch(null));
+    singleKeys.set(false);
+    press('t');
+    press('?');
+    expect(calls).toEqual([]);
   });
 });
