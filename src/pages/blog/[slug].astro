@@ -2,6 +2,7 @@
 import Blocks from '../../components/blocks/Blocks.astro';
 import Picture from '../../components/blocks/Picture.astro';
 import AdjacentNav from '../../components/shell/AdjacentNav.astro';
+import Comments from '../../components/shell/Comments.astro';
 import DocHeader from '../../components/shell/DocHeader.astro';
 import DocLayout from '../../components/shell/DocLayout.astro';
 import TagList from '../../components/shell/TagList.astro';
@@ -80,14 +81,16 @@ const neighbour = (entry: PostEntry | null) =>
         Updated <time datetime={post.updated}>{post.updated}</time>
       </p>
     )}
-    <AdjacentNav
-      slot="after"
-      label="Adjacent posts"
-      previous={neighbour(previous)}
-      next={neighbour(next)}
-      previousLabel="older"
-      nextLabel="newer"
-    />
+    <Fragment slot="after">
+      <AdjacentNav
+        label="Adjacent posts"
+        previous={neighbour(previous)}
+        next={neighbour(next)}
+        previousLabel="older"
+        nextLabel="newer"
+      />
+      <Comments slug={post.slug} />
+    </Fragment>
   </DocLayout>
 </Base>
 

@@ -78,6 +78,8 @@ describe('post page', () => {
     expect(textOf(element(html, '<nav class="adjacent"', 'nav'))).toBe(
       '‹ older Post old newer › Post new',
     );
+    expect(html).toContain('data-comments data-repo="lilhorse/lil.horse"');
+    expect(html).toContain('data-term="middle"');
     expect(await htmlErrors(html)).toEqual([]);
   });
 

@@ -1,0 +1,60 @@
+---
+import { siteConfig } from '../../../site.config';
+import Prompt from './Prompt.astro';
+
+interface Props {
+  slug: string;
+}
+
+const { slug } = Astro.props;
+const { giscus } = siteConfig;
+// The dev server is plain http, which giscus's https frame cannot load a stylesheet from.
+const theme = (name: 'night' | 'mist') =>
+  import.meta.env.DEV
+    ? name === 'night'
+      ? 'dark'
+      : 'light'
+    : `${siteConfig.url}/giscus/${name}.css`;
+---
+
+<section class="comments" aria-labelledby="comments-title">
+  <p class="command" aria-hidden="true">
+    <Prompt /> giscus --term {slug}
+  </p>
+  <h2 id="comments-title" class="sr-only">
+    Comments
+  </h2>
+  <div
+    class="giscus"
+    data-comments
+    data-repo={giscus.repo}
+    data-repo-id={giscus.repoId}
+    data-category={giscus.category}
+    data-category-id={giscus.categoryId}
+    data-term={slug}
+    data-theme-light={theme('mist')}
+    data-theme-dark={theme('night')}
+  ></div>
+</section>
+
+<script>
+  import { setupComments } from '../../scripts/comments';
+
+  for (const container of document.querySelectorAll<HTMLElement>('[data-comments]'))
+    setupComments(container);
+</script>
+
+<style>
+  .comments {
+    margin-block-start: 40px;
+    padding-block-start: 20px;
+    border-block-start: 1px solid var(--rule);
+  }
+  .command {
+    margin-block-end: 16px;
+    color: var(--fg);
+  }
+  .giscus {
+    min-block-size: 200px;
+  }
+</style>

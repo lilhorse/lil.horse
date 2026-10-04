@@ -30,4 +30,10 @@ export const siteConfig = {
   name: "Lil'Horse",
   url: 'https://lil.horse',
   notion,
+  giscus: {
+    repo: 'lilhorse/lil.horse',
+    repoId: 'R_kgDOGbvmeg',
+    category: 'Announcements',
+    categoryId: 'DIC_kwDOGbvmes4CcjmH',
+  },
 };
