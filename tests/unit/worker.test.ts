@@ -2,7 +2,6 @@ import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi, type Mock } from 'vitest';
 import worker, {
   BUILD_EVENTS,
-  DISPATCH_EVENT,
   handleHook,
   signBody,
   timingSafeEqual,
@@ -12,7 +11,8 @@ import worker, {
 
 const SECRET = 'secret_fake-verification-token-for-tests';
 const HOOK = 'https://lil.horse/hooks/notion';
-const RECEIVED = new Date('2026-10-04T05:00:00.000Z');
+const DISPATCH_URL =
+  'https://api.github.com/repos/lilhorse/lil.horse/actions/workflows/deploy.yml/dispatches';
 const CAP = 1_048_576;
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;
@@ -33,7 +33,7 @@ const github = (status: number) =>
   vi.fn<Fetch>(async () => new Response(status === 204 ? null : 'nope', { status }));
 
 function deps(fetch: Mock<Fetch> = github(204)) {
-  return { fetch, log: vi.fn(), now: () => RECEIVED };
+  return { fetch, log: vi.fn() };
 }
 
 const event = (type: string) =>
@@ -258,31 +258,30 @@ describe('handleHook', () => {
     expect(d.fetch).not.toHaveBeenCalled();
   });
 
-  it('asks GitHub for a build and answers 202 once GitHub accepts', async () => {
+  it('starts deploy.yml on main with a workflow dispatch', async () => {
     const d = deps();
-    const response = await handleHook(signed(event('page.content_updated')), env(), d);
-    expect(response.status).toBe(202);
-    expect(d.fetch).toHaveBeenCalledTimes(1);
-    expect(d.fetch).toHaveBeenCalledWith(
-      'https://api.github.com/repos/lilhorse/lil.horse/dispatches',
-      {
-        method: 'POST',
-        headers: {
-          accept: 'application/vnd.github+json',
-          authorization: 'Bearer github_pat_test',
-          'content-type': 'application/json',
-          'user-agent': 'lil-horse-webhook',
-          'x-github-api-version': '2022-11-28',
-        },
-        body: JSON.stringify({
-          event_type: DISPATCH_EVENT,
-          client_payload: {
-            type: 'page.content_updated',
-            entity: { id: '1174bd3d-0b2b-8073-a433-ea2cd4eb814b', type: 'page' },
-            received_at: '2026-10-04T05:00:00.000Z',
-          },
-        }),
+    await handleHook(signed(event('page.content_updated')), env(), d);
+    expect(d.fetch).toHaveBeenCalledExactlyOnceWith(DISPATCH_URL, {
+      method: 'POST',
+      headers: {
+        accept: 'application/vnd.github+json',
+        authorization: 'Bearer github_pat_test',
+        'content-type': 'application/json',
+        'user-agent': 'lil-horse-webhook',
+        'x-github-api-version': '2022-11-28',
       },
+      body: '{"ref":"main"}',
+    });
+  });
+
+  it('answers 202 once GitHub accepts the dispatch with 204', async () => {
+    const d = deps(github(204));
+    const response = await handleHook(signed(event('page.content_updated')), env(), d);
+    expect(d.fetch).toHaveBeenCalledExactlyOnceWith(DISPATCH_URL, expect.anything());
+    expect(response.status).toBe(202);
+    expect(await response.text()).toBe('Build requested');
+    expect(d.log).toHaveBeenCalledWith(
+      'Build requested for page.content_updated 1174bd3d-0b2b-8073-a433-ea2cd4eb814b',
     );
   });
 
@@ -294,14 +293,25 @@ describe('handleHook', () => {
     }
   });
 
-  it('answers 502 when GitHub refuses or cannot be reached, so Notion retries', async () => {
-    const refused = deps(github(403));
-    const response = await handleHook(signed(event('page.created')), env(), refused);
+  it.each([401, 403, 404, 422])(
+    'answers 502 when GitHub refuses the dispatch with %i, so Notion retries',
+    async (status) => {
+      const d = deps(github(status));
+      const response = await handleHook(signed(event('page.created')), env(), d);
+      expect(d.fetch).toHaveBeenCalledExactlyOnceWith(DISPATCH_URL, expect.anything());
+      expect(response.status).toBe(502);
+      expect(await response.text()).toBe(`GitHub answered ${status}`);
+      expect(d.log).toHaveBeenCalledWith(`GitHub dispatch answered ${status}: nope`);
+    },
+  );
+
+  it('answers 502 when GitHub cannot be reached, so Notion retries', async () => {
+    const d = deps(vi.fn<Fetch>(async () => Promise.reject(new TypeError('fetch failed'))));
+    const response = await handleHook(signed(event('page.created')), env(), d);
+    expect(d.fetch).toHaveBeenCalledExactlyOnceWith(DISPATCH_URL, expect.anything());
     expect(response.status).toBe(502);
-    expect(await response.text()).toBe('GitHub answered 403');
-    const down = deps(vi.fn<Fetch>(async () => Promise.reject(new TypeError('fetch failed'))));
-    expect((await handleHook(signed(event('page.created')), env(), down)).status).toBe(502);
-    expect(down.log).toHaveBeenCalledWith('GitHub dispatch failed: TypeError: fetch failed');
+    expect(await response.text()).toBe('GitHub unreachable');
+    expect(d.log).toHaveBeenCalledWith('GitHub dispatch failed: TypeError: fetch failed');
   });
 
   it('answers 500 without a GitHub token instead of pretending to dispatch', async () => {

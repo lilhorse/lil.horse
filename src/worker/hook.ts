@@ -8,11 +8,11 @@ export interface Env {
 export interface HookDeps {
   fetch: (url: string, init: RequestInit) => Promise<Response>;
   log: (message: string) => void;
-  now: () => Date;
 }
 
 export const HOOK_PATH = '/hooks/notion';
-export const DISPATCH_EVENT = 'notion-content-changed';
+export const DEPLOY_WORKFLOW = 'deploy.yml';
+export const DEPLOY_REF = 'main';
 
 // Generous on purpose: a page.content_updated event can list many updated blocks.
 const MAX_BODY_BYTES = 1_048_576;
@@ -44,7 +44,6 @@ const decoder = new TextDecoder();
 const defaultDeps: HookDeps = {
   fetch: (url, init) => fetch(url, init),
   log: (message) => console.log(message),
-  now: () => new Date(),
 };
 
 const text = (status: number, body: string, headers: Record<string, string> = {}) =>
@@ -138,7 +137,7 @@ async function dispatchBuild(
   let response: Response;
   try {
     response = await deps.fetch(
-      `https://api.github.com/repos/${env.GITHUB_REPOSITORY}/dispatches`,
+      `https://api.github.com/repos/${env.GITHUB_REPOSITORY}/actions/workflows/${DEPLOY_WORKFLOW}/dispatches`,
       {
         method: 'POST',
         headers: {
@@ -148,14 +147,7 @@ async function dispatchBuild(
           'user-agent': 'lil-horse-webhook',
           'x-github-api-version': '2022-11-28',
         },
-        body: JSON.stringify({
-          event_type: DISPATCH_EVENT,
-          client_payload: {
-            type: event.type,
-            entity: event.entity,
-            received_at: deps.now().toISOString(),
-          },
-        }),
+        body: JSON.stringify({ ref: DEPLOY_REF }),
       },
     );
   } catch (error) {
