@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { devices, expect, test, type Page } from '@playwright/test';
+import { blockThirdParty } from './site';
 
 const WCAG = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 const dialog = (page: Page) => page.locator('dialog[data-palette]');
@@ -12,6 +13,8 @@ async function open(page: Page): Promise<void> {
   await expect(dialog(page)).toHaveAttribute('open', '');
   await expect(query(page)).toBeFocused();
 }
+
+test.beforeEach(({ page }) => blockThirdParty(page));
 
 test('opens with the shortcuts and the header button, and closes with Escape', async ({
   page,

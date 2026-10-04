@@ -6,10 +6,13 @@ import Comments from '../../components/shell/Comments.astro';
 import DocHeader from '../../components/shell/DocHeader.astro';
 import DocLayout from '../../components/shell/DocLayout.astro';
 import TagList from '../../components/shell/TagList.astro';
+import { siteConfig } from '../../../site.config';
 import Base from '../../layouts/Base.astro';
 import { getSiteData } from '../../lib/content';
 import { htmlLang } from '../../lib/lang';
+import { ogImagePath } from '../../lib/og';
 import { adjacentPosts } from '../../lib/selectors';
+import { absoluteUrl, blogPostingJsonLd, breadcrumbJsonLd } from '../../lib/seo';
 import type { PostEntry } from '../../notion/types';
 
 export async function getStaticPaths() {
@@ -25,6 +28,11 @@ const { post } = Astro.props;
 const site = await getSiteData();
 const { previous, next } = adjacentPosts(site.posts, post.slug);
 const lang = post.language === 'zh' ? 'zh-Hans' : 'en';
+const crumbs = breadcrumbJsonLd([
+  { name: siteConfig.name, url: siteConfig.url },
+  { name: 'Blog', url: absoluteUrl('/blog', siteConfig.url) },
+  { name: post.title, url: absoluteUrl(`/blog/${post.slug}`, siteConfig.url) },
+]);
 const neighbour = (entry: PostEntry | null) =>
   entry && { href: `/blog/${entry.slug}`, title: entry.title, lang: htmlLang(entry.language) };
 ---
@@ -37,6 +45,10 @@ const neighbour = (entry: PostEntry | null) =>
   path={`~/blog/${post.slug}.md`}
   file={`${post.slug}.md`}
   wide
+  type="article"
+  image={ogImagePath('blog', post.slug)}
+  article={{ published: post.published, modified: post.updated, tags: post.tags }}
+  jsonLd={[blogPostingJsonLd(post, site.profile, siteConfig.url), crumbs]}
 >
   <DocLayout
     headings={post.content.headings}

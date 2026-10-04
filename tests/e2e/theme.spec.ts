@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { blockThirdParty } from './site';
 
 const state = (page: Page) =>
   page.evaluate(() => ({
@@ -8,6 +9,8 @@ const state = (page: Page) =>
       meta.getAttribute('content'),
     ),
   }));
+
+test.beforeEach(({ page }) => blockThirdParty(page));
 
 test('cycles system, light and dark, and keeps the choice after a reload', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' });

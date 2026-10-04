@@ -1,0 +1,11 @@
+---
+import { beaconLoader } from '../../lib/analytics';
+
+interface Props {
+  token: string | null;
+}
+
+const { token } = Astro.props;
+---
+
+{token && <script is:inline set:html={beaconLoader(token)} />}

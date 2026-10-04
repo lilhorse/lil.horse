@@ -1,14 +1,20 @@
 ---
 import { Font } from 'astro:assets';
 import { siteConfig } from '../../site.config';
+import Analytics from '../components/shell/Analytics.astro';
 import CommandPalette from '../components/shell/CommandPalette.astro';
+import SeoHead from '../components/shell/SeoHead.astro';
 import ShortcutsHelp from '../components/shell/ShortcutsHelp.astro';
 import SiteFooter from '../components/shell/SiteFooter.astro';
 import SiteHeader from '../components/shell/SiteHeader.astro';
+import { readEnv } from '../env';
+import { beaconToken } from '../lib/analytics';
 import { siteVersion } from '../lib/build-info';
 import { getSiteData } from '../lib/content';
 import { KATEX_STYLESHEET } from '../lib/katex';
+import { ogImagePath } from '../lib/og';
 import { socialLinks } from '../lib/profile';
+import type { JsonLd } from '../lib/seo';
 import { SPECULATION_RULES } from '../lib/speculation';
 import { THEME_INIT_SCRIPT } from '../lib/theme-init';
 import type { Section } from '../lib/shell';
@@ -26,6 +32,10 @@ interface Props {
   current?: Section | null;
   file?: string | null;
   wide?: boolean;
+  type?: 'website' | 'article';
+  image?: string;
+  article?: { published: string; modified: string | null; tags: string[] } | null;
+  jsonLd?: JsonLd[];
 }
 
 // Element ids used in this layout must also be in LAYOUT_IDS in src/notion/page-content.ts.
@@ -39,12 +49,17 @@ const {
   current = null,
   file = null,
   wide = false,
+  type = 'website',
+  image = ogImagePath('site', 'home'),
+  article = null,
+  jsonLd = [],
 } = Astro.props;
 const site = await getSiteData();
 const pageTitle = title === siteConfig.name ? title : `${title} · ${siteConfig.name}`;
 // With build.format 'file', Astro.url.pathname ends in .html at build time.
 const canonicalPath = Astro.url.pathname.replace(/\/index\.html$/, '/').replace(/\.html$/, '');
 const canonicalUrl = new URL(canonicalPath, siteConfig.url).toString();
+const analyticsToken = beaconToken(siteConfig.analytics.cloudflareToken, readEnv(process.env));
 ---
 
 <!doctype html>
@@ -52,10 +67,17 @@ const canonicalUrl = new URL(canonicalPath, siteConfig.url).toString();
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{pageTitle}</title>
-    {description && <meta name="description" content={description} />}
-    {canonical && <link rel="canonical" href={canonicalUrl} />}
-    {noindex && <meta name="robots" content="noindex" />}
+    <SeoHead
+      title={title}
+      pageTitle={pageTitle}
+      description={description}
+      canonicalUrl={canonical ? canonicalUrl : null}
+      noindex={noindex}
+      type={type}
+      image={image}
+      article={article}
+      jsonLd={jsonLd}
+    />
     <meta name="theme-color" content="#e6e9ef" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#16161e" media="(prefers-color-scheme: dark)" />
     <script is:inline set:html={THEME_INIT_SCRIPT} />
@@ -63,7 +85,6 @@ const canonicalUrl = new URL(canonicalPath, siteConfig.url).toString();
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <link rel="alternate" type="application/rss+xml" title={siteConfig.name} href="/feed.xml" />
     <Font cssVariable="--font-jetbrains-mono" preload={[{ weight: 400, style: 'normal' }]} />
     <Font cssVariable="--font-ibm-plex-sans" preload={[{ weight: 400, style: 'normal' }]} />
     {hasMath && <link rel="stylesheet" href={KATEX_STYLESHEET} />}
@@ -81,6 +102,7 @@ const canonicalUrl = new URL(canonicalPath, siteConfig.url).toString();
       <slot />
     </main>
     <SiteFooter social={socialLinks(site.profile)} version={siteVersion()} />
+    <Analytics token={analyticsToken} />
     <CommandPalette posts={site.posts} profile={site.profile} />
     <ShortcutsHelp />
   </body>

@@ -15,6 +15,8 @@ interface Options {
   fontPreloadBudget: number;
   validator: HtmlValidate | null;
   routes: string[];
+  /** The site's origin; absolute share-image addresses under it must exist in dist. */
+  site: string | null;
 }
 
 export interface StartTag {
@@ -98,9 +100,18 @@ export function attribute(tag: string, wanted: string): string | undefined {
   return undefined;
 }
 
-function internalTargets(html: string): string[] {
+const IMAGE_META = /^(og:image|twitter:image)$/;
+
+function internalTargets(html: string, site: string | null): string[] {
   const urls: string[] = [];
-  for (const { tag } of startTags(html)) {
+  for (const { tag, name: element } of startTags(html)) {
+    if (element === 'meta') {
+      const key = attribute(tag, 'property') ?? attribute(tag, 'name') ?? '';
+      const content = attribute(tag, 'content') ?? '';
+      if (IMAGE_META.test(key) && site && content.startsWith(site))
+        urls.push(content.slice(site.length));
+      continue;
+    }
     for (const [, name, double, single, bare] of tag.matchAll(ATTRIBUTE)) {
       const value = double ?? single ?? bare ?? '';
       if (name === 'href' || name === 'src') urls.push(value);
@@ -179,6 +190,7 @@ export async function checkDist(
     fontPreloadBudget: 2,
     validator: new HtmlValidate(new FileSystemConfigLoader()),
     routes: [],
+    site: null,
     ...overrides,
   };
   const files = await listFiles(dist);
@@ -200,7 +212,7 @@ export async function checkDist(
     if (EXPIRING.test(text))
       issues.push({ file: name, message: 'contains an expiring Notion file URL' });
     if (extension !== '.html') continue;
-    for (const target of new Set(internalTargets(text))) {
+    for (const target of new Set(internalTargets(text, options.site))) {
       if (target !== '/' && target.endsWith('/'))
         issues.push({ file: name, message: `links with a trailing slash to ${target}` });
       if (!resolves(dist, target))

@@ -1,4 +1,7 @@
 import { expect, test } from '@playwright/test';
+import { blockThirdParty } from './site';
+
+test.beforeEach(({ page }) => blockThirdParty(page));
 
 test('opts into cross-document view transitions unless motion is reduced', async ({ page }) => {
   await page.goto('/');

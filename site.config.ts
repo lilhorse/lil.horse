@@ -30,6 +30,8 @@ export const siteConfig = {
   name: "Lil'Horse",
   url: 'https://lil.horse',
   notion,
+  // Cloudflare Web Analytics site token; empty means no beacon.
+  analytics: { cloudflareToken: '' },
   giscus: {
     repo: 'lilhorse/lil.horse',
     repoId: 'R_kgDOGbvmeg',

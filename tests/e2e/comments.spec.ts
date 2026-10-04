@@ -1,4 +1,7 @@
 import { expect, test } from '@playwright/test';
+import { blockThirdParty } from './site';
+
+test.beforeEach(({ page }) => blockThirdParty(page));
 
 test('loads Giscus only once the comments come near, with the current theme', async ({ page }) => {
   await page.route('https://giscus.app/**', (route) =>

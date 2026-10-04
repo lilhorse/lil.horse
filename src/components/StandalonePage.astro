@@ -1,6 +1,9 @@
 ---
 import Base from '../layouts/Base.astro';
+import { siteConfig } from '../../site.config';
 import { getSiteData } from '../lib/content';
+import { ogImagePath } from '../lib/og';
+import { personJsonLd } from '../lib/seo';
 import { excerpt } from '../notion/text';
 import type { StandalonePageKey } from '../notion/types';
 import Blocks from './blocks/Blocks.astro';
@@ -26,6 +29,8 @@ if (!page) throw new Error(`The "${pageKey}" page is missing from the pages coll
   path={`~/${pageKey}.md`}
   file={pageKey === 'contact' ? 'contact.md' : null}
   wide
+  image={ogImagePath('pages', pageKey)}
+  jsonLd={pageKey === 'about' ? [personJsonLd(site.profile, siteConfig.url)] : []}
 >
   <DocLayout headings={page.content.headings} search={{ type: 'page' }}>
     <DocHeader command={`cat ~/${pageKey}.md`} title={page.title} />

@@ -304,6 +304,19 @@ describe('checkDist', () => {
     expect(await checkDist(root, zeroBudgets)).toEqual([]);
   });
 
+  it('checks share images named in absolute meta tags when the site is known', async () => {
+    const root = await dist({
+      'index.html': page(
+        '<meta property="og:image" content="https://lil.horse/og/site/home.png"><meta name="twitter:image" content="https://lil.horse/og/site/gone.png"><meta property="og:image" content="https://elsewhere.test/x.png">',
+      ),
+      'og/site/home.png': 'png',
+    });
+    expect(await checkDist(root, { ...noValidation, site: 'https://lil.horse' })).toEqual([
+      { file: 'index.html', message: 'links to missing /og/site/gone.png' },
+    ]);
+    expect(await checkDist(root, noValidation)).toEqual([]);
+  });
+
   it('reports a build without any HTML', async () => {
     const root = await dist({});
     expect(await checkDist(root, noValidation)).toEqual([{ file: '', message: 'no HTML files' }]);

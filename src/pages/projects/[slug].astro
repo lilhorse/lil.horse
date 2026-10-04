@@ -7,6 +7,7 @@ import DocLayout from '../../components/shell/DocLayout.astro';
 import Base from '../../layouts/Base.astro';
 import { getSiteData } from '../../lib/content';
 import { relFor } from '../../lib/html';
+import { ogImagePath } from '../../lib/og';
 import { adjacentProjects, projectLinks } from '../../lib/selectors';
 import type { PageContent, ProjectEntry } from '../../notion/types';
 
@@ -38,6 +39,7 @@ const neighbour = (entry: ProjectEntry | null) =>
   path={`~/projects/${project.slug}.md`}
   file={`${project.slug}.md`}
   wide
+  image={ogImagePath('projects', project.slug)}
 >
   <DocLayout headings={project.content.headings} search={{ type: 'project' }}>
     <DocHeader command={`cat ~/projects/${project.slug}.md`} title={project.name}>
