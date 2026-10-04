@@ -26,7 +26,8 @@ test('opens with the shortcuts and the header button, and closes with Escape', a
     await expect(page.locator('#palette-query')).not.toBeFocused();
   }
   if (testInfo.project.name === 'desktop') {
-    await page.getByRole('button', { name: 'search ⌘K' }).click();
+    const mac = await page.evaluate(() => /Mac|iPhone|iPad/.test(navigator.platform));
+    await page.getByRole('button', { name: mac ? 'search ⌘K' : 'search Ctrl K' }).click();
   } else {
     await page.locator('.site-menu summary').click();
     await expect(page.locator('.site-menu')).not.toHaveAttribute('open', '');
@@ -144,4 +145,19 @@ test('keeps the plain menu working without JavaScript', async ({ browser }, test
   await expect(page.locator('.site-menu')).toHaveAttribute('open', '');
   await expect(page.locator('.site-menu').getByRole('link', { name: 'contact' })).toBeVisible();
   await context.close();
+});
+
+test('falls back to the plain menu when the palette cannot load', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'phones only');
+  await page.route('**/_astro/palette.*.js', (route) => route.abort());
+  await page.goto('/blog');
+  const menu = page.locator('.site-menu');
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await menu.locator('summary').click();
+    await expect(menu).toHaveAttribute('open', '');
+    await expect(menu.getByRole('link', { name: 'contact' })).toBeVisible();
+    await menu.locator('summary').click();
+    await expect(menu).not.toHaveAttribute('open', '');
+  }
+  await expect(dialog(page)).not.toHaveAttribute('open', '');
 });

@@ -24,8 +24,8 @@ const theme = initTheme(document, {
 const dialog = document.querySelector<HTMLDialogElement>('dialog[data-palette]');
 let palette: Promise<Palette> | undefined;
 
-function openPalette(): void {
-  if (!dialog) return;
+function openPalette(): Promise<void> {
+  if (!dialog) return Promise.reject(new Error('This page has no command palette'));
   palette ??= import('./palette').then(({ setupPalette }) =>
     setupPalette(dialog, {
       theme,
@@ -33,19 +33,32 @@ function openPalette(): void {
       copy: (text) => navigator.clipboard.writeText(text),
     }),
   );
-  void palette.then((ready) => ready.open());
+  return palette.then(
+    (ready) => ready.open(),
+    (error: unknown) => {
+      palette = undefined;
+      throw error;
+    },
+  );
 }
 
+const ignore = () => undefined;
+
 for (const button of document.querySelectorAll('[data-palette-open]'))
-  button.addEventListener('click', openPalette);
-document.querySelector('.site-menu summary')?.addEventListener('click', (event) => {
+  button.addEventListener('click', () => void openPalette().catch(ignore));
+const menu = document.querySelector<HTMLDetailsElement>('.site-menu');
+menu?.querySelector('summary')?.addEventListener('click', (event) => {
+  // Closing the fallback menu must not wait for another attempt to load the palette.
+  if (menu.open) return;
   event.preventDefault();
-  openPalette();
+  void openPalette().catch(() => {
+    menu.open = true;
+  });
 });
 document.addEventListener('keydown', (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
     event.preventDefault();
-    openPalette();
+    void openPalette().catch(ignore);
   } else if (
     event.key === '/' &&
     !event.metaKey &&
@@ -55,7 +68,7 @@ document.addEventListener('keydown', (event) => {
     !dialog?.open
   ) {
     event.preventDefault();
-    openPalette();
+    void openPalette().catch(ignore);
   }
 });
 if (!/Mac|iPhone|iPad/.test(navigator.platform)) {
