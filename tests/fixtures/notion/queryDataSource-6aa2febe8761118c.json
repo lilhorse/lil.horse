@@ -3,7 +3,7 @@
     "object": "page",
     "id": "3ed4bd3d-0b2b-81ed-91c2-fd39af34b3d2",
     "created_time": "2026-10-02T08:03:00.000Z",
-    "last_edited_time": "2026-10-02T08:34:00.000Z",
+    "last_edited_time": "2026-10-04T02:30:00.000Z",
     "created_by": {
       "object": "user",
       "id": "00000000-0000-0000-0000-000000000000"
@@ -93,6 +93,11 @@
             "color": "blue"
           },
           {
+            "id": "53623b99-b3da-4139-bb51-cd8169555225",
+            "name": "Python",
+            "color": "default"
+          },
+          {
             "id": "5f817224-d6fc-4d6b-aba5-f9167c11027f",
             "name": "Go",
             "color": "orange"
@@ -103,9 +108,64 @@
             "color": "yellow"
           },
           {
-            "id": "53623b99-b3da-4139-bb51-cd8169555225",
-            "name": "Python",
-            "color": "default"
+            "id": "bac1e53e-8723-4055-b605-2fe62b5bfbc4",
+            "name": "Dart",
+            "color": "blue"
+          },
+          {
+            "id": "1155e968-40ae-4cc6-807f-6d35fc2c7f1c",
+            "name": "Vue",
+            "color": "green"
+          },
+          {
+            "id": "48c219d7-19f2-45f3-9a7a-33ffa3d9d75d",
+            "name": "React",
+            "color": "blue"
+          },
+          {
+            "id": "77cb19cb-5769-45dd-800b-3bd1e88dc7e6",
+            "name": "Next.js",
+            "color": "gray"
+          },
+          {
+            "id": "e9b9dee0-f79d-4cb7-b0ee-6ee94c37e511",
+            "name": "Flutter",
+            "color": "blue"
+          },
+          {
+            "id": "ff634fab-a90b-4ece-9720-507274321d3e",
+            "name": "Node.js",
+            "color": "green"
+          },
+          {
+            "id": "f821f061-58b2-401b-9774-53a26fa1e524",
+            "name": "Tailwind CSS",
+            "color": "blue"
+          },
+          {
+            "id": "144210bb-73cf-4d67-bab6-61ac379c3bd6",
+            "name": "Cloudflare",
+            "color": "orange"
+          },
+          {
+            "id": "f12f74ee-592d-4ab7-939d-7f019725f007",
+            "name": "Docker",
+            "color": "blue"
+          },
+          {
+            "id": "3ca5c8d8-6ee8-416f-bde3-ba3f6f6439ad",
+            "name": "PostgreSQL",
+            "color": "blue"
+          },
+          {
+            "id": "07171b3c-9702-439d-8c50-854ef96b7a48",
+            "name": "Redis",
+            "color": "red"
+          },
+          {
+            "id": "6924e148-d336-4c42-83fc-4faafcc54396",
+            "name": "Solidity",
+            "color": "gray"
           }
         ]
       },
