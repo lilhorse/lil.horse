@@ -12,7 +12,8 @@ Content is written in Notion. At build time, Astro reads it through the official
 - [Pagefind](https://pagefind.app) for search, [Satori](https://github.com/vercel/satori) with resvg for share images, `@astrojs/rss` for the feed and [Giscus](https://giscus.app) for comments
 - Plain CSS with cascade layers and `light-dark()`
 - JetBrains Mono and IBM Plex Sans from [Fontsource](https://fontsource.org), self-hosted through Astro's Fonts API
-- Vitest, Playwright with axe-core, ESLint, Prettier and html-validate
+- [Cloudflare Workers](https://developers.cloudflare.com/workers/static-assets/) static assets for hosting, deployed with [Wrangler](https://developers.cloudflare.com/workers/wrangler/) from GitHub Actions
+- Vitest, Playwright with axe-core, Lighthouse CI, ESLint, Prettier and html-validate
 
 ## How it works
 
@@ -31,6 +32,7 @@ Content is written in Notion. At build time, Astro reads it through the official
    - inline scripts whose hash is missing from the CSP, that a second, plain count finds but the scan missed, or that sit inside `<svg>` or `<math>`
    - `'unsafe-inline'`, `'unsafe-eval'` or `'strict-dynamic'` in the CSP's `script-src`
    - redirects that are not 301, lead to a page that does not exist or hide a built page
+7. **Deploy.** GitHub Actions runs the same build and output check, then `wrangler deploy` uploads `dist/` to Cloudflare Workers together with the small Worker that receives Notion's webhooks. See [Deployment](#deployment).
 
 ## Design
 
@@ -72,7 +74,76 @@ At the end of the build, `integrations/cloudflare.ts` writes two files that Clou
 
 The Content-Security-Policy, built in `src/lib/csp.ts`, has no `'unsafe-inline'` in `script-src`. Instead, the build scans `dist/` and lists the hash of every inline script the pages run, hashing the text as browsers do (line ends become `\n`). Uploaded files in `/_media/` are not scanned, so a script in an upload never widens the site's policy. Never add or edit a hash by hand; change the script and rebuild. `pnpm check:dist` fails if a page has an inline script whose hash is missing. Beyond the site itself, the policy allows Giscus (its script, its frame and the `default.css` that its `client.js` adds to the page), the Cloudflare Web Analytics beacon, YouTube and Vimeo embeds, and WebAssembly for Pagefind. It allows no plugins (`object-src 'none'`).
 
-`pnpm preview` ignores both files. To try them locally, run `pnpm exec tsx scripts/serve-dist.ts 4323`, which serves `dist/` on port 4323 and applies the redirects and headers as Cloudflare would. Like Cloudflare, it sends any other spelling of a path, such as `/%5Fmedia/…`, `//blog` or `/blog.html`, to the canonical one with a 307, and gives files that no rule caches `Cache-Control: public, max-age=0, must-revalidate`. The end-to-end tests use the same server.
+`pnpm preview` ignores both files. To try them locally, run `pnpm exec tsx scripts/serve-dist.ts 4323`, which serves `dist/` on port 4323 and applies the redirects and headers as Cloudflare would. Like Cloudflare, it sends any other spelling of a path, such as `/%5Fmedia/…`, `//blog` or `/blog.html`, to the canonical one with a 307, and gives files that no rule caches `Cache-Control: public, max-age=0, must-revalidate`. It also gzips text responses, which Cloudflare compresses too, so Lighthouse times the bytes a visitor downloads. The end-to-end tests and Lighthouse CI use the same server.
+
+## Deployment
+
+Cloudflare Workers serves the site as static assets. `wrangler.jsonc` names the Worker `lil-horse`, points its assets at `dist/`, serves `x.html` at `/x`, answers unknown paths with `404.html` and runs the Worker script only for `/hooks/*`. The Worker answers at `https://lil-horse.lilhorse.workers.dev`, and every version, deployed or only uploaded, gets a preview URL of its own on workers.dev. `wrangler.jsonc` sets `workers_dev` and `preview_urls` explicitly: both default to off once `routes` is set, and the Notion webhook and pull request previews depend on them. A `_headers` rule adds `X-Robots-Tag: noindex` to responses from every workers.dev address, which keeps those addresses out of search engines.
+
+`src/worker/index.ts` is the whole Worker. It handles `POST /hooks/notion`, answers 404 for any other path under `/hooks/` and passes everything else to the static assets. An edit in Notion reaches the site like this:
+
+1. Notion sends a webhook event. The Worker checks `X-Notion-Signature`, the HMAC-SHA256 of the raw body keyed by the subscription's verification token (`NOTION_WEBHOOK_SECRET`), and answers 401 if it does not match.
+2. Events that can change the site, the `page.*` and `data_source.*` events listed in `BUILD_EVENTS`, trigger a `repository_dispatch` event named `notion-content-changed` on this repository (`vars.GITHUB_REPOSITORY` in `wrangler.jsonc`), using `GITHUB_DISPATCH_TOKEN`. The Worker answers 202 when GitHub accepts it and 502 when GitHub does not, so Notion retries. Other events, such as comments and page locks, get 200 and change nothing.
+3. `.github/workflows/deploy.yml` builds from live Notion data, runs `pnpm check:dist` and deploys with `wrangler deploy`.
+
+The deploy workflow also runs on every push to `main`, every day at 17:00 UTC with `NOTION_FULL_REFRESH=1`, and by hand from the Actions tab or with `gh workflow run deploy.yml` (add `-f full_refresh=true` for a full refresh). It deploys only `main`: a run started by hand on another branch skips the job. A newer run cancels one still in progress, so a burst of edits deploys once. The `.cache/` page cache and Astro's data store in `node_modules/.astro` are restored from the last successful run.
+
+To deploy from a laptop, run `pnpm build && pnpm check:dist && pnpm exec wrangler deploy` after `pnpm exec wrangler login`.
+
+### Notion webhook
+
+The webhook subscription belongs to the Notion integration. It points at `https://lil-horse.lilhorse.workers.dev/hooks/notion` and subscribes to the twelve events in `BUILD_EVENTS`; the Worker ignores any other. Notion cannot change the URL of a verified subscription, so the subscription stays on workers.dev whatever domain serves the site.
+
+Notion verifies a new subscription by posting a `verification_token`. While `NOTION_WEBHOOK_SECRET` is not set, the Worker writes that token to its logs and answers 200, and it refuses every event with 401. To connect a subscription:
+
+1. Follow the Worker's logs with `pnpm exec wrangler tail lil-horse`, or open Workers & Pages → lil-horse → Observability in the Cloudflare dashboard.
+2. Create the subscription in Notion. Copy the token from the log line `Notion verification token: …` and paste it into Notion to verify the subscription.
+3. With the token still on the clipboard, store it as the Worker secret: `pbpaste | tr -d '\n' | pnpm exec wrangler secret put NOTION_WEBHOOK_SECRET`, then `printf '' | pbcopy` (see [Secrets](#secrets)). From then on, the Worker never logs a token.
+
+To rotate the token, first delete the secret with `pnpm exec wrangler secret delete NOTION_WEBHOOK_SECRET`, because the Worker logs a token only while no secret is set. Then delete the subscription in Notion, create it again and follow the three steps. Until the new secret is in place, the Worker refuses every event; the daily build picks up any edits made in the meantime.
+
+### Secrets
+
+The deploy workflow and the `preview` job read the GitHub secrets, and the Worker reads its own:
+
+| Where          | Secret                  | Scope                                                                            |
+| -------------- | ----------------------- | -------------------------------------------------------------------------------- |
+| GitHub Actions | `NOTION_TOKEN`          | The read-only Notion integration token                                           |
+| GitHub Actions | `CLOUDFLARE_API_TOKEN`  | Cloudflare API token with Account → Workers Scripts → Edit on this account only  |
+| GitHub Actions | `CLOUDFLARE_ACCOUNT_ID` | The Cloudflare account ID                                                        |
+| Worker         | `NOTION_WEBHOOK_SECRET` | The webhook subscription's verification token                                    |
+| Worker         | `GITHUB_DISPATCH_TOKEN` | Fine-grained GitHub token for this repository only, with Contents read and write |
+
+Nothing secret is in the repository or in `wrangler.jsonc`.
+
+Set secrets from the clipboard, so a value never appears on screen, in the shell history or in a file. Copy the value where it is created, then pipe it in, as here for a GitHub secret and a Worker secret:
+
+```bash
+pbpaste | tr -d '\n' | gh secret set CLOUDFLARE_API_TOKEN --repo lilhorse/lil.horse
+pbpaste | tr -d '\n' | pnpm exec wrangler secret put GITHUB_DISPATCH_TOKEN
+printf '' | pbcopy
+```
+
+`tr -d '\n'` drops a trailing newline, and the last command clears the clipboard. `wrangler secret put` needs `pnpm exec wrangler login` first and takes effect at once, because it deploys a new version of the Worker.
+
+Cloudflare refuses to change a secret while the Worker's newest version is not the deployed one. That is the case after every pull request preview, which runs `wrangler versions upload`, and after a rollback, until the next deployment. Deploy first (`gh workflow run deploy.yml`) and wait for the run to finish. Do not follow wrangler's suggestions to deploy the latest version or to use `wrangler versions secret put`: both build on the newest version, not on the deployed one.
+
+If `GITHUB_DISPATCH_TOKEN` expires, edits in Notion stop starting builds, but the daily build still publishes them. Store a new token the same way.
+
+### Rollback
+
+If a deployment is bad, run `pnpm exec wrangler rollback` after `pnpm exec wrangler login`. It puts the version of the previous deployment back live. Any later deployment, including the daily one, replaces it, so also revert the cause on `main` or in Notion. If a build or `pnpm check:dist` fails, nothing is deployed: the previous deployment stays live and GitHub sends an email about the failed run.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on pull requests, on pushes to `rebuild/**` branches and by hand:
+
+- `test`: `pnpm lint`, `pnpm check`, `pnpm format:check` and `pnpm test`.
+- `e2e`: a fixture build, `pnpm check:dist`, `wrangler deploy --dry-run` (bundles the Worker and validates `wrangler.jsonc` without deploying) and `pnpm test:e2e`, in the Playwright Docker image, so the Linux screenshot baselines come from the same fonts and browsers. When it fails, `test-results/` is kept as the `e2e-results` artifact.
+- `lighthouse`: a fixture build and `pnpm lighthouse`, which runs Lighthouse CI (mobile emulation, three runs) on the home page, the blog list, a post, the projects list and About, and fails when the median performance score is under 0.98 or any run scores under 1 for accessibility, best practices or SEO. The reports are kept as the `lighthouse-reports` artifact.
+- `preview`: for pull requests from this repository only, a build from live Notion data is uploaded as a Worker version with the alias `pr-<number>`, and a comment on the pull request links the version URL and `https://pr-<number>-lil-horse.lilhorse.workers.dev`. Each push updates the same comment: the alias follows the latest push, and the version URL keeps showing its own build. Uploaded versions are never deployed and do not change what `wrangler rollback` returns to.
+
+`.github/workflows/baselines.yml` regenerates the Linux screenshot baselines in the same image. Push the commit to test to a `baselines/<name>` branch (`git push origin HEAD:baselines/<name>`), or run the workflow by hand from the Actions tab. Then download the `visual-baselines-linux` artifact with `gh run download <run-id> -n visual-baselines-linux -D tests/e2e/visual.spec.ts-snapshots`, commit the `-linux.png` files next to the `-darwin.png` ones and delete the branch. When you upgrade `@playwright/test`, move the image tag in `ci.yml` and `baselines.yml` to the same version.
 
 ## Development
 
@@ -92,7 +163,9 @@ pnpm dev
 
 `pnpm test:e2e` tests the last build in Chromium, at desktop and phone sizes, and runs the engine-specific checks in WebKit and Firefox too. Install the browsers once with `pnpm exec playwright install chromium webkit firefox`. The test server uses port 4322; set `E2E_PORT` to use another, for example to run several worktrees at once. End-to-end tests stub third-party requests, so they never load Giscus or the analytics beacon from the network.
 
-`tests/e2e/visual.spec.ts` compares the home page, the blog list and a post, in both themes and at both sizes, with the screenshots in `tests/e2e/visual.spec.ts-snapshots/`. The baselines are macOS screenshots (their names end in `-darwin`), and the comparison runs only when `dist/` is a fixture build. After an intended visual change, refresh them with `pnpm build:fixtures && pnpm test:e2e tests/e2e/visual.spec.ts --update-snapshots`.
+`tests/e2e/visual.spec.ts` compares the home page, the blog list and a post, in both themes and at both sizes, with the screenshots in `tests/e2e/visual.spec.ts-snapshots/`. There is one set of baselines per platform: `-darwin` for a Mac and `-linux` for CI. The comparison runs only when `dist/` is a fixture build. After an intended visual change, refresh the Mac set with `pnpm build:fixtures && pnpm test:e2e tests/e2e/visual.spec.ts --update-snapshots` and the Linux set with the baselines workflow (see [Continuous integration](#continuous-integration)).
+
+`pnpm lighthouse` runs the same Lighthouse checks as CI against the last build, served on the end-to-end port, and writes the reports to `test-results/lighthouse/`. It needs Chrome.
 
 `SCREENSHOTS=1 pnpm test:e2e tests/e2e/screenshots.spec.ts` saves a full-page screenshot of every page, in both themes and at both sizes, to `test-results/screenshots/`.
 
@@ -107,17 +180,18 @@ pnpm dev
 | `pnpm lint`            | Runs ESLint                                                        |
 | `pnpm check`           | Type-checks the project without syncing Notion                     |
 | `pnpm check:dist`      | Checks the build output in `dist/`                                 |
+| `pnpm lighthouse`      | Runs Lighthouse CI against the last build in `dist/`               |
 | `pnpm record:fixtures` | Records sanitized fixtures from the live workspace                 |
 | `pnpm brand`           | Regenerates the logo, favicons and app icons from `brand/horse.ts` |
 
-| Variable                  | Effect                                                |
-| ------------------------- | ----------------------------------------------------- |
-| `NOTION_TOKEN`            | Notion integration token, required for live builds    |
-| `NOTION_FIXTURES=1`       | Reads the recorded fixtures instead of the Notion API |
-| `NOTION_FULL_REFRESH=1`   | Ignores the page cache and rebuilds every page        |
-| `NOTION_INCLUDE_DRAFTS=1` | Includes Draft posts; the `dev` script sets it        |
-| `NOTION_SKIP_SYNC=1`      | Skips the Notion sync; the `check` script sets it     |
-| `E2E_PORT`                | Port of the end-to-end test server (default 4322)     |
+| Variable                  | Effect                                                      |
+| ------------------------- | ----------------------------------------------------------- |
+| `NOTION_TOKEN`            | Notion integration token, required for live builds          |
+| `NOTION_FIXTURES=1`       | Reads the recorded fixtures instead of the Notion API       |
+| `NOTION_FULL_REFRESH=1`   | Ignores the page cache and rebuilds every page              |
+| `NOTION_INCLUDE_DRAFTS=1` | Includes Draft posts; the `dev` script sets it              |
+| `NOTION_SKIP_SYNC=1`      | Skips the Notion sync; the `check` script sets it           |
+| `E2E_PORT`                | Port of the end-to-end and Lighthouse server (default 4322) |
 
 Only `NOTION_TOKEN` belongs in `.env`; a flag set there would apply to every build. Set the others per command: `pnpm build:fixtures` sets `NOTION_FIXTURES`, and `NOTION_FULL_REFRESH=1 pnpm build` runs a full refresh. `pnpm build` refuses to run while `NOTION_SKIP_SYNC` or `NOTION_INCLUDE_DRAFTS` is set.
 
@@ -132,6 +206,8 @@ Every post needs a unique `Slug` (lowercase letters, digits and hyphens) and a `
 Published and Unlisted posts also need a `Published` date. A post's `Language` (`en` or `zh`; `en` when empty) sets the language of its text.
 
 Giscus finds a post's discussion by its `Slug`, so a post whose slug changes no longer shows its earlier comments.
+
+Start a page's headings at Heading 1 and do not skip levels. The page title is the `<h1>`, and Notion's Heading 1 to 4 become `<h2>` to `<h5>`, so a page that starts at Heading 2 jumps from `<h1>` to `<h3>`. Lighthouse's `heading-order` audit fails such a page, and `pnpm lighthouse` accepts no accessibility score under 1.
 
 Each tag used by a Published post gets a page at `/blog/tags/<tag>`. Tags that differ only in letter case or spacing share one page. When a tag loses characters on the way into its address, such as `C++` or `C#`, the address ends in a short hash (`/blog/tags/c-4c21a3`), so different tags never share a page. Very long tags get a shortened address. Tags never stop the build.
 
