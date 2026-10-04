@@ -86,7 +86,7 @@ The Worker is in `src/worker/hook.ts`. It handles `POST /hooks/notion`, answers 
 2. Events that can change the site, the `page.*` and `data_source.*` events listed in `BUILD_EVENTS`, trigger a `repository_dispatch` event named `notion-content-changed` on this repository (`vars.GITHUB_REPOSITORY` in `wrangler.jsonc`), using `GITHUB_DISPATCH_TOKEN`. The Worker answers 202 when GitHub accepts it and 502 when GitHub does not, so Notion retries. Other events, such as comments and page locks, get 200 and change nothing.
 3. `.github/workflows/deploy.yml` builds from live Notion data, runs `pnpm check:dist` and deploys with `wrangler deploy`.
 
-The deploy workflow also runs on every push to `main`, every day at 17:00 UTC with `NOTION_FULL_REFRESH=1`, and by hand from the Actions tab or with `gh workflow run deploy.yml` (add `-f full_refresh=true` for a full refresh). It deploys only `main`: a run started by hand on another branch skips the job. A newer run cancels one still in progress, so a burst of edits deploys once. The `.cache/` page cache and Astro's data store in `node_modules/.astro` are restored from the last successful run.
+The deploy workflow also runs on every push to `main`, every day at 17:00 UTC with `NOTION_FULL_REFRESH=1`, and by hand from the Actions tab or with `gh workflow run deploy.yml` (add `-f full_refresh=true` for a full refresh). GitHub disables a workflow with a schedule after 60 days without activity in a public repository such as this one; a disabled workflow runs for no trigger, Notion's edits included, until you enable it again from the Actions tab. It deploys only `main`: a run started by hand on another branch skips the job. A newer run cancels one still in progress, so a burst of edits deploys once. The `.cache/` page cache and Astro's data store in `node_modules/.astro` are restored from the last successful run.
 
 To deploy from a laptop, run `pnpm build && pnpm check:dist && pnpm smoke:worker && pnpm exec wrangler deploy` after `pnpm exec wrangler login`.
 
@@ -130,7 +130,7 @@ printf '' | pbcopy
 
 Cloudflare refuses to change a secret while the Worker's newest version is not the deployed one. That is the case after every pull request preview, which runs `wrangler versions upload`, and after a rollback, until the next deployment. Deploy first (`gh workflow run deploy.yml`) and wait for the run to finish. Do not follow wrangler's suggestions to deploy the latest version or to use `wrangler versions secret put`: both build on the newest version, not on the deployed one.
 
-If `GITHUB_DISPATCH_TOKEN` expires, edits in Notion stop starting builds, but the daily build still publishes them. Store a new token the same way.
+If `GITHUB_DISPATCH_TOKEN` expires, edits in Notion stop starting builds, but the daily build still publishes them. Store a new token the same way. Notion inactivates a subscription after repeated failed deliveries, so after storing the new token, check in the Webhooks tab of the integration's settings in Notion that the subscription is still active.
 
 ### Rollback
 

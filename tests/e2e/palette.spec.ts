@@ -78,8 +78,10 @@ test.describe('search', () => {
     expect(
       await results(page).evaluateAll((els) => els.map((el) => el.dataset.href)),
     ).not.toContain('/');
-    for (const text of await results(page).allTextContents())
-      expect(text.toLowerCase()).not.toContain('neofetch');
+    // A real post may mention neofetch; the recorded fixtures never do.
+    if (builtFromFixtures())
+      for (const text of await results(page).allTextContents())
+        expect(text.toLowerCase()).not.toContain('neofetch');
   });
 
   test('opens the first result with Enter', async ({ page }) => {

@@ -6,6 +6,7 @@ public/_media/
 .env
 .env.*
 !.env.example
+.dev.vars*
 test-results/
 playwright-report/
 .DS_Store
