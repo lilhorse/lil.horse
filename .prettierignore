@@ -3,3 +3,5 @@ dist
 .cache
 pnpm-lock.yaml
 tests/fixtures
+.wrangler
+.lighthouseci

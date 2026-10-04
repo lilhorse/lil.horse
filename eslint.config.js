@@ -15,6 +15,8 @@ export default defineConfig([
       'tests/fixtures/',
       'test-results/',
       'playwright-report/',
+      '.wrangler/',
+      '.lighthouseci/',
     ],
   },
   js.configs.recommended,

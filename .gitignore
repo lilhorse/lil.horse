@@ -9,3 +9,5 @@ public/_media/
 test-results/
 playwright-report/
 .DS_Store
+.wrangler/
+.lighthouseci/
