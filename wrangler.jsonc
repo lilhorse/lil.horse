@@ -8,6 +8,7 @@
   "preview_urls": true,
   "observability": { "enabled": true },
   "vars": { "GITHUB_REPOSITORY": "lilhorse/lil.horse" },
+  "routes": [{ "pattern": "lil.horse", "custom_domain": true }],
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
