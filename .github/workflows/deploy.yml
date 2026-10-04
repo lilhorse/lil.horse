@@ -5,10 +5,13 @@ on:
     branches: [main]
   repository_dispatch:
     types: [notion-content-changed]
-  schedule:
-    # 05:00 in Auckland, 06:00 during daylight saving time
-    - cron: '0 17 * * *'
   workflow_dispatch:
+    inputs:
+      full_refresh:
+        description: Ignore the page cache and rebuild every page
+        type: boolean
+        default: false
+  workflow_call:
     inputs:
       full_refresh:
         description: Ignore the page cache and rebuild every page
@@ -47,7 +50,7 @@ jobs:
       - run: pnpm build
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
-          NOTION_FULL_REFRESH: ${{ (github.event_name == 'schedule' || inputs.full_refresh) && '1' || '' }}
+          NOTION_FULL_REFRESH: ${{ inputs.full_refresh && '1' || '' }}
       - run: pnpm check:dist
       - run: pnpm exec wrangler deploy
         env:

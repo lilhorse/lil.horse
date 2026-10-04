@@ -1,0 +1,17 @@
+name: Daily refresh
+
+# Not in deploy.yml: GitHub disables a workflow with a schedule after 60 days without repository activity.
+on:
+  schedule:
+    # 05:00 in Auckland, 06:00 during daylight saving time
+    - cron: '0 17 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    uses: ./.github/workflows/deploy.yml
+    with:
+      full_refresh: true
+    secrets: inherit
