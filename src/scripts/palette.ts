@@ -16,6 +16,7 @@ export interface Palette {
 }
 
 const RESULT_LIMIT = 8;
+const UNAVAILABLE = 'Search is not available on this page.';
 
 function must<T extends Element>(root: ParentNode, selector: string): T {
   const found = root.querySelector<T>(selector);
@@ -28,9 +29,9 @@ export function setupPalette(dialog: HTMLDialogElement, deps: PaletteDeps): Pale
   const input = must<HTMLInputElement>(dialog, 'input[role="combobox"]');
   const results = must<HTMLElement>(dialog, '[data-results]');
   const resultsGroup = must<HTMLElement>(dialog, '[data-group="results"]');
-  const empty = must<HTMLElement>(dialog, '[data-group="empty"]');
+  const status = must<HTMLElement>(dialog, '[role="status"]');
   const staticGroups = [...dialog.querySelectorAll<HTMLElement>('[data-group]')].filter(
-    (group) => group !== resultsGroup && group !== empty,
+    (group) => group !== resultsGroup,
   );
   let active: HTMLElement | null = null;
   let searcher: Promise<Searcher | null> | undefined;
@@ -68,7 +69,7 @@ export function setupPalette(dialog: HTMLDialogElement, deps: PaletteDeps): Pale
     }
   }
 
-  function renderResults(items: SearchResult[], note: string | null = null): void {
+  function renderResults(items: SearchResult[]): void {
     results.replaceChildren(
       ...items.map((item, index) => {
         const option = doc.createElement('li');
@@ -94,33 +95,28 @@ export function setupPalette(dialog: HTMLDialogElement, deps: PaletteDeps): Pale
         return option;
       }),
     );
-    if (note) {
-      const line = doc.createElement('li');
-      line.className = 'note';
-      line.textContent = note;
-      results.append(line);
-    }
-    resultsGroup.hidden = items.length === 0 && !note;
+    resultsGroup.hidden = items.length === 0;
   }
 
-  function updateEmpty(): void {
-    empty.hidden = options().length > 0 || !resultsGroup.hidden;
+  // Written once a search answers, never mid-typing; rewriting the same text would announce it again.
+  function report(message: string): void {
+    if (status.textContent !== message) status.textContent = message;
   }
 
   async function runQuery(query: string): Promise<void> {
     const id = ++latest;
     let items: SearchResult[] = [];
-    let note: string | null = null;
+    let unavailable = false;
     if (query.trim()) {
       searcher ??= (deps.loadSearch ?? loadPagefind)();
       const engine = await searcher;
       if (id !== latest) return;
       items = engine ? await runSearch(engine, query, RESULT_LIMIT) : [];
       if (id !== latest) return;
-      if (!engine) note = 'Search is not available on this page.';
+      unavailable = !engine;
     }
-    renderResults(items, note);
-    updateEmpty();
+    renderResults(items);
+    report(unavailable ? UNAVAILABLE : options().length === 0 ? 'No results' : '');
     if (!active || !options().includes(active)) setActive(options()[0] ?? null);
   }
 
@@ -128,7 +124,6 @@ export function setupPalette(dialog: HTMLDialogElement, deps: PaletteDeps): Pale
     const query = input.value;
     filterStatic(query);
     setActive(options()[0] ?? null);
-    updateEmpty();
     clearTimeout(timer);
     timer = setTimeout(() => void runQuery(query), deps.debounceMs ?? 150);
   }
@@ -193,8 +188,8 @@ export function setupPalette(dialog: HTMLDialogElement, deps: PaletteDeps): Pale
     input.value = '';
     filterStatic('');
     renderResults([]);
+    report('');
     setActive(options()[0] ?? null);
-    updateEmpty();
     syncTheme();
     dialog.showModal();
     input.focus();

@@ -23,8 +23,8 @@ const MARKUP = `<dialog data-palette data-email-user="sup" data-email-host="lil.
       <li role="option" id="act-copy" data-action="copy-email" data-keywords="copy email"><span class="label">Copy email</span></li>
       <li role="option" id="act-email" data-action="email" data-keywords="email me"><span class="label">Email me</span></li>
     </ul></li>
-    <li data-group="empty" hidden><p>No results</p></li>
   </ul>
+  <p role="status"></p>
 </dialog>`;
 
 function fakeTheme() {
@@ -68,6 +68,7 @@ const visible = () =>
     .filter((option) => !option.hidden && !option.closest('[hidden]'))
     .map((option) => option.id);
 const active = () => document.querySelector('[role="option"][aria-selected="true"]')?.id;
+const status = () => document.querySelector('[role="status"]')?.textContent;
 const type = async (text: string) => {
   input().value = text;
   input().dispatchEvent(new Event('input'));
@@ -154,7 +155,7 @@ describe('typing', () => {
     input().value = 'the bear';
     input().dispatchEvent(new Event('input'));
     expect(visible()).toEqual([]);
-    expect(document.querySelector('[data-group="empty"]')?.hasAttribute('hidden')).toBe(false);
+    expect(status()).toBe('');
     await vi.advanceTimersByTimeAsync(150);
     expect(visible()).toEqual(['palette-result-0', 'palette-result-1']);
     expect(active()).toBe('palette-result-0');
@@ -163,7 +164,7 @@ describe('typing', () => {
     expect(first.querySelector('.label')?.textContent).toBe('Title /blog/douban.html');
     expect(first.querySelector('.label')?.getAttribute('lang')).toBe('zh-Hans');
     expect(first.querySelector('.excerpt')?.innerHTML).toBe('about <mark>the bear</mark>');
-    expect(document.querySelector('[data-group="empty"]')?.hasAttribute('hidden')).toBe(true);
+    expect(status()).toBe('');
   });
 
   it('matches commands by their keywords', async () => {
@@ -173,18 +174,29 @@ describe('typing', () => {
     expect(visible()).toEqual(['nav-home', 'nav-blog']);
   });
 
-  it('says so when nothing matches', async () => {
+  it('says so in a status outside the listbox when nothing matches, and clears it', async () => {
     await type('zzz');
     expect(visible()).toEqual([]);
-    expect(document.querySelector('[data-group="empty"]')?.hasAttribute('hidden')).toBe(false);
+    expect(status()).toBe('No results');
+    expect(document.querySelector('[role="listbox"] [role="status"]')).toBeNull();
+    await type('');
+    expect(status()).toBe('');
+    await type('zzz');
+    palette.close();
+    palette.open();
+    expect(status()).toBe('');
   });
 
-  it('explains when the search index cannot be loaded', async () => {
+  it('explains when the search index cannot be loaded, with options only in the list', async () => {
     mount({ loadSearch: async () => null });
     await type('hello');
-    expect(document.querySelector('.note')?.textContent).toBe(
-      'Search is not available on this page.',
-    );
+    expect(status()).toBe('Search is not available on this page.');
+    expect(
+      [...document.querySelectorAll('[data-results] > *')].map((item) => item.getAttribute('role')),
+    ).toEqual([]);
+    await type('blog');
+    expect(visible()).toEqual(['nav-blog']);
+    expect(status()).toBe('Search is not available on this page.');
   });
 
   it('ignores the answer to a query that is no longer current', async () => {

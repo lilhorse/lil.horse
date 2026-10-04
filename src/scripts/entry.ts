@@ -69,14 +69,20 @@ const showPalette = () => {
 for (const button of document.querySelectorAll('[data-palette-open]'))
   button.addEventListener('click', showPalette);
 const menu = document.querySelector<HTMLDetailsElement>('.site-menu');
-menu?.querySelector('summary')?.addEventListener('click', (event) => {
-  // Closing the fallback menu must not wait for another attempt to load the palette.
-  if (menu.open) return;
-  event.preventDefault();
-  void openPalette().catch(() => {
-    menu.open = true;
+const menuButton = menu?.querySelector('summary');
+if (menu && menuButton) {
+  // Only here does the summary open a dialog; without the script it stays the <details> toggle.
+  menuButton.setAttribute('role', 'button');
+  menuButton.setAttribute('aria-haspopup', 'dialog');
+  menuButton.addEventListener('click', (event) => {
+    // Closing the fallback menu must not wait for another attempt to load the palette.
+    if (menu.open) return;
+    event.preventDefault();
+    void openPalette().catch(() => {
+      menu.open = true;
+    });
   });
-});
+}
 initShortcuts(document, {
   singleKeys,
   openPalette: showPalette,

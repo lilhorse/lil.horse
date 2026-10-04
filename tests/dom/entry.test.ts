@@ -141,3 +141,11 @@ describe('when the help cannot load', () => {
     await vi.waitFor(() => expect(reloads).toBe(1));
   });
 });
+
+describe('the phone menu', () => {
+  it('announces its button as opening a dialog once the script takes it over', () => {
+    const summary = document.querySelector('summary') as HTMLElement;
+    expect(summary.getAttribute('role')).toBe('button');
+    expect(summary.getAttribute('aria-haspopup')).toBe('dialog');
+  });
+});

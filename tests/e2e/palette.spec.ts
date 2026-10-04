@@ -7,6 +7,12 @@ const dialog = (page: Page) => page.locator('dialog[data-palette]');
 const query = (page: Page) =>
   page.getByRole('combobox', { name: 'Search posts, pages and commands' });
 const results = (page: Page) => dialog(page).locator('[data-results] [role="option"]');
+const UNAVAILABLE = 'Search is not available on this page.';
+
+async function violations(page: Page): Promise<string[]> {
+  const { violations } = await new AxeBuilder({ page }).withTags(WCAG).analyze();
+  return violations.map(({ id }) => id);
+}
 
 async function open(page: Page): Promise<void> {
   await page.keyboard.press('ControlOrMeta+k');
@@ -57,7 +63,7 @@ test.describe('search', () => {
     await page.goto('/');
     await open(page);
     await query(page).fill('neofetch');
-    await expect(dialog(page).locator('[data-group="empty"]')).toBeVisible();
+    await expect(dialog(page).getByRole('status')).toHaveText('No results');
     await expect(results(page)).toHaveCount(0);
   });
 
@@ -117,12 +123,39 @@ test('is accessible while open, in both themes', async ({ page }) => {
     await open(page);
     await query(page).fill('Schindler');
     await expect(results(page).first()).toBeVisible();
-    const { violations } = await new AxeBuilder({ page }).withTags(WCAG).analyze();
-    expect(
-      violations.map(({ id }) => id),
-      colorScheme,
-    ).toEqual([]);
+    expect(await violations(page), `${colorScheme}, results`).toEqual([]);
+    await query(page).fill('zzzqqq');
+    await expect(dialog(page).getByText('No results')).toBeVisible();
+    expect(await violations(page), `${colorScheme}, no results`).toEqual([]);
+    await expect(dialog(page).getByRole('status')).toHaveText('No results');
   }
+});
+
+test('says when search is not available, accessibly, in both themes', async ({ page }) => {
+  await page.route('**/pagefind/pagefind.js', (route) => route.abort());
+  for (const colorScheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme });
+    await page.goto('/blog');
+    await open(page);
+    await query(page).fill('hello');
+    await expect(dialog(page).getByText(UNAVAILABLE)).toBeVisible();
+    expect(await violations(page), colorScheme).toEqual([]);
+    await expect(dialog(page).getByRole('status')).toHaveText(UNAVAILABLE);
+  }
+});
+
+test('announces the phone menu button as opening a dialog', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'phones only');
+  await page.goto('/blog');
+  await expect(page.locator('.site-menu summary')).toHaveAttribute('aria-haspopup', 'dialog');
+  // Chromium's own accessibility tree, which can differ from the role Playwright computes.
+  const cdp = await page.context().newCDPSession(page);
+  const { nodes } = await cdp.send('Accessibility.getFullAXTree');
+  const button = nodes.find(
+    (node) => node.name?.value === 'menu' && node.role?.value !== 'StaticText',
+  );
+  expect(button?.role?.value).toBe('button');
+  expect(button?.properties?.find(({ name }) => name === 'hasPopup')?.value.value).toBe('dialog');
 });
 
 test('offers the theme segments and 44 px options on phones', async ({ page }, testInfo) => {

@@ -35,6 +35,8 @@ describe('CommandPalette', () => {
     expect(html).toContain('id="palette-help" data-action="help"');
     expect(html).toContain('<button type="button" data-theme-set="system" aria-pressed="true">');
     expect(html).toContain('<button type="button" data-theme-set="dark" aria-pressed="false">');
+    expect(html).not.toContain('data-group="empty"');
+    expect(html).toMatch(/<\/ul>\s*<p class="status" role="status"><\/p>\s*<\/div>\s*<\/dialog>/);
     expect(await htmlErrors(html)).toEqual([]);
   });
 

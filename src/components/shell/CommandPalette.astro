@@ -188,10 +188,8 @@ const email =
           </li>
         </ul>
       </li>
-      <li class="group" role="presentation" data-group="empty" hidden>
-        <p class="empty">No results</p>
-      </li>
     </ul>
+    <p class="status" role="status"></p>
   </div>
 </dialog>
 
@@ -332,10 +330,12 @@ const email =
     background: var(--hl-yellow);
     color: var(--fg);
   }
-  .options :global(.note),
-  .empty {
-    padding: 8px 10px;
+  .status {
+    padding-inline: 16px;
     color: var(--muted);
+  }
+  .status:not(:empty) {
+    padding-block: 2px 14px;
   }
   @media (max-width: 639.98px) {
     .palette {
