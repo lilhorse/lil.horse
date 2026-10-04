@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import type { Page } from '@playwright/test';
+import { FIXTURE_MARKER } from '../../integrations/static-assets';
 
 const DIST = 'dist';
 
@@ -32,6 +33,11 @@ export function pagePaths(): string[] {
 export function pageContaining(text: string): string | null {
   const file = htmlFiles().find((path) => readFileSync(path, 'utf8').includes(text));
   return file ? routeOf(file) : null;
+}
+
+/** Whether dist/ was built from the recorded fixtures rather than from Notion. */
+export function builtFromFixtures(): boolean {
+  return existsSync(join(DIST, FIXTURE_MARKER));
 }
 
 /** Waits for web fonts and for Expressive Code to make overflowing code blocks focusable. */

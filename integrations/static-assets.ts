@@ -1,5 +1,5 @@
 import { createReadStream, existsSync, statSync } from 'node:fs';
-import { cp, mkdir, readFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createRequire } from 'node:module';
 import { basename, dirname, extname, join, normalize, sep } from 'node:path';
@@ -7,7 +7,7 @@ import { pipeline } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import type { AstroIntegration } from 'astro';
 import katex from 'katex';
-import { readEnv } from '../src/env';
+import { readEnv, type RuntimeEnv } from '../src/env';
 import { cachePaths } from '../src/notion/paths';
 
 const MIME: Record<string, string> = {
@@ -57,6 +57,16 @@ export async function copyKatex(outDir: string): Promise<void> {
   await cp(join(dist, 'fonts'), join(target, 'fonts'), { recursive: true });
 }
 
+/** Left in a fixture build's output; the screenshot baselines are compared only against such builds. */
+export const FIXTURE_MARKER = '.fixture-build';
+
+export async function markFixtureBuild(
+  outDir: string,
+  env: Pick<RuntimeEnv, 'fixtures'>,
+): Promise<void> {
+  if (env.fixtures) await writeFile(join(outDir, FIXTURE_MARKER), '');
+}
+
 export function serveFrom(root: string) {
   return (request: IncomingMessage, response: ServerResponse, next: () => void) => {
     const path = decodeURIComponent((request.url ?? '/').split('?')[0] ?? '/');
@@ -101,13 +111,15 @@ export function staticAssets(): AstroIntegration {
       },
       'astro:build:done': async ({ dir, logger }) => {
         const out = fileURLToPath(dir);
-        const paths = cachePaths(readEnv(process.env).fixtures);
+        const env = readEnv(process.env);
+        const paths = cachePaths(env.fixtures);
         const count = await copyMedia({
           mediaDir: paths.media,
           manifest: paths.manifest,
           outDir: join(out, '_media'),
         });
         await copyKatex(join(out, 'katex'));
+        await markFixtureBuild(out, env);
         logger.info(`Copied ${count} media items and KaTeX ${katex.version} assets`);
       },
     },

@@ -4,7 +4,14 @@ import { get } from 'node:http';
 import { join } from 'node:path';
 import katex from 'katex';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { copyKatex, copyMedia, serveFrom, staticAssets } from '../../integrations/static-assets';
+import {
+  copyKatex,
+  copyMedia,
+  FIXTURE_MARKER,
+  markFixtureBuild,
+  serveFrom,
+  staticAssets,
+} from '../../integrations/static-assets';
 import { startServer, type TestServer } from '../helpers/http';
 import { tempDir } from '../helpers/temp-dir';
 
@@ -108,6 +115,20 @@ describe('copyKatex', () => {
     expect(
       (await readdir(join(out, katex.version, 'fonts'))).some((file) => file.endsWith('.woff2')),
     ).toBe(true);
+  });
+});
+
+describe('markFixtureBuild', () => {
+  it('marks the output of a fixture build', async () => {
+    const out = await tempDir('marker-');
+    await markFixtureBuild(out, { fixtures: true });
+    expect(await readdir(out)).toEqual([FIXTURE_MARKER]);
+  });
+
+  it('leaves the output of a real build unmarked', async () => {
+    const out = await tempDir('marker-');
+    await markFixtureBuild(out, { fixtures: false });
+    expect(await readdir(out)).toEqual([]);
   });
 });
 
