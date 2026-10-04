@@ -40,12 +40,14 @@ const state = () => ({
   theme: document.documentElement.dataset.theme,
   pref: document.documentElement.dataset.themePref,
 });
+const announced = () => document.querySelector('[data-theme-status]')?.textContent;
 
 beforeEach(() => {
   document.head.innerHTML =
     '<meta name="theme-color" content="#e6e9ef" media="(prefers-color-scheme: light)">' +
     '<meta name="theme-color" content="#16161e" media="(prefers-color-scheme: dark)">';
-  document.body.innerHTML = '<button data-theme-toggle>theme</button>';
+  document.body.innerHTML =
+    '<button data-theme-toggle>theme</button><span role="status" data-theme-status></span>';
   delete document.documentElement.dataset.theme;
   delete document.documentElement.dataset.themePref;
 });
@@ -141,6 +143,44 @@ describe('initTheme', () => {
     system.change(false);
     document.removeEventListener('themechange', listener);
     expect(seen).toEqual([]);
+  });
+
+  it('announces each choice through the status, but not the theme a page starts with', () => {
+    const theme = initTheme(document, { storage: new MemoryStorage(), media: media(false) });
+    expect(announced()).toBe('');
+    const button = document.querySelector('[data-theme-toggle]') as HTMLButtonElement;
+    button.click();
+    expect(announced()).toBe('Theme: light');
+    button.click();
+    expect(announced()).toBe('Theme: dark');
+    theme.set('system');
+    expect(announced()).toBe('Theme: system');
+  });
+
+  it('follows a choice made in another tab', () => {
+    const storage = new MemoryStorage();
+    initTheme(document, { storage, media: media(false) });
+    storage.setItem('theme', 'dark');
+    window.dispatchEvent(new StorageEvent('storage', { key: 'theme', newValue: 'dark' }));
+    expect(state()).toEqual({ theme: 'dark', pref: 'dark' });
+    storage.setItem('theme', 'light');
+    window.dispatchEvent(new StorageEvent('storage', { key: 'shortcuts', newValue: 'off' }));
+    expect(state()).toEqual({ theme: 'dark', pref: 'dark' });
+    expect(announced()).toBe('');
+  });
+
+  it('catches up when a prerendered page is shown or a page comes back from the cache', () => {
+    const storage = new MemoryStorage();
+    initTheme(document, { storage, media: media(false) });
+    storage.setItem('theme', 'dark');
+    document.dispatchEvent(new Event('prerenderingchange'));
+    expect(state()).toEqual({ theme: 'dark', pref: 'dark' });
+    storage.setItem('theme', 'light');
+    window.dispatchEvent(Object.assign(new Event('pageshow'), { persisted: true }));
+    expect(state()).toEqual({ theme: 'light', pref: 'light' });
+    storage.setItem('theme', 'dark');
+    window.dispatchEvent(Object.assign(new Event('pageshow'), { persisted: false }));
+    expect(state()).toEqual({ theme: 'light', pref: 'light' });
   });
 
   it('works without storage and when storage refuses writes', () => {

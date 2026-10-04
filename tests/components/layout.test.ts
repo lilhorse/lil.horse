@@ -71,6 +71,9 @@ describe('SiteHeader', () => {
       expect(button).toContain(`<svg class="icon icon-${name}"`);
       expect(button).toContain(`<span class="label label-${name}">${name}</span>`);
     }
+    expect(html).toMatch(
+      /<\/button>\s*<span class="sr-only" role="status" data-theme-status><\/span>\s*<\/div>/,
+    );
     expect(await htmlErrors(html)).toEqual([]);
   });
 });

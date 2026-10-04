@@ -57,6 +57,10 @@ export function applyTheme(doc: Document, pref: ThemePref, systemDark: boolean):
 export function initTheme(doc: Document, env: ThemeEnv): ThemeController {
   let pref = readPref(env.storage);
   const apply = () => applyTheme(doc, pref, env.media.matches);
+  const reread = () => {
+    pref = readPref(env.storage);
+    apply();
+  };
   const set = (next: ThemePref) => {
     pref = next;
     try {
@@ -65,12 +69,23 @@ export function initTheme(doc: Document, env: ThemeEnv): ThemeController {
       // Private browsing may refuse writes; the choice then lasts for this page only.
     }
     apply();
+    // Only choices are announced; apply() also runs on every load.
+    const status = doc.querySelector('[data-theme-status]');
+    if (status) status.textContent = `Theme: ${next}`;
   };
   for (const button of doc.querySelectorAll('[data-theme-toggle]'))
     button.addEventListener('click', () => set(nextPref(pref)));
   env.media.addEventListener('change', () => {
     if (pref === 'system') apply();
   });
+  // Another tab, or time spent prerendered or in the back-forward cache, may have changed the choice.
+  doc.defaultView?.addEventListener('storage', (event) => {
+    if (event.key === THEME_KEY) reread();
+  });
+  doc.defaultView?.addEventListener('pageshow', (event) => {
+    if (event.persisted) reread();
+  });
+  doc.addEventListener('prerenderingchange', reread);
   apply();
   return {
     pref: () => pref,

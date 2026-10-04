@@ -43,6 +43,26 @@ test('cycles system, light and dark, and keeps the choice after a reload', async
   });
 });
 
+test('announces the theme a press chose, and nothing on load', async ({ page }) => {
+  await page.goto('/');
+  const status = page.locator('[data-theme-status]');
+  await expect(status).toHaveAttribute('role', 'status');
+  await expect(status).toHaveText('');
+  await page.locator('[data-theme-toggle]').click();
+  await expect(status).toHaveText('Theme: light');
+});
+
+test('follows a theme chosen in another tab', async ({ page, context }) => {
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto('/');
+  const other = await context.newPage();
+  await other.goto('/about');
+  await other.locator('[data-theme-toggle]').click();
+  await other.locator('[data-theme-toggle]').click();
+  await expect.poll(() => state(page)).toMatchObject({ theme: 'dark', pref: 'dark' });
+  await other.close();
+});
+
 test('applies a stored theme from <head>, before the body renders', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' });
   await page.addInitScript(() => localStorage.setItem('theme', 'dark'));
