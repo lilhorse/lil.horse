@@ -121,6 +121,17 @@ describe('handleHook', () => {
     expect(other.log).not.toHaveBeenCalled();
   });
 
+  it('refuses a verification token that differs from the secret in content or in length', async () => {
+    const status = async (token: string) =>
+      (await handleHook(post(JSON.stringify({ verification_token: token })), env(), deps())).status;
+    expect(await status(SECRET)).toBe(200);
+    expect(await status(`${SECRET.slice(0, -1)}x`)).toBe(401);
+    expect(await status(SECRET.slice(0, -1))).toBe(401);
+    expect(await status(`${SECRET}\u0000`)).toBe(401);
+    expect(await status(SECRET.repeat(2))).toBe(401);
+    expect(await status('')).toBe(401);
+  });
+
   it('refuses every event while no secret is configured', async () => {
     const d = deps();
     const response = await handleHook(

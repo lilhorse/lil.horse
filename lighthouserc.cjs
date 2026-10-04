@@ -1,7 +1,7 @@
 const { existsSync, readdirSync } = require('node:fs');
 
 // Same port variable as the end-to-end tests, so parallel worktrees do not collide.
-const port = Number(process.env.E2E_PORT ?? 4322);
+const port = Number(process.env.E2E_PORT || 4322);
 const origin = `http://127.0.0.1:${port}`;
 
 const post = existsSync('dist/blog')

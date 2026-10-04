@@ -160,7 +160,7 @@ export async function handleHook(
       deps.log(`Notion verification token: ${token}`);
       return text(200, 'Verification token logged');
     }
-    return timingSafeEqual(encoder.encode(token), encoder.encode(secret))
+    return timingSafeEqual(encoder.encode(secret), encoder.encode(token))
       ? text(200, 'Already verified')
       : text(401, 'Unknown verification token');
   }
