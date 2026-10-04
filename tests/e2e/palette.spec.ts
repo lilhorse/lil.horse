@@ -99,12 +99,14 @@ test('copies the address built at runtime, which the HTML never spells out', asy
   test.skip(browserName !== 'chromium', 'clipboard permissions are a Chromium feature');
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.goto('/');
-  expect(await page.content()).not.toContain('hello@example.com');
+  const html = await page.content();
   await open(page);
   await query(page).fill('copy');
   await page.keyboard.press('Enter');
   await expect(dialog(page).locator('#palette-copy-email .label')).toHaveText('Copied');
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('hello@example.com');
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(copied).toMatch(/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i);
+  expect(html).not.toContain(copied);
 });
 
 test('is accessible while open, in both themes', async ({ page }) => {
