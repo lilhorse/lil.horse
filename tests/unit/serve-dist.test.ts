@@ -1,8 +1,10 @@
 import { once } from 'node:events';
+import { createReadStream } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { get, type IncomingHttpHeaders } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { dirname, join } from 'node:path';
+import { Readable } from 'node:stream';
 import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { resolveDistFile, serveDist } from '../../scripts/serve-dist';
@@ -17,6 +19,8 @@ async function dist(): Promise<string> {
     '404.html',
     'blog/tags/中文.html',
     '_media/k/480.webp',
+    'favicon.ico',
+    'fonts/k.ttf',
   ]) {
     await mkdir(dirname(join(root, path)), { recursive: true });
     await writeFile(join(root, path), path);
@@ -200,34 +204,90 @@ describe('serveDist', () => {
   });
 });
 
+/** Reads the body as sent, still compressed; fetch() would decode it. */
+function download(port: number, path: string, encoding?: string) {
+  return new Promise<{ headers: IncomingHttpHeaders; body: Buffer }>((done, fail) => {
+    const headers = encoding ? { 'accept-encoding': encoding } : {};
+    get({ host: '127.0.0.1', port, path, headers }, (response) => {
+      const chunks: Buffer[] = [];
+      response.on('data', (chunk: Buffer) => chunks.push(chunk));
+      response.on('end', () => done({ headers: response.headers, body: Buffer.concat(chunks) }));
+    }).on('error', fail);
+  });
+}
+
+/** Gives the start of a page, then fails the way a disk read can. */
+function failsHalfway(): Readable {
+  let sent = false;
+  return new Readable({
+    read() {
+      if (sent) this.destroy(new Error('EIO: i/o error, read'));
+      else {
+        sent = true;
+        this.push('<p>The first half');
+      }
+    },
+  });
+}
+
 describe('serveDist compression', () => {
-  it('gzips text for clients that accept it and leaves binary files alone', async () => {
+  it('gzips the types Cloudflare compresses for clients that accept it, and no others', async () => {
     const server = serveDist(await dist(), 0);
     await once(server, 'listening');
     const { port } = server.address() as AddressInfo;
-    const raw = (path: string, encoding?: string) =>
-      new Promise<{ headers: IncomingHttpHeaders; body: Buffer }>((done, fail) => {
-        const headers = encoding ? { 'accept-encoding': encoding } : {};
-        get({ host: '127.0.0.1', port, path, headers }, (response) => {
-          const chunks: Buffer[] = [];
-          response.on('data', (chunk: Buffer) => chunks.push(chunk));
-          response.on('end', () =>
-            done({ headers: response.headers, body: Buffer.concat(chunks) }),
-          );
-        }).on('error', fail);
-      });
     try {
-      const compressed = await raw('/blog/douban', 'gzip, deflate, br');
+      const compressed = await download(port, '/blog/douban', 'gzip, deflate, br');
       expect(compressed.headers['content-encoding']).toBe('gzip');
       expect(compressed.headers.vary).toBe('accept-encoding');
       expect(gunzipSync(compressed.body).toString()).toBe('blog/douban.html');
-      const plain = await raw('/blog/douban');
+      const plain = await download(port, '/blog/douban');
       expect(plain.headers['content-encoding']).toBeUndefined();
       expect(plain.body.toString()).toBe('blog/douban.html');
-      const image = await raw('/_media/k/480.webp', 'gzip');
+      for (const path of ['/favicon.ico', '/fonts/k.ttf']) {
+        const file = await download(port, path, 'gzip');
+        expect(file.headers['content-encoding'], path).toBe('gzip');
+        expect(gunzipSync(file.body).toString(), path).toBe(path.slice(1));
+      }
+      const image = await download(port, '/_media/k/480.webp', 'gzip');
       expect(image.headers['content-encoding']).toBeUndefined();
       expect(image.headers.vary).toBeUndefined();
       expect(image.body.toString()).toBe('_media/k/480.webp');
+    } finally {
+      server.close();
+    }
+  });
+
+  it('reads q-values, so a client that sends gzip;q=0 gets the file uncompressed', async () => {
+    const server = serveDist(await dist(), 0);
+    await once(server, 'listening');
+    const { port } = server.address() as AddressInfo;
+    try {
+      for (const [encoding, expected] of [
+        ['gzip;q=0', undefined],
+        ['br, gzip; q=0.000', undefined],
+        ['GZip;Q=0.5', 'gzip'],
+        ['deflate, gzip;q=1.0', 'gzip'],
+      ] as const) {
+        const { headers } = await download(port, '/blog/douban', encoding);
+        expect(headers['content-encoding'], encoding).toBe(expected);
+      }
+    } finally {
+      server.close();
+    }
+  });
+
+  it('ends a gzip response cleanly when the file fails halfway through, and keeps serving', async () => {
+    const server = serveDist(await dist(), 0, (file) =>
+      file.endsWith('douban.html') ? failsHalfway() : createReadStream(file),
+    );
+    await once(server, 'listening');
+    const { port } = server.address() as AddressInfo;
+    try {
+      const cut = await download(port, '/blog/douban', 'gzip');
+      expect(cut.headers['content-encoding']).toBe('gzip');
+      expect(gunzipSync(cut.body).toString()).toBe('<p>The first half');
+      expect((await download(port, '/blog/douban')).body.toString()).toBe('<p>The first half');
+      expect((await download(port, '/blog', 'gzip')).headers['content-encoding']).toBe('gzip');
     } finally {
       server.close();
     }

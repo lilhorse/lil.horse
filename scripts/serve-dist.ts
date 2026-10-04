@@ -1,6 +1,7 @@
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage } from 'node:http';
 import { extname, join, normalize, relative, resolve, sep } from 'node:path';
+import type { Readable } from 'node:stream';
 import { pathToFileURL } from 'node:url';
 import { createGzip } from 'node:zlib';
 import { headersFor, parseHeaders, type HeaderRule } from '../src/lib/headers';
@@ -30,9 +31,9 @@ const TYPES: Record<string, string> = {
   '.txt': 'text/plain; charset=utf-8',
 };
 
-// Cloudflare compresses text responses; serving them raw would make Lighthouse time the uncompressed bytes.
+// The types above that Cloudflare compresses; serving them raw would make Lighthouse time the uncompressed bytes.
 const COMPRESSIBLE =
-  /^(?:text\/|application\/(?:json|xml|javascript|manifest\+json)|image\/svg\+xml)/;
+  /^(?:text\/|application\/(?:json|xml|javascript|manifest\+json)|image\/(?:svg\+xml|x-icon)|font\/ttf)/;
 
 // Cloudflare reads these two files; it never serves them.
 const CONTROL_FILES = new Set(['_headers', '_redirects']);
@@ -102,8 +103,14 @@ export function resolveDistFile(dist: string, url: string): { file: string; stat
   return notFound;
 }
 
+/** Gzips a compressible type for a client that lists gzip, unless it gives gzip q=0. */
 function gzips(request: IncomingMessage, type: string): boolean {
-  return COMPRESSIBLE.test(type) && /\bgzip\b/.test(request.headers['accept-encoding'] ?? '');
+  if (!COMPRESSIBLE.test(type)) return false;
+  return (request.headers['accept-encoding'] ?? '').split(',').some((entry) => {
+    const [coding, ...params] = entry.split(';').map((part) => part.trim().toLowerCase());
+    const q = params.find((param) => param.startsWith('q='));
+    return coding === 'gzip' && (q === undefined || Number(q.slice(2)) > 0);
+  });
 }
 
 function readControlFile(dist: string, name: string): string {
@@ -112,7 +119,11 @@ function readControlFile(dist: string, name: string): string {
 }
 
 /** Serves dist/ the way Cloudflare's static assets would, including _redirects and _headers. */
-export function serveDist(dist: string, port: number) {
+export function serveDist(
+  dist: string,
+  port: number,
+  read: (file: string) => Readable = createReadStream,
+) {
   const redirects: Redirect[] = parseRedirects(readControlFile(dist, '_redirects'));
   const rules: HeaderRule[] = parseHeaders(readControlFile(dist, '_headers'));
   return createServer((request, response) => {
@@ -139,9 +150,11 @@ export function serveDist(dist: string, port: number) {
       ...(COMPRESSIBLE.test(type) ? { vary: 'accept-encoding' } : {}),
       ...(gzip ? { 'content-encoding': 'gzip' } : {}),
     });
-    // A missing 404 page (dist/ mid-rebuild) ends the response instead of closing the socket.
-    const source = createReadStream(file).on('error', () => response.end());
-    if (gzip) source.pipe(createGzip()).pipe(response);
+    const source = read(file);
+    const compress = gzip ? createGzip() : undefined;
+    // A read error (dist/ mid-rebuild) ends the response, not the socket; ending gzip first lets it flush.
+    source.on('error', () => (compress ? compress.end() : response.end()));
+    if (compress) source.pipe(compress).pipe(response);
     else source.pipe(response);
   }).listen(port, '127.0.0.1');
 }
