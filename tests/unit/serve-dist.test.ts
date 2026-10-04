@@ -1,8 +1,9 @@
 import { once } from 'node:events';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { get } from 'node:http';
+import { get, type IncomingHttpHeaders } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { dirname, join } from 'node:path';
+import { gunzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { resolveDistFile, serveDist } from '../../scripts/serve-dist';
 import { tempDir } from '../helpers/temp-dir';
@@ -82,8 +83,11 @@ describe('serveDist', () => {
     const { port } = server.address() as AddressInfo;
     try {
       for (const path of ['/', '/blog']) {
-        const response = await fetch(`http://127.0.0.1:${port}${path}`);
+        const response = await fetch(`http://127.0.0.1:${port}${path}`, {
+          headers: { 'accept-encoding': 'gzip' },
+        });
         expect(response.status).toBe(404);
+        expect(response.headers.get('content-encoding')).toBeNull();
         await response.text();
       }
     } finally {
@@ -171,6 +175,40 @@ describe('serveDist', () => {
       const after = await fetch(`http://127.0.0.1:${port}/blog`);
       expect(after.status).toBe(200);
       await after.text();
+    } finally {
+      server.close();
+    }
+  });
+});
+
+describe('serveDist compression', () => {
+  it('gzips text for clients that accept it and leaves binary files alone', async () => {
+    const server = serveDist(await dist(), 0);
+    await once(server, 'listening');
+    const { port } = server.address() as AddressInfo;
+    const raw = (path: string, encoding?: string) =>
+      new Promise<{ headers: IncomingHttpHeaders; body: Buffer }>((done, fail) => {
+        const headers = encoding ? { 'accept-encoding': encoding } : {};
+        get({ host: '127.0.0.1', port, path, headers }, (response) => {
+          const chunks: Buffer[] = [];
+          response.on('data', (chunk: Buffer) => chunks.push(chunk));
+          response.on('end', () =>
+            done({ headers: response.headers, body: Buffer.concat(chunks) }),
+          );
+        }).on('error', fail);
+      });
+    try {
+      const compressed = await raw('/blog/douban', 'gzip, deflate, br');
+      expect(compressed.headers['content-encoding']).toBe('gzip');
+      expect(compressed.headers.vary).toBe('accept-encoding');
+      expect(gunzipSync(compressed.body).toString()).toBe('blog/douban.html');
+      const plain = await raw('/blog/douban');
+      expect(plain.headers['content-encoding']).toBeUndefined();
+      expect(plain.body.toString()).toBe('blog/douban.html');
+      const image = await raw('/_media/k/480.webp', 'gzip');
+      expect(image.headers['content-encoding']).toBeUndefined();
+      expect(image.headers.vary).toBeUndefined();
+      expect(image.body.toString()).toBe('_media/k/480.webp');
     } finally {
       server.close();
     }

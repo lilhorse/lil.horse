@@ -1,7 +1,8 @@
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
-import { createServer } from 'node:http';
+import { createServer, type IncomingMessage } from 'node:http';
 import { extname, join, normalize, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { createGzip } from 'node:zlib';
 import { headersFor, parseHeaders, type HeaderRule } from '../src/lib/headers';
 import { matchRedirect, parseRedirects, type Redirect } from '../src/lib/redirects';
 
@@ -28,6 +29,10 @@ const TYPES: Record<string, string> = {
   '.xml': 'application/xml',
   '.txt': 'text/plain; charset=utf-8',
 };
+
+// Cloudflare compresses text responses; serving them raw would make Lighthouse time the uncompressed bytes.
+const COMPRESSIBLE =
+  /^(?:text\/|application\/(?:json|xml|javascript|manifest\+json)|image\/svg\+xml)/;
 
 // Cloudflare reads these two files; it never serves them.
 const CONTROL_FILES = new Set(['_headers', '_redirects']);
@@ -90,6 +95,10 @@ export function resolveDistFile(dist: string, url: string): { file: string; stat
   return notFound;
 }
 
+function gzips(request: IncomingMessage, type: string): boolean {
+  return COMPRESSIBLE.test(type) && /\bgzip\b/.test(request.headers['accept-encoding'] ?? '');
+}
+
 function readControlFile(dist: string, name: string): string {
   const file = join(dist, name);
   return existsSync(file) ? readFileSync(file, 'utf8') : '';
@@ -114,14 +123,19 @@ export function serveDist(dist: string, port: number) {
       return;
     }
     const { file, status } = resolveDistFile(dist, request.url ?? '/');
+    const type = TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream';
+    const gzip = gzips(request, type) && isFile(file);
     response.writeHead(status, {
       'cache-control': REVALIDATE,
       ...extra,
-      'content-type': TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream',
+      'content-type': type,
+      ...(COMPRESSIBLE.test(type) ? { vary: 'accept-encoding' } : {}),
+      ...(gzip ? { 'content-encoding': 'gzip' } : {}),
     });
-    createReadStream(file)
-      .on('error', () => response.end())
-      .pipe(response);
+    // A missing 404 page (dist/ mid-rebuild) ends the response instead of closing the socket.
+    const source = createReadStream(file).on('error', () => response.end());
+    if (gzip) source.pipe(createGzip()).pipe(response);
+    else source.pipe(response);
   }).listen(port, '127.0.0.1');
 }
 
