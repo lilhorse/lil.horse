@@ -49,7 +49,8 @@ function openPalette(): Promise<void> {
     setupPalette(paletteDialog, {
       theme,
       navigate,
-      copy: (text) => navigator.clipboard.writeText(text),
+      // async: on a non-secure page there is no clipboard, and the palette reports a rejection.
+      copy: async (text) => navigator.clipboard.writeText(text),
       openHelp,
     }),
   );

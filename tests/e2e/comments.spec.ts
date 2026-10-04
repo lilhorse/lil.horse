@@ -1,6 +1,9 @@
 import { expect, test } from './fixtures';
 
-test('loads Giscus only once the comments come near, with the current theme', async ({ page }) => {
+test('loads Giscus only once the comments come near, with the current theme', async ({
+  page,
+  baseURL,
+}) => {
   await page.route('https://giscus.app/**', (route) =>
     route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
   );
@@ -18,7 +21,7 @@ test('loads Giscus only once the comments come near, with the current theme', as
   await expect(script).toHaveAttribute('data-mapping', 'specific');
   await expect(script).toHaveAttribute('data-strict', '1');
   await expect(script).toHaveAttribute('data-repo-id', 'R_kgDOGbvmeg');
-  await expect(script).toHaveAttribute('data-theme', 'https://lil.horse/giscus/night.css');
+  await expect(script).toHaveAttribute('data-theme', `${baseURL}/giscus/night.css`);
 });
 
 test('serves both theme stylesheets with the header giscus asks for', async ({ request }) => {

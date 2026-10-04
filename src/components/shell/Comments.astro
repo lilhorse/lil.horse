@@ -10,11 +10,7 @@ const { slug } = Astro.props;
 const { giscus } = siteConfig;
 // The dev server is plain http, which giscus's https frame cannot load a stylesheet from.
 const theme = (name: 'night' | 'mist') =>
-  import.meta.env.DEV
-    ? name === 'night'
-      ? 'dark'
-      : 'light'
-    : `${siteConfig.url}/giscus/${name}.css`;
+  import.meta.env.DEV ? (name === 'night' ? 'dark' : 'light') : `/giscus/${name}.css`;
 ---
 
 <section class="comments" aria-labelledby="comments-title">

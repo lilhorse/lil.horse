@@ -9,7 +9,7 @@ import {
 } from '../../src/scripts/comments';
 
 const MARKUP =
-  '<div class="giscus" data-comments data-repo="lilhorse/lil.horse" data-repo-id="R_x" data-category="Announcements" data-category-id="DIC_x" data-term="douban" data-theme-light="https://lil.horse/giscus/mist.css" data-theme-dark="https://lil.horse/giscus/night.css"></div>';
+  '<div class="giscus" data-comments data-repo="lilhorse/lil.horse" data-repo-id="R_x" data-category="Announcements" data-category-id="DIC_x" data-term="douban" data-theme-light="/giscus/mist.css" data-theme-dark="/giscus/night.css"></div>';
 
 const container = () => document.querySelector('[data-comments]') as HTMLElement;
 const script = () => document.querySelector('script[src="https://giscus.app/client.js"]');
@@ -67,7 +67,19 @@ describe('giscusScript', () => {
         'data-lang': 'en',
       },
     );
-    expect(themeUrl(container(), 'light')).toBe('https://lil.horse/giscus/mist.css');
+  });
+});
+
+describe('themeUrl', () => {
+  it('points Giscus at the stylesheets of whichever host serves the page', () => {
+    expect(location.origin).toBe('http://localhost:3000');
+    expect(themeUrl(container(), 'light')).toBe('http://localhost:3000/giscus/mist.css');
+    expect(themeUrl(container(), 'dark')).toBe('http://localhost:3000/giscus/night.css');
+  });
+
+  it('passes the built-in themes of the dev server through', () => {
+    container().dataset.themeDark = 'dark';
+    expect(themeUrl(container(), 'dark')).toBe('dark');
   });
 });
 
@@ -83,7 +95,7 @@ describe('setupComments', () => {
     e.near();
     e.near();
     expect(document.querySelectorAll('script[src="https://giscus.app/client.js"]')).toHaveLength(1);
-    expect(script()?.getAttribute('data-theme')).toBe('https://lil.horse/giscus/night.css');
+    expect(script()?.getAttribute('data-theme')).toBe('http://localhost:3000/giscus/night.css');
   });
 
   it('tells the loaded frame about theme changes', async () => {
@@ -101,7 +113,7 @@ describe('setupComments', () => {
     e.setTheme('dark');
     document.dispatchEvent(new CustomEvent('themechange'));
     expect(postMessage).toHaveBeenCalledExactlyOnceWith(
-      { giscus: { setConfig: { theme: 'https://lil.horse/giscus/night.css' } } },
+      { giscus: { setConfig: { theme: 'http://localhost:3000/giscus/night.css' } } },
       'https://giscus.app',
     );
   });

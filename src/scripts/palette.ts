@@ -150,7 +150,10 @@ export function setupPalette(dialog: HTMLDialogElement, deps: PaletteDeps): Pale
         deps.theme.cycle();
         break;
       case 'copy-email':
-        void deps.copy(email()).then(() => flash(option, 'Copied'));
+        void deps.copy(email()).then(
+          () => flash(option, 'Copied'),
+          () => flash(option, 'Copy failed'),
+        );
         break;
       case 'email':
         close();

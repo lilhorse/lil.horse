@@ -11,8 +11,8 @@ describe('Comments', () => {
     expect(html).toContain(
       '<div class="giscus" data-comments data-repo="lilhorse/lil.horse" data-repo-id="R_kgDOGbvmeg" data-category="Announcements" data-category-id="DIC_kwDOGbvmes4CcjmH" data-term="douban"',
     );
-    expect(html).toMatch(/data-theme-light="(light|https:\/\/lil\.horse\/giscus\/mist\.css)"/);
-    expect(html).toMatch(/data-theme-dark="(dark|https:\/\/lil\.horse\/giscus\/night\.css)"/);
+    expect(html).toMatch(/data-theme-light="(light|\/giscus\/mist\.css)"/);
+    expect(html).toMatch(/data-theme-dark="(dark|\/giscus\/night\.css)"/);
     expect(await htmlErrors(html)).toEqual([]);
   });
 });

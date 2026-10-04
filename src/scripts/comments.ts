@@ -13,7 +13,12 @@ export interface CommentsEnv {
 }
 
 export function themeUrl(container: HTMLElement, theme: Theme): string {
-  return (theme === 'dark' ? container.dataset.themeDark : container.dataset.themeLight) ?? theme;
+  const value =
+    (theme === 'dark' ? container.dataset.themeDark : container.dataset.themeLight) ?? theme;
+  // Whichever host serves the build (lil.horse, workers.dev, a version URL) serves its stylesheets too.
+  return value.startsWith('/')
+    ? new URL(value, container.ownerDocument.location.origin).href
+    : value;
 }
 
 export function giscusScript(

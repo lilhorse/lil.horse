@@ -289,4 +289,13 @@ describe('actions', () => {
     expect(copied).toEqual(['sup@lil.horse', 'sup@lil.horse']);
     expect(document.querySelector('#act-copy .label')?.textContent).toBe('Copy email');
   });
+
+  it('says so when the browser refuses the copy', async () => {
+    mount({ copy: () => Promise.reject(new DOMException('Write permission denied')) });
+    (document.querySelector('#act-copy') as HTMLElement).click();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(document.querySelector('#act-copy .label')?.textContent).toBe('Copy failed');
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(document.querySelector('#act-copy .label')?.textContent).toBe('Copy email');
+  });
 });

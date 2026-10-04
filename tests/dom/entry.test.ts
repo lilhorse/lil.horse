@@ -149,3 +149,17 @@ describe('the phone menu', () => {
     expect(summary.getAttribute('aria-haspopup')).toBe('dialog');
   });
 });
+
+describe('copying the address', () => {
+  it('rejects instead of throwing when the browser has no clipboard', async () => {
+    loading.fail = false;
+    clickSearch();
+    await vi.waitFor(() => expect(loading.opened).toBe(1));
+    vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue(undefined as never);
+    let copying: Promise<void> | undefined;
+    expect(() => {
+      copying = loading.deps?.copy('sup@lil.horse');
+    }).not.toThrow();
+    await expect(copying).rejects.toBeInstanceOf(TypeError);
+  });
+});
