@@ -1,13 +1,12 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
-import { blockThirdParty, pageContaining } from './site';
+import type { Page } from '@playwright/test';
+import { expect, test } from './fixtures';
+import { pageContaining } from './site';
 
 const WCAG = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 const help = (page: Page) => page.locator('dialog[data-help]');
 const palette = (page: Page) => page.locator('dialog[data-palette]');
 const toggle = (page: Page) => help(page).locator('[data-shortcuts-toggle]');
-
-test.beforeEach(({ page }) => blockThirdParty(page));
 
 test('g then a letter navigates within a second', async ({ page }) => {
   await page.goto('/');

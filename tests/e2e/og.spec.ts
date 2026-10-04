@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { pagePaths } from './site';
 
 test('serves a 1200 × 630 share image for the home page, every post and both standalone pages', async ({

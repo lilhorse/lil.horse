@@ -1,7 +1,4 @@
-import { expect, test } from '@playwright/test';
-import { blockThirdParty } from './site';
-
-test.beforeEach(({ page }) => blockThirdParty(page));
+import { expect, test } from './fixtures';
 
 test('serves a full-text RSS 2.0 feed with absolute addresses', async ({ request }) => {
   const response = await request.get('/feed.xml');

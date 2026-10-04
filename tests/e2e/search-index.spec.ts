@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { pagePaths } from './site';
 
 test('ships one Chinese-segmented index covering every searchable page', async ({ request }) => {

@@ -1,8 +1,7 @@
-import { test } from '@playwright/test';
-import { blockThirdParty, pagePaths, settle } from './site';
+import { test } from './fixtures';
+import { pagePaths, settle } from './site';
 
 test.skip(!process.env.SCREENSHOTS, 'set SCREENSHOTS=1 to capture screenshots for review');
-test.beforeEach(({ page }) => blockThirdParty(page));
 
 for (const colorScheme of ['light', 'dark'] as const) {
   test.describe(`${colorScheme} screenshots`, () => {

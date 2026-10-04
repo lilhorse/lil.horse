@@ -1,10 +1,8 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
-import { blockThirdParty, pagePaths, settle } from './site';
+import { expect, test } from './fixtures';
+import { pagePaths, settle } from './site';
 
 const WCAG = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
-
-test.beforeEach(({ page }) => blockThirdParty(page));
 
 for (const colorScheme of ['light', 'dark'] as const) {
   test.describe(`${colorScheme} theme`, () => {

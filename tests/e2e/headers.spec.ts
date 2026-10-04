@@ -1,10 +1,9 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import { blockThirdParty, pagePaths, settle } from './site';
+import type { APIRequestContext, Page } from '@playwright/test';
+import { expect, test } from './fixtures';
+import { pagePaths, settle } from './site';
 
 const head = (request: APIRequestContext, path: string) => request.get(path, { maxRedirects: 0 });
-
-test.beforeEach(({ page }) => blockThirdParty(page));
 
 /** Records the CSP violations each document reports; call `collect` before leaving a page. */
 async function watchViolations(page: Page) {

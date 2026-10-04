@@ -1,5 +1,6 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import { blockThirdParty, pagePaths } from './site';
+import type { APIRequestContext, Page } from '@playwright/test';
+import { expect, test } from './fixtures';
+import { pagePaths } from './site';
 
 const SITE = 'https://lil.horse';
 
@@ -16,8 +17,6 @@ async function indexablePaths(request: APIRequestContext): Promise<string[]> {
   }
   return paths;
 }
-
-test.beforeEach(({ page }) => blockThirdParty(page));
 
 test('every page names itself for sharing and points at an image that exists', async ({
   page,

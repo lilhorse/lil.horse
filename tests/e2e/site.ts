@@ -34,14 +34,6 @@ export function pageContaining(text: string): string | null {
   return file ? routeOf(file) : null;
 }
 
-/** Stubs giscus.app and the Cloudflare beacon with empty scripts, so tests never load them from the network. */
-export async function blockThirdParty(page: Page): Promise<void> {
-  for (const origin of ['https://giscus.app', 'https://static.cloudflareinsights.com'])
-    await page.route(`${origin}/**`, (route) =>
-      route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
-    );
-}
-
 /** Waits for web fonts and for Expressive Code to make overflowing code blocks focusable. */
 export async function settle(page: Page): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
