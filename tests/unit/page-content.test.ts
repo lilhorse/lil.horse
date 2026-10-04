@@ -15,6 +15,9 @@ const noMedia = {
   warn: () => undefined,
 };
 
+const heading = (text: string) =>
+  block('heading_2', { rich_text: [rt(text)], color: 'default', is_toggleable: false });
+
 describe('buildPageContent', () => {
   it('never gives a heading an id the layout, the dialogs or the comments use', async () => {
     const api = new FakeNotionApi();
@@ -33,8 +36,37 @@ describe('buildPageContent', () => {
 
     expect(content.headings).toEqual([
       { anchor: 'main-1', text: 'Main', level: 2 },
-      { anchor: 'help-title-1', text: 'Help title', level: 3 },
+      { anchor: 'section-help-title', text: 'Help title', level: 3 },
       { anchor: 'comments-title-1', text: 'Comments title', level: 3 },
+    ]);
+  });
+
+  it('keeps heading anchors out of the id prefixes the palette and the help dialog use', async () => {
+    const api = new FakeNotionApi();
+    const pageId = nextId();
+    api.setChildren(
+      pageId,
+      [
+        'Palette result 0',
+        'Palette post hello',
+        'Help me',
+        'Help',
+        'Palette',
+        'Palette result 0',
+        'Section palette result 0',
+      ].map(heading),
+    );
+
+    const content = await buildPageContent(pageId, { api, ...noMedia });
+
+    expect(content.headings.map(({ anchor }) => anchor)).toEqual([
+      'section-palette-result-0',
+      'section-palette-post-hello',
+      'section-help-me',
+      'help',
+      'palette',
+      'section-palette-result-0-1',
+      'section-palette-result-0-2',
     ]);
   });
 

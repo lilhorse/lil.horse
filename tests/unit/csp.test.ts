@@ -101,6 +101,22 @@ describe('collectScriptHashes and missingCspHashes', () => {
     expect(await missingCspHashes(dist)).toEqual([]);
   });
 
+  it('checks the policy pages get, even when another rule lists a policy first', async () => {
+    const dist = await tempDir('csp-order-');
+    await writeFile(join(dist, 'index.html'), page('<script>one()</script>'));
+    const headers = (earlier: string[], pages: string[]) =>
+      `/_media/*\n  Content-Security-Policy: ${cspHeader(earlier)}\n/*\n  Content-Security-Policy: ${cspHeader(pages)}\n`;
+    await writeFile(join(dist, '_headers'), headers([scriptHash('one()')], []));
+    expect(await missingCspHashes(dist)).toEqual([
+      {
+        file: 'index.html',
+        message: `inline script ${scriptHash('one()')} is not in the CSP of _headers`,
+      },
+    ]);
+    await writeFile(join(dist, '_headers'), headers([], [scriptHash('one()')]));
+    expect(await missingCspHashes(dist)).toEqual([]);
+  });
+
   async function checked(body: string) {
     const dist = await tempDir('csp-scan-');
     await writeFile(join(dist, 'index.html'), page(body));

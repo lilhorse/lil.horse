@@ -38,7 +38,7 @@ interface Props {
   jsonLd?: JsonLd[];
 }
 
-// Element ids used in this layout must also be in LAYOUT_IDS in src/notion/page-content.ts.
+// Element ids used in this layout must be in LAYOUT_IDS, or start with a RESERVED_PREFIXES entry, in src/notion/page-content.ts.
 const {
   title,
   description = null,

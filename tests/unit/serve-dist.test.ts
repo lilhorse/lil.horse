@@ -166,6 +166,25 @@ describe('serveDist', () => {
     }
   });
 
+  it('sends a page asked for by its .html file to its path with a 307', async () => {
+    const server = serveDist(await dist(), 0);
+    await once(server, 'listening');
+    const { port } = server.address() as AddressInfo;
+    try {
+      for (const [path, status, location] of [
+        ['/blog.html', 307, '/blog'],
+        ['/blog/douban.html?x=1', 307, '/blog/douban?x=1'],
+        ['/index.html', 307, '/'],
+        ['/blog/tags/%E4%B8%AD%E6%96%87.html', 307, '/blog/tags/%E4%B8%AD%E6%96%87'],
+        ['/nope.html', 404, undefined],
+        ['/blog', 200, undefined],
+      ] as const)
+        expect(await rawGet(port, path), path).toEqual({ status, location });
+    } finally {
+      server.close();
+    }
+  });
+
   it('answers a malformed request target with the 404 page and keeps serving', async () => {
     const server = serveDist(await dist(), 0);
     await once(server, 'listening');

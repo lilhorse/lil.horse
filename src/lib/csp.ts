@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 import { attribute, startTags, type DistIssue } from './dist-check';
+import { headersFor, parseHeaders } from './headers';
 
 // A hash in script-src disables 'inline-speculation-rules', so speculation rules need their own hash; JSON-LD never runs.
 const DATA_SCRIPT_TYPES = new Set(['application/ld+json']);
@@ -85,7 +86,8 @@ export async function collectScriptHashes(dist: string): Promise<string[]> {
 export async function missingCspHashes(dist: string): Promise<DistIssue[]> {
   const file = join(dist, '_headers');
   if (!existsSync(file)) return [{ file: '_headers', message: 'is missing' }];
-  const policy = /Content-Security-Policy: (.*)/.exec(await readFile(file, 'utf8'))?.[1] ?? '';
+  const rules = parseHeaders(await readFile(file, 'utf8'));
+  const policy = headersFor(rules, '/')['content-security-policy'] ?? '';
   const listed = new Set(policy.match(/sha256-[A-Za-z0-9+/=]+/g) ?? []);
   const sources = /(?:^|;)\s*script-src ([^;]*)/.exec(policy)?.[1]?.split(/\s+/) ?? [];
   const issues: DistIssue[] = UNSAFE_SCRIPT_SOURCES.filter((keyword) =>

@@ -25,24 +25,19 @@ export interface PageContentDeps {
   warn: (message: string) => void;
 }
 
-// Ids the page layout already uses (<main>, the dialogs, the comments section) must never become heading anchors.
-const LAYOUT_IDS = [
-  'main',
-  'palette-query',
-  'palette-options',
-  'palette-nav-home',
-  'palette-nav-blog',
-  'palette-nav-projects',
-  'palette-nav-about',
-  'palette-nav-contact',
-  'palette-theme',
-  'palette-copy-email',
-  'palette-email',
-  'palette-rss',
-  'palette-help',
-  'help-title',
-  'comments-title',
-];
+// Ids the page layout already uses (<main>, the comments section) must never become heading anchors.
+const LAYOUT_IDS = ['main', 'comments-title'];
+// The dialogs name their parts under these, per recent post and per search result too.
+const RESERVED_PREFIXES = ['palette-', 'help-'];
+
+class AnchorSlugger extends GithubSlugger {
+  override slug(value: string, maintainCase?: boolean): string {
+    const anchor = super.slug(value, maintainCase);
+    return RESERVED_PREFIXES.some((prefix) => anchor.startsWith(prefix))
+      ? super.slug(`section-${anchor}`)
+      : anchor;
+  }
+}
 
 export async function buildPageContent(
   pageId: string,
@@ -60,7 +55,7 @@ export async function buildPageContent(
 async function assemble(pageId: string, deps: PageContentDeps): Promise<PageContent> {
   const tree = await fetchBlockTree(deps.api, pageId);
   const childDataSourceIds = new Set<string>();
-  const slugger = new GithubSlugger();
+  const slugger = new AnchorSlugger();
   for (const id of LAYOUT_IDS) slugger.slug(id);
   const blocks = await blocksToAst(tree, {
     media: deps.media,

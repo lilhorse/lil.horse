@@ -72,6 +72,13 @@ function canonicalPath(pathname: string): string {
     .join('/');
 }
 
+/** Cloudflare's html_handling sends a request for an existing .html file to the path without it. */
+function withoutHtml(dist: string, pathname: string): string {
+  if (!pathname.endsWith('.html') || resolveDistFile(dist, pathname).status !== 200)
+    return pathname;
+  return pathname.replace(/(?:\/index)?\.html$/, '') || '/';
+}
+
 /** Maps a request target to a file the way build.format 'file' lays out dist/. */
 export function resolveDistFile(dist: string, url: string): { file: string; status: 200 | 404 } {
   const root = resolve(dist);
@@ -113,7 +120,7 @@ export function serveDist(dist: string, port: number) {
     const url = requestUrl(request.url ?? '/') ?? new URL('http://localhost');
     const extra = headersFor(rules, url.pathname);
     const redirect = matchRedirect(redirects, url.pathname);
-    const canonical = canonicalPath(url.pathname);
+    const canonical = withoutHtml(dist, canonicalPath(url.pathname));
     if (redirect || canonical !== url.pathname) {
       response.writeHead(redirect?.status ?? 307, {
         ...extra,

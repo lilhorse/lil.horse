@@ -129,6 +129,20 @@ describe('checkDist', () => {
     ]);
   });
 
+  it('reports internal links that name a .html file, which Cloudflare redirects', async () => {
+    const root = await dist({
+      'index.html': page(
+        '<a href="/blog">blog</a><a href="/blog.html#top">blog</a><a href="/index.html">home</a><a href="/gone.html">gone</a>',
+      ),
+      'blog.html': page(''),
+    });
+    expect(await checkDist(root, noValidation)).toEqual([
+      { file: 'index.html', message: 'links to /blog.html instead of /blog' },
+      { file: 'index.html', message: 'links to /index.html instead of /' },
+      { file: 'index.html', message: 'links to missing /gone.html' },
+    ]);
+  });
+
   it.each([
     { where: 'a code block', body: '<pre><code>&lt;img src="/nope.png"&gt;</code></pre>' },
     { where: 'inline code', body: '<p>Use <code>&lt;img src="/nope.png"&gt;</code> here.</p>' },

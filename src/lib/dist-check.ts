@@ -260,6 +260,10 @@ export async function checkDist(
         issues.push({ file: name, message: `links with a trailing slash to ${target}` });
       if (!resolves(dist, target))
         issues.push({ file: name, message: `links to missing ${target}` });
+      else if (target.endsWith('.html')) {
+        const page = target.replace(/(?:\/index)?\.html$/, '') || '/';
+        issues.push({ file: name, message: `links to ${target} instead of ${page}` });
+      }
     }
     const sizes = assetSizes(dist, text);
     if (sizes.js > options.jsBudgetBytes) {
