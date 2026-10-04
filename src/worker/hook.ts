@@ -14,6 +14,9 @@ export interface HookDeps {
 export const HOOK_PATH = '/hooks/notion';
 export const DISPATCH_EVENT = 'notion-content-changed';
 
+// Generous on purpose: a page.content_updated event can list many updated blocks.
+const MAX_BODY_BYTES = 1_048_576;
+
 /** Changes that alter what the site shows; comments, locks and the legacy database.* events do not. */
 export const BUILD_EVENTS: ReadonlySet<string> = new Set([
   'page.created',
@@ -36,6 +39,7 @@ interface NotionEvent {
 }
 
 const encoder = new TextEncoder();
+const decoder = new TextDecoder();
 
 const defaultDeps: HookDeps = {
   fetch: (url, init) => fetch(url, init),
@@ -60,7 +64,7 @@ export function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
 }
 
 /** Notion's signature: `sha256=` and the hex HMAC-SHA256 of the raw body, keyed by the verification token. */
-export async function signBody(secret: string, body: string): Promise<string> {
+export async function signBody(secret: string, body: Uint8Array<ArrayBuffer>): Promise<string> {
   const key = await crypto.subtle.importKey(
     'raw',
     encoder.encode(secret),
@@ -68,18 +72,47 @@ export async function signBody(secret: string, body: string): Promise<string> {
     false,
     ['sign'],
   );
-  return `sha256=${hex(await crypto.subtle.sign('HMAC', key, encoder.encode(body)))}`;
+  return `sha256=${hex(await crypto.subtle.sign('HMAC', key, body))}`;
 }
 
 export async function verifySignature(
   secret: string,
-  body: string,
+  body: Uint8Array<ArrayBuffer>,
   header: string | null,
 ): Promise<boolean> {
   if (header === null) return false;
   const expected = await signBody(secret, body);
   return timingSafeEqual(encoder.encode(expected), encoder.encode(header.trim().toLowerCase()));
 }
+
+async function readBody(request: Request): Promise<Uint8Array<ArrayBuffer> | null> {
+  if (Number(request.headers.get('content-length')) > MAX_BODY_BYTES) return null;
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  if (request.body !== null) {
+    const reader = request.body.getReader();
+    for (let read = await reader.read(); !read.done; read = await reader.read()) {
+      size += read.value.byteLength;
+      if (size > MAX_BODY_BYTES) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(read.value);
+    }
+  }
+  const body = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return body;
+}
+
+const sender = (request: Request) =>
+  ['cf-connecting-ip', 'user-agent']
+    .map((name) => `${name}: ${JSON.stringify(request.headers.get(name))}`)
+    .join(', ');
 
 function verificationToken(payload: unknown): string | null {
   if (typeof payload !== 'object' || payload === null) return null;
@@ -145,19 +178,24 @@ export async function handleHook(
   deps: HookDeps = defaultDeps,
 ): Promise<Response> {
   if (request.method !== 'POST') return text(405, 'Method Not Allowed', { allow: 'POST' });
-  const body = await request.text();
+  const body = await readBody(request);
+  if (body === null) return text(413, 'Body is larger than 1 MiB');
+  const secret = env.NOTION_WEBHOOK_SECRET || undefined;
+  const signature = request.headers.get('x-notion-signature');
+  const signed = secret !== undefined && signature !== null;
+  if (signed && !(await verifySignature(secret, body, signature)))
+    return text(401, 'Bad signature');
   let payload: unknown;
   try {
-    payload = JSON.parse(body);
+    payload = JSON.parse(decoder.decode(body));
   } catch {
     return text(400, 'Body is not JSON');
   }
-  const secret = env.NOTION_WEBHOOK_SECRET || undefined;
   const token = verificationToken(payload);
   if (token !== null) {
     if (secret === undefined) {
-      // Only way to get the token out of Notion's one-time verification request; the log line stops once the secret exists.
-      deps.log(`Notion verification token: ${token}`);
+      // Notion's one-time token is read from this line; until the secret is set anyone can post one, hence the sender.
+      deps.log(`Notion verification token: ${JSON.stringify(token)} (${sender(request)})`);
       return text(200, 'Verification token logged');
     }
     return timingSafeEqual(encoder.encode(secret), encoder.encode(token))
@@ -165,8 +203,7 @@ export async function handleHook(
       : text(401, 'Unknown verification token');
   }
   if (secret === undefined) return text(401, 'Webhook secret not configured');
-  const signature = request.headers.get('x-notion-signature');
-  if (!(await verifySignature(secret, body, signature))) return text(401, 'Bad signature');
+  if (!signed) return text(401, 'Bad signature');
   const event = parseEvent(payload);
   if (event === null) return text(400, 'Body is not a Notion event');
   if (!BUILD_EVENTS.has(event.type)) return text(200, `Ignored ${event.type}`);

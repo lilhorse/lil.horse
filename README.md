@@ -82,7 +82,7 @@ Cloudflare Workers serves the site as static assets. `wrangler.jsonc` names the 
 
 The Worker is in `src/worker/hook.ts`. It handles `POST /hooks/notion`, answers 404 for any other path under `/hooks/` and passes everything else to the static assets. The entry module, `src/worker/index.ts`, only re-exports its default handler, because the Workers runtime treats every export of the entry module as an entrypoint. An edit in Notion reaches the site like this:
 
-1. Notion sends a webhook event. The Worker checks `X-Notion-Signature`, the HMAC-SHA256 of the raw body keyed by the subscription's verification token (`NOTION_WEBHOOK_SECRET`), and answers 401 if it does not match.
+1. Notion sends a webhook event. The Worker refuses a body over 1 MiB with 413. Before it parses the body, it checks `X-Notion-Signature`, the HMAC-SHA256 of the raw body keyed by the subscription's verification token (`NOTION_WEBHOOK_SECRET`), and answers 401 if it does not match.
 2. Events that can change the site, the `page.*` and `data_source.*` events listed in `BUILD_EVENTS`, trigger a `repository_dispatch` event named `notion-content-changed` on this repository (`vars.GITHUB_REPOSITORY` in `wrangler.jsonc`), using `GITHUB_DISPATCH_TOKEN`. The Worker answers 202 when GitHub accepts it and 502 when GitHub does not, so Notion retries. Other events, such as comments and page locks, get 200 and change nothing.
 3. `.github/workflows/deploy.yml` builds from live Notion data, runs `pnpm check:dist` and deploys with `wrangler deploy`.
 
@@ -97,7 +97,7 @@ The webhook subscription belongs to the Notion integration. It points at `https:
 Notion verifies a new subscription by posting a `verification_token`. While `NOTION_WEBHOOK_SECRET` is not set, the Worker writes that token to its logs and answers 200, and it refuses every event with 401. To connect a subscription:
 
 1. Follow the Worker's logs with `pnpm exec wrangler tail lil-horse`, or open Workers & Pages → lil-horse → Observability in the Cloudflare dashboard.
-2. Create the subscription in Notion. Copy the token from the log line `Notion verification token: …` and paste it into Notion to verify the subscription.
+2. Create the subscription in Notion. Take the log line `Notion verification token: "…"` that arrives as you do; its `cf-connecting-ip` and `user-agent` help tell Notion's request from anyone else's, since anyone can post a token while no secret is set. Copy the token without its quotes and paste it into Notion to verify the subscription.
 3. With the token still on the clipboard, store it as the Worker secret: `pbpaste | tr -d '\n' | pnpm exec wrangler secret put NOTION_WEBHOOK_SECRET`, then `printf '' | pbcopy` (see [Secrets](#secrets)). From then on, the Worker never logs a token.
 
 To rotate the token, first delete the secret with `pnpm exec wrangler secret delete NOTION_WEBHOOK_SECRET`, because the Worker logs a token only while no secret is set. Then delete the subscription in Notion, create it again and follow the three steps. Until the new secret is in place, the Worker refuses every event; the daily build picks up any edits made in the meantime.
