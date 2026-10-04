@@ -27,7 +27,7 @@ const text = (value: string): RichText => [
 const blocks = (nodes: Node[]) => render(Blocks, { nodes, resolve, headings: [] });
 
 describe('text blocks', () => {
-  it('marks h2 headings with a hidden ## and leaves deeper ones bare', async () => {
+  it('marks h2 headings with a ## that screen readers and search skip, and leaves deeper ones bare', async () => {
     const html = await blocks([
       {
         type: 'heading',
@@ -51,7 +51,7 @@ describe('text blocks', () => {
       },
     ]);
     expect(html).toContain(
-      '<h2 id="movies"><span class="heading-mark" aria-hidden="true">##</span> Movies</h2>',
+      '<h2 id="movies"><span class="heading-mark" aria-hidden="true" data-pagefind-ignore>##</span> Movies</h2>',
     );
     expect(html).toContain('<h3 id="ratings">Ratings</h3>');
   });

@@ -15,7 +15,7 @@ const { command, title } = Astro.props;
   </p>
   <slot name="meta" />
   <h1 class="title" data-pagefind-meta="title[data-title]" data-title={title}>
-    <span class="heading-mark" aria-hidden="true">
+    <span class="heading-mark" aria-hidden="true" data-pagefind-ignore>
       #
     </span>{' '}
     {title}

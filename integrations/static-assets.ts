@@ -67,7 +67,7 @@ export async function markFixtureBuild(
   if (env.fixtures) await writeFile(join(outDir, FIXTURE_MARKER), '');
 }
 
-export function serveFrom(root: string) {
+export function serveFrom(root: string, types: Record<string, string> = MIME) {
   return (request: IncomingMessage, response: ServerResponse, next: () => void) => {
     const path = decodeURIComponent((request.url ?? '/').split('?')[0] ?? '/');
     const file = normalize(join(root, path));
@@ -77,7 +77,7 @@ export function serveFrom(root: string) {
     }
     response.setHeader(
       'content-type',
-      MIME[extname(file).toLowerCase()] ?? 'application/octet-stream',
+      types[extname(file).toLowerCase()] ?? 'application/octet-stream',
     );
     // pipe() leaves the file open when the client aborts.
     pipeline(createReadStream(file), response, () => undefined);
