@@ -71,7 +71,7 @@ At the end of the build, `integrations/cloudflare.ts` writes two files that Clou
 
 The Content-Security-Policy, built in `src/lib/csp.ts`, has no `'unsafe-inline'` in `script-src`. Instead, the build scans `dist/` and lists the hash of every inline script the pages run, hashing the text as browsers do (line ends become `\n`). Uploaded files in `/_media/` are not scanned, so a script in an upload never widens the site's policy. Never add or edit a hash by hand; change the script and rebuild. `pnpm check:dist` fails if a page has an inline script whose hash is missing. Beyond the site itself, the policy allows Giscus (its script, its frame and the `default.css` that its `client.js` adds to the page), the Cloudflare Web Analytics beacon, YouTube and Vimeo embeds, and WebAssembly for Pagefind. It allows no plugins (`object-src 'none'`).
 
-`pnpm preview` ignores both files. To try them locally, run `pnpm exec tsx scripts/serve-dist.ts 4323`, which serves `dist/` on port 4323 and applies the redirects and headers as Cloudflare would. The end-to-end tests use the same server.
+`pnpm preview` ignores both files. To try them locally, run `pnpm exec tsx scripts/serve-dist.ts 4323`, which serves `dist/` on port 4323 and applies the redirects and headers as Cloudflare would. Like Cloudflare, it sends any other spelling of a path, such as `/%5Fmedia/…` or `//blog`, to the canonical one with a 307, and gives files that no rule caches `Cache-Control: public, max-age=0, must-revalidate`. The end-to-end tests use the same server.
 
 ## Development
 

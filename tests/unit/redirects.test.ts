@@ -57,7 +57,19 @@ describe('parseRedirects and matchRedirect', () => {
       status: 301,
     });
     expect(matchRedirect(rules, '/')).toBeNull();
-    expect(matchRedirect(rules, '/a$&b$$/')).toEqual({ location: '/a$&b$$', status: 301 });
+  });
+
+  it('substitutes the splat as a replacement string, $ patterns included, as Cloudflare does', () => {
+    expect(matchRedirect(rules, '/a$&b/')?.location).toBe('/a:splatb');
+    expect(matchRedirect(rules, '/p$$q/')?.location).toBe('/p$q');
+    expect(matchRedirect(rules, "/x$'y/")?.location).toBe('/xy');
+  });
+
+  it('collapses slash runs in a dynamic target, so it stays on the site', () => {
+    expect(matchRedirect(rules, '//evil.com/')).toEqual({ location: '/evil.com', status: 301 });
+    expect(matchRedirect(rules, '///evil.com//x/')?.location).toBe('/evil.com/x');
+    const external = parseRedirects('/go/* https://example.com//:splat 301\n');
+    expect(matchRedirect(external, '/go/a')?.location).toBe('https://example.com//a');
   });
 });
 

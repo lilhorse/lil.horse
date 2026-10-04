@@ -4,6 +4,8 @@ import { expect, test } from './fixtures';
 import { pagePaths, settle } from './site';
 
 const head = (request: APIRequestContext, path: string) => request.get(path, { maxRedirects: 0 });
+// Cloudflare's default for files that no _headers rule caches.
+const REVALIDATE = 'public, max-age=0, must-revalidate';
 
 /** Records the CSP violations each document reports; call `collect` before leaving a page. */
 async function watchViolations(page: Page) {
@@ -58,10 +60,10 @@ test('sends the security headers everywhere and long caches only for hashed file
   expect(page['x-content-type-options']).toBe('nosniff');
   expect(page['referrer-policy']).toBe('strict-origin-when-cross-origin');
   expect(page['strict-transport-security']).toBe('max-age=31536000');
-  expect(page['cache-control']).toBeUndefined();
-  expect((await head(request, '/no-such-page')).headers()['x-content-type-options']).toBe(
-    'nosniff',
-  );
+  expect(page['cache-control']).toBe(REVALIDATE);
+  const missing = (await head(request, '/no-such-page')).headers();
+  expect(missing['x-content-type-options']).toBe('nosniff');
+  expect(missing['cache-control']).toBe(REVALIDATE);
 
   const css = readdirSync('dist/_astro').find((file) => file.endsWith('.css')) ?? '';
   expect((await head(request, `/_astro/${css}`)).headers()['cache-control']).toBe(
@@ -70,7 +72,9 @@ test('sends the security headers everywhere and long caches only for hashed file
   expect((await head(request, '/og/site/home.png')).headers()['cache-control']).toBe(
     'public, max-age=86400',
   );
-  expect((await head(request, '/pagefind/pagefind.js')).headers()['cache-control']).toBeUndefined();
+  expect((await head(request, '/pagefind/pagefind.js')).headers()['cache-control']).toBe(
+    REVALIDATE,
+  );
   const media = readdirSync('dist/_media', { recursive: true, encoding: 'utf8' }).find((file) =>
     /\.(webp|avif|png|jpg|svg)$/.test(file),
   );

@@ -42,7 +42,7 @@ export function parseRedirects(text: string): Redirect[] {
     });
 }
 
-/** The first matching rule wins; a static source matches the whole path, a `*` source captures `:splat`. */
+/** As Cloudflare reads _redirects: the first matching rule wins, and a `*` source fills `:splat` with `replaceAll`. */
 export function matchRedirect(
   rules: Redirect[],
   pathname: string,
@@ -59,7 +59,10 @@ export function matchRedirect(
       pathname.endsWith(suffix)
     ) {
       const splat = pathname.slice(prefix.length, pathname.length - suffix.length);
-      return { location: rule.to.replace(':splat', () => splat), status: rule.status };
+      const target = rule.to.replaceAll(':splat', splat);
+      // Collapsing slash runs keeps a target without a scheme from turning scheme-relative.
+      const location = /^\w+:\/\//.test(target) ? target : target.replace(/\/+/g, '/');
+      return { location, status: rule.status };
     }
   }
   return null;

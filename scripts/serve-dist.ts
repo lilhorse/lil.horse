@@ -1,6 +1,6 @@
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { extname, join, normalize, resolve, sep } from 'node:path';
+import { extname, join, normalize, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { headersFor, parseHeaders, type HeaderRule } from '../src/lib/headers';
 import { matchRedirect, parseRedirects, type Redirect } from '../src/lib/redirects';
@@ -30,7 +30,9 @@ const TYPES: Record<string, string> = {
 };
 
 // Cloudflare reads these two files; it never serves them.
-const CONTROL_FILES = new Set(['/_headers', '/_redirects']);
+const CONTROL_FILES = new Set(['_headers', '_redirects']);
+// Cloudflare's default for files that no _headers rule caches.
+const REVALIDATE = 'public, max-age=0, must-revalidate';
 
 function isFile(path: string): boolean {
   try {
@@ -40,22 +42,50 @@ function isFile(path: string): boolean {
   }
 }
 
-/** Maps a request path to a file the way build.format 'file' lays out dist/. */
+/** Cloudflare reads an origin-form target as a path, even one that starts with '//'. */
+function requestUrl(target: string): URL | null {
+  return URL.parse(target.startsWith('/') ? `http://localhost${target}` : target);
+}
+
+const decodeSegment = (segment: string) => {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+};
+
+/** Where Cloudflare serves a path: each segment decoded and re-encoded, slash runs collapsed. */
+function canonicalPath(pathname: string): string {
+  return pathname
+    .split('/')
+    .map(decodeSegment)
+    .join('/')
+    .replace(/\/+/g, '/')
+    .split('/')
+    .map(encodeURIComponent)
+    .join('/');
+}
+
+/** Maps a request target to a file the way build.format 'file' lays out dist/. */
 export function resolveDistFile(dist: string, url: string): { file: string; status: 200 | 404 } {
   const root = resolve(dist);
   const notFound = { file: join(root, '404.html'), status: 404 as const };
+  const pathname = requestUrl(url)?.pathname;
+  if (!pathname) return notFound;
   let path: string;
   try {
-    path = decodeURIComponent(new URL(url, 'http://localhost').pathname);
+    path = decodeURIComponent(pathname);
   } catch {
     return notFound;
   }
-  if (CONTROL_FILES.has(path)) return notFound;
   const candidates =
     path === '/' ? ['index.html'] : [path, `${path}.html`, join(path, 'index.html')];
   for (const candidate of candidates) {
     const file = normalize(join(root, candidate));
-    if (file.startsWith(root + sep) && isFile(file)) return { file, status: 200 };
+    if (!file.startsWith(root + sep) || CONTROL_FILES.has(relative(root, file).toLowerCase()))
+      continue;
+    if (isFile(file)) return { file, status: 200 };
   }
   return notFound;
 }
@@ -71,19 +101,21 @@ export function serveDist(dist: string, port: number) {
   const rules: HeaderRule[] = parseHeaders(readControlFile(dist, '_headers'));
   return createServer((request, response) => {
     // A malformed target must not crash the server; resolveDistFile answers it with the 404 page.
-    const url = URL.parse(request.url ?? '/', 'http://localhost') ?? new URL('http://localhost');
+    const url = requestUrl(request.url ?? '/') ?? new URL('http://localhost');
     const extra = headersFor(rules, url.pathname);
     const redirect = matchRedirect(redirects, url.pathname);
-    if (redirect) {
-      response.writeHead(redirect.status, {
+    const canonical = canonicalPath(url.pathname);
+    if (redirect || canonical !== url.pathname) {
+      response.writeHead(redirect?.status ?? 307, {
         ...extra,
-        location: `${redirect.location}${url.search}`,
+        location: `${redirect?.location ?? canonical}${url.search}`,
       });
       response.end();
       return;
     }
     const { file, status } = resolveDistFile(dist, request.url ?? '/');
     response.writeHead(status, {
+      'cache-control': REVALIDATE,
       ...extra,
       'content-type': TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream',
     });

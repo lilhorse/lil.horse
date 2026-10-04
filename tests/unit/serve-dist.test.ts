@@ -47,7 +47,33 @@ describe('resolveDistFile', () => {
     expect(resolveDistFile(root, '/%2e%2e/%2e%2e/etc/passwd')).toEqual(missing);
     expect(resolveDistFile(root, '/%E0%A4%A')).toEqual(missing);
   });
+
+  it('never serves _headers or _redirects, however the path spells them', async () => {
+    const root = await dist();
+    await writeFile(join(root, '_headers'), '/*\n');
+    await writeFile(join(root, '_redirects'), '/a /b 301\n');
+    const missing = { file: join(root, '404.html'), status: 404 };
+    for (const path of [
+      '/_headers',
+      '/_redirects',
+      '/%2F_headers',
+      '/.%2F_headers',
+      '/blog%2F..%2F_redirects',
+      '/_HEADERS',
+    ])
+      expect(resolveDistFile(root, path), path).toEqual(missing);
+  });
 });
+
+/** Sends the target as written; fetch() would normalize it first. */
+function rawGet(port: number, path: string) {
+  return new Promise<{ status?: number; location?: string }>((done, fail) => {
+    get({ host: '127.0.0.1', port, path }, (response) => {
+      response.resume();
+      done({ status: response.statusCode, location: response.headers.location });
+    }).on('error', fail);
+  });
+}
 
 describe('serveDist', () => {
   it('keeps serving while dist/ is empty during a rebuild', async () => {
@@ -94,11 +120,15 @@ describe('serveDist', () => {
       expect(moved.status).toBe(301);
       expect(moved.headers.get('location')).toBe('/blog/douban?x=1');
       expect(moved.headers.get('x-content-type-options')).toBe('nosniff');
+      expect(moved.headers.get('cache-control')).toBeNull();
       expect((await request('/blog/')).headers.get('location')).toBe('/blog');
       const page = await request('/blog/douban');
       expect(page.status).toBe(200);
       expect(page.headers.get('content-security-policy')).toBe("default-src 'self'");
-      expect(page.headers.get('cache-control')).toBeNull();
+      expect(page.headers.get('cache-control')).toBe('public, max-age=0, must-revalidate');
+      const missing = await request('/nope');
+      expect(missing.status).toBe(404);
+      expect(missing.headers.get('cache-control')).toBe('public, max-age=0, must-revalidate');
       const media = await request('/_media/k/480.webp');
       expect(media.headers.get('content-security-policy')).toBe('sandbox');
       expect(media.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
@@ -109,18 +139,35 @@ describe('serveDist', () => {
     }
   });
 
+  it('keeps redirects on the site and sends odd spellings to the canonical path', async () => {
+    const root = await dist();
+    await writeFile(join(root, '_redirects'), '/*/ /:splat 301\n');
+    const server = serveDist(root, 0);
+    await once(server, 'listening');
+    const { port } = server.address() as AddressInfo;
+    try {
+      for (const [path, status, location] of [
+        ['//evil.com/', 301, '/evil.com'],
+        ['//evil.com/x/', 301, '/evil.com/x'],
+        ['http://localhost//evil.com/', 301, '/evil.com'],
+        ['/%5Fmedia/k/480.webp', 307, '/_media/k/480.webp'],
+        ['/blog/tags/%e4%b8%ad%e6%96%87', 307, '/blog/tags/%E4%B8%AD%E6%96%87'],
+        ['//blog?x=1', 307, '/blog?x=1'],
+        ['/%2F_headers', 307, '/_headers'],
+        ['/blog/tags/%E4%B8%AD%E6%96%87', 200, undefined],
+      ] as const)
+        expect(await rawGet(port, path), path).toEqual({ status, location });
+    } finally {
+      server.close();
+    }
+  });
+
   it('answers a malformed request target with the 404 page and keeps serving', async () => {
     const server = serveDist(await dist(), 0);
     await once(server, 'listening');
     const { port } = server.address() as AddressInfo;
     try {
-      const status = await new Promise<number | undefined>((done, fail) => {
-        get({ host: '127.0.0.1', port, path: '//[' }, (response) => {
-          response.resume();
-          done(response.statusCode);
-        }).on('error', fail);
-      });
-      expect(status).toBe(404);
+      expect((await rawGet(port, 'http://[/')).status).toBe(404);
       const after = await fetch(`http://127.0.0.1:${port}/blog`);
       expect(after.status).toBe(200);
       await after.text();
