@@ -33,7 +33,7 @@ describe('Neofetch', () => {
     expect(rows(html)).toEqual([
       'Role: Developer',
       'Location: Auckland',
-      'Stack: TypeScript · Go',
+      'Stack: TypeScript\u00a0· Go',
       'Status: Open to work',
       'Contact: sup@lil.horse · github',
     ]);
@@ -42,6 +42,13 @@ describe('Neofetch', () => {
     expect(html).toContain('<dd class="status open">');
     expect(html).toContain('<p class="bio">Indie Coder &amp; GFW Hater.</p>');
     expect(await htmlErrors(html)).toEqual([]);
+  });
+
+  it('keeps each stack item and its separator together when the line wraps', async () => {
+    const html = await render(Neofetch, {
+      profile: { ...profile, stack: ['TypeScript', 'Tailwind CSS', 'Go'] },
+    });
+    expect(html).toContain('<dd>TypeScript\u00a0· Tailwind\u00a0CSS\u00a0· Go</dd>');
   });
 
   it('leaves out the stack and contact rows when they are empty', async () => {

@@ -42,7 +42,7 @@ const social = socialLinks(profile);
       {profile.stack.length > 0 && (
         <div>
           <dt>Stack</dt>
-          <dd>{profile.stack.join(' · ')}</dd>
+          <dd>{profile.stack.map((item) => item.replaceAll(' ', '\u00a0')).join('\u00a0· ')}</dd>
         </div>
       )}
       <div>
@@ -107,6 +107,11 @@ const social = socialLinks(profile);
     flex-wrap: wrap;
     align-items: baseline;
     column-gap: 1ch;
+  }
+  /* A long value wraps beside its label instead of dropping below it. */
+  dd {
+    flex: 1 1 0;
+    min-inline-size: 0;
   }
   dt {
     color: var(--accent);
