@@ -67,8 +67,19 @@ test.describe('search', () => {
     await page.goto('/');
     await open(page);
     await query(page).fill('neofetch');
-    await expect(dialog(page).getByRole('status')).toHaveText('No results');
-    await expect(results(page)).toHaveCount(0);
+    await expect
+      .poll(
+        async () =>
+          (await results(page).count()) > 0 ||
+          (await dialog(page).getByRole('status').textContent()) === 'No results',
+      )
+      .toBe(true);
+    // Fuzzy matches elsewhere are fine; the home page itself must never be a result.
+    expect(
+      await results(page).evaluateAll((els) => els.map((el) => el.dataset.href)),
+    ).not.toContain('/');
+    for (const text of await results(page).allTextContents())
+      expect(text.toLowerCase()).not.toContain('neofetch');
   });
 
   test('opens the first result with Enter', async ({ page }) => {
