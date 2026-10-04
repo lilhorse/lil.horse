@@ -138,6 +138,9 @@ describe('Base layout', () => {
     expect(html).toContain(
       '<button class="link-button" type="button" data-palette-open>search</button>',
     );
+    expect(
+      html.match(/<dialog class="help" data-help aria-labelledby="help-title">/g),
+    ).toHaveLength(1);
   });
 
   it('asks the browser to prerender hovered page links', async () => {

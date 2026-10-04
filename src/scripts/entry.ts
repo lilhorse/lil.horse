@@ -1,4 +1,6 @@
+import type { Help } from './help';
 import type { Palette } from './palette';
+import { initShortcuts } from './shortcuts';
 import { initTheme } from './theme';
 
 function storage(): Storage | null {
@@ -9,28 +11,37 @@ function storage(): Storage | null {
   }
 }
 
-function isEditable(target: EventTarget | null): boolean {
-  return (
-    target instanceof HTMLElement &&
-    (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
+const store = storage();
+const theme = initTheme(document, {
+  storage: store,
+  media: matchMedia('(prefers-color-scheme: dark)'),
+});
+const navigate = (href: string) => location.assign(href);
+
+const paletteDialog = document.querySelector<HTMLDialogElement>('dialog[data-palette]');
+const helpDialog = document.querySelector<HTMLDialogElement>('dialog[data-help]');
+let palette: Promise<Palette> | undefined;
+let help: Promise<Help> | undefined;
+
+function openHelp(): void {
+  if (!helpDialog) return;
+  help ??= import('./help').then(({ setupHelp }) => setupHelp(helpDialog, store));
+  void help.then(
+    (ready) => ready.open(),
+    () => {
+      help = undefined;
+    },
   );
 }
 
-const theme = initTheme(document, {
-  storage: storage(),
-  media: matchMedia('(prefers-color-scheme: dark)'),
-});
-
-const dialog = document.querySelector<HTMLDialogElement>('dialog[data-palette]');
-let palette: Promise<Palette> | undefined;
-
 function openPalette(): Promise<void> {
-  if (!dialog) return Promise.reject(new Error('This page has no command palette'));
+  if (!paletteDialog) return Promise.reject(new Error('This page has no command palette'));
   palette ??= import('./palette').then(({ setupPalette }) =>
-    setupPalette(dialog, {
+    setupPalette(paletteDialog, {
       theme,
-      navigate: (href) => location.assign(href),
+      navigate,
       copy: (text) => navigator.clipboard.writeText(text),
+      openHelp,
     }),
   );
   return palette.then(
@@ -43,9 +54,10 @@ function openPalette(): Promise<void> {
 }
 
 const ignore = () => undefined;
+const showPalette = () => void openPalette().catch(ignore);
 
 for (const button of document.querySelectorAll('[data-palette-open]'))
-  button.addEventListener('click', () => void openPalette().catch(ignore));
+  button.addEventListener('click', showPalette);
 const menu = document.querySelector<HTMLDetailsElement>('.site-menu');
 menu?.querySelector('summary')?.addEventListener('click', (event) => {
   // Closing the fallback menu must not wait for another attempt to load the palette.
@@ -55,21 +67,12 @@ menu?.querySelector('summary')?.addEventListener('click', (event) => {
     menu.open = true;
   });
 });
-document.addEventListener('keydown', (event) => {
-  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-    event.preventDefault();
-    void openPalette().catch(ignore);
-  } else if (
-    event.key === '/' &&
-    !event.metaKey &&
-    !event.ctrlKey &&
-    !event.altKey &&
-    !isEditable(event.target) &&
-    !dialog?.open
-  ) {
-    event.preventDefault();
-    void openPalette().catch(ignore);
-  }
+initShortcuts(document, {
+  storage: store,
+  openPalette: showPalette,
+  openHelp,
+  cycleTheme: theme.cycle,
+  navigate,
 });
 if (!/Mac|iPhone|iPad/.test(navigator.platform)) {
   for (const key of document.querySelectorAll('[data-palette-open] kbd'))

@@ -32,6 +32,7 @@ describe('CommandPalette', () => {
     for (const action of ['theme', 'copy-email', 'email'])
       expect(html).toContain(`data-action="${action}"`);
     expect(html).toContain('id="palette-rss" data-href="/feed.xml"');
+    expect(html).toContain('id="palette-help" data-action="help"');
     expect(html).toContain('<button type="button" data-theme-set="system" aria-pressed="true">');
     expect(html).toContain('<button type="button" data-theme-set="dark" aria-pressed="false">');
     expect(await htmlErrors(html)).toEqual([]);

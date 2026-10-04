@@ -1,0 +1,174 @@
+---
+const ROWS: { keys: string[][]; joiner?: string; does: string }[] = [
+  {
+    keys: [
+      ['⌘', 'K'],
+      ['Ctrl', 'K'],
+    ],
+    joiner: 'or',
+    does: 'Open the command palette',
+  },
+  { keys: [['/']], does: 'Search' },
+  {
+    keys: [['g'], ['h'], ['b'], ['p'], ['a']],
+    joiner: 'then',
+    does: 'Go home, or to the blog, projects or about',
+  },
+  { keys: [['['], [']']], does: 'Older or newer post' },
+  { keys: [['t']], does: 'Switch theme' },
+  { keys: [['?']], does: 'Show this help' },
+];
+---
+
+<dialog class="help" data-help aria-labelledby="help-title">
+  <div class="box">
+    <div class="head">
+      <h2 id="help-title">Keyboard shortcuts</h2>
+      <button class="close" type="button" data-help-close aria-label="Close">
+        esc
+      </button>
+    </div>
+    <label class="switch">
+      <input type="checkbox" data-shortcuts-toggle checked />
+      Single-key shortcuts
+    </label>
+    <p class="note">⌘K and Ctrl+K always open the command palette.</p>
+    <dl>
+      {ROWS.map((row) => (
+        <div class="row">
+          <dt>
+            {row.keys.map((combo, index) => (
+              <Fragment>
+                {index > 0 &&
+                  (row.joiner ? (
+                    <Fragment>
+                      {' '}
+                      <span class="joiner">{row.joiner}</span>{' '}
+                    </Fragment>
+                  ) : (
+                    ' '
+                  ))}
+                <span class="combo">
+                  {combo.map((key) => (
+                    <kbd>{key}</kbd>
+                  ))}
+                </span>
+              </Fragment>
+            ))}
+          </dt>
+          <dd>{row.does}</dd>
+        </div>
+      ))}
+    </dl>
+  </div>
+</dialog>
+
+<style>
+  .help {
+    inline-size: min(520px, calc(100vw - 32px));
+    margin: 12vh auto 0;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-mono);
+    font-size: var(--text-cmd);
+    box-shadow: 0 24px 64px rgb(0 0 0 / 0.35);
+  }
+  .help::backdrop {
+    background: rgb(0 0 0 / 0.45);
+  }
+  .box {
+    display: grid;
+    gap: 14px;
+    padding: 16px 18px 20px;
+  }
+  .head {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+  }
+  h2 {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .close {
+    padding: 2px 6px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-bar);
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+  .switch {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    min-block-size: 44px;
+    cursor: pointer;
+  }
+  .switch input {
+    inline-size: 18px;
+    block-size: 18px;
+    margin: 0;
+    accent-color: var(--accent);
+  }
+  .note {
+    color: var(--muted);
+    font-size: var(--text-ui);
+  }
+  dl {
+    display: grid;
+    gap: 10px;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+    gap: 12px;
+    align-items: baseline;
+  }
+  dt {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+    align-items: baseline;
+  }
+  .joiner {
+    color: var(--muted);
+    font-size: var(--text-ui);
+  }
+  .combo {
+    display: inline-flex;
+    gap: 2px;
+  }
+  kbd {
+    padding: 0 5px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-bar);
+    color: var(--fg);
+    font: inherit;
+    font-size: 0.75rem;
+    line-height: 1.6;
+  }
+  dd {
+    color: var(--fg-soft);
+  }
+  @media (max-width: 639.98px) {
+    .help {
+      inline-size: 100vw;
+      max-inline-size: none;
+      margin: 0;
+      border: 0;
+      border-radius: 0;
+    }
+    .row {
+      grid-template-columns: 1fr;
+      gap: 4px;
+    }
+  }
+</style>
