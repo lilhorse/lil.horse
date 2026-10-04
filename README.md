@@ -88,7 +88,9 @@ The Worker is in `src/worker/hook.ts`. It handles `POST /hooks/notion`, answers 
 
 The deploy workflow also runs on every push to `main`, every day at 17:00 UTC with `NOTION_FULL_REFRESH=1`, and by hand from the Actions tab or with `gh workflow run deploy.yml` (add `-f full_refresh=true` for a full refresh). It deploys only `main`: a run started by hand on another branch skips the job. A newer run cancels one still in progress, so a burst of edits deploys once. The `.cache/` page cache and Astro's data store in `node_modules/.astro` are restored from the last successful run.
 
-To deploy from a laptop, run `pnpm build && pnpm check:dist && pnpm exec wrangler deploy` after `pnpm exec wrangler login`.
+To deploy from a laptop, run `pnpm build && pnpm check:dist && pnpm smoke:worker && pnpm exec wrangler deploy` after `pnpm exec wrangler login`.
+
+`pnpm smoke:worker` uses `wrangler dev` to start the Worker and the last build in `dist/` under workerd, the runtime Cloudflare runs. It then checks the status codes of `GET /hooks/notion`, an unsigned `POST /hooks/notion`, `GET /hooks/other` and `GET /`. It never loads `.dev.vars` or `.env`, so no local secret reaches the Worker, and it listens on port 8787 unless `WORKER_SMOKE_PORT` names another. It should pass before any deploy that changes the Worker: `wrangler deploy --dry-run` only bundles the Worker and never starts the runtime, so it cannot tell whether the Worker starts.
 
 ### Notion webhook
 
@@ -139,7 +141,7 @@ If a deployment is bad, run `pnpm exec wrangler rollback` after `pnpm exec wrang
 `.github/workflows/ci.yml` runs on pull requests, on pushes to `rebuild/**` branches and by hand:
 
 - `test`: `pnpm lint`, `pnpm check`, `pnpm format:check` and `pnpm test`.
-- `e2e`: a fixture build, `pnpm check:dist`, `wrangler deploy --dry-run` (bundles the Worker and validates `wrangler.jsonc` without deploying) and `pnpm test:e2e`, in the Playwright Docker image, so the Linux screenshot baselines come from the same fonts and browsers. When it fails, `test-results/` is kept as the `e2e-results` artifact.
+- `e2e`: a fixture build, `pnpm check:dist`, `wrangler deploy --dry-run` (bundles the Worker and validates `wrangler.jsonc` without deploying), `pnpm smoke:worker` (starts the Worker under workerd) and `pnpm test:e2e`, in the Playwright Docker image, so the Linux screenshot baselines come from the same fonts and browsers. When it fails, `test-results/` is kept as the `e2e-results` artifact.
 - `lighthouse`: a fixture build and `pnpm lighthouse`, which runs Lighthouse CI (mobile emulation, three runs) on the home page, the blog list, a post, the projects list and About, and fails when the median performance score is under 0.98 or any run scores under 1 for accessibility, best practices or SEO. The reports are kept as the `lighthouse-reports` artifact.
 - `preview`: for pull requests from this repository only, a build from live Notion data is uploaded as a Worker version with the alias `pr-<number>`, and a comment on the pull request links the version URL and `https://pr-<number>-lil-horse.lilhorse.workers.dev`. The comment names the pull request's head commit and the merge commit that was built, whose hash the site footer shows. Each push updates the same comment: the alias follows the latest push, and the version URL keeps showing its own build. Uploaded versions are never deployed and do not change what `wrangler rollback` returns to.
 
@@ -180,6 +182,7 @@ pnpm dev
 | `pnpm lint`            | Runs ESLint                                                        |
 | `pnpm check`           | Type-checks the project without syncing Notion                     |
 | `pnpm check:dist`      | Checks the build output in `dist/`                                 |
+| `pnpm smoke:worker`    | Starts the Worker under workerd and checks how it answers          |
 | `pnpm lighthouse`      | Runs Lighthouse CI against the last build in `dist/`               |
 | `pnpm record:fixtures` | Records sanitized fixtures from the live workspace                 |
 | `pnpm brand`           | Regenerates the logo, favicons and app icons from `brand/horse.ts` |
@@ -192,6 +195,7 @@ pnpm dev
 | `NOTION_INCLUDE_DRAFTS=1` | Includes Draft posts; the `dev` script sets it              |
 | `NOTION_SKIP_SYNC=1`      | Skips the Notion sync; the `check` script sets it           |
 | `E2E_PORT`                | Port of the end-to-end and Lighthouse server (default 4322) |
+| `WORKER_SMOKE_PORT`       | Port of `pnpm smoke:worker` (default 8787)                  |
 
 Only `NOTION_TOKEN` belongs in `.env`; a flag set there would apply to every build. Set the others per command: `pnpm build:fixtures` sets `NOTION_FIXTURES`, and `NOTION_FULL_REFRESH=1 pnpm build` runs a full refresh. `pnpm build` refuses to run while `NOTION_SKIP_SYNC` or `NOTION_INCLUDE_DRAFTS` is set.
 

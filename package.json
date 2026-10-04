@@ -18,6 +18,7 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "check:dist": "tsx scripts/check-dist.ts",
+    "smoke:worker": "tsx scripts/worker-smoke.ts",
     "record:fixtures": "tsx --env-file=.env scripts/record-fixtures.ts",
     "brand": "tsx brand/build.ts",
     "lighthouse": "lhci autorun"
