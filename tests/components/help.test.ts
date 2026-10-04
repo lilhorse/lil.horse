@@ -16,7 +16,10 @@ describe('ShortcutsHelp', () => {
     expect(rows).toEqual([
       '⌘K or CtrlKOpen the command palette',
       '/Search',
-      'g then h then b then p then aGo home, or to the blog, projects or about',
+      'g then hGo home',
+      'g then bGo to the blog',
+      'g then pGo to projects',
+      'g then aGo to about',
       '[ ]Older or newer post',
       'tSwitch theme',
       '?Show this help',
