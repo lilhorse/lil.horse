@@ -53,6 +53,7 @@ test('sends the security headers everywhere and long caches only for hashed file
   expect(page['content-security-policy']).toMatch(
     /^default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'inline-speculation-rules' 'sha256-/,
   );
+  expect(page['content-security-policy']).toContain("; object-src 'none'; ");
   expect(page['content-security-policy']).toContain("frame-ancestors 'none'");
   expect(page['x-content-type-options']).toBe('nosniff');
   expect(page['referrer-policy']).toBe('strict-origin-when-cross-origin');

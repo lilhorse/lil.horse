@@ -65,7 +65,7 @@ export function matchRedirect(
   return null;
 }
 
-/** Every static target must be a page of this build, and the one dynamic rule must come last. */
+/** Every static rule must lead from no page to a page of this build, and the one dynamic rule must come last. */
 export async function unresolvedRedirects(dist: string): Promise<DistIssue[]> {
   const file = join(dist, '_redirects');
   if (!existsSync(file)) return [{ file: '_redirects', message: 'is missing' }];
@@ -82,6 +82,9 @@ export async function unresolvedRedirects(dist: string): Promise<DistIssue[]> {
         issues.push({ file: '_redirects', message: `${rule.from} must be the last rule` });
       return;
     }
+    // Cloudflare applies redirects before it serves files.
+    if (resolves(dist, rule.from))
+      issues.push({ file: '_redirects', message: `${rule.from} hides a page of this build` });
     if (!resolves(dist, rule.to))
       issues.push({ file: '_redirects', message: `${rule.from} redirects to missing ${rule.to}` });
   });

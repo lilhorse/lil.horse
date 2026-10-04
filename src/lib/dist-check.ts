@@ -23,6 +23,8 @@ export interface StartTag {
   tag: string;
   name: string;
   text: string;
+  /** Inside <svg> or <math>, where a script's text is parsed as markup. */
+  foreign: boolean;
 }
 
 const EXPIRING =
@@ -30,8 +32,11 @@ const EXPIRING =
 const STATIC_IMPORT = /\b(?:import|export)\s*(?:[\w$*{}\s,]+?\s*from\s*)?["']([^"']+)["']/g;
 // These narrow character classes keep the scan linear on malformed markup.
 const START_TAG_OR_COMMENT =
-  /<!--|<([a-zA-Z][^\s"'<>/=]*)(?:\s+[^\s"'<>/=]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'<>]+))?)*\s*\/?>/g;
-const ATTRIBUTE = /\s([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>]+)))?/g;
+  /<!--|<\/(svg|math)[\s/>]|<([a-z][^\s"'<>/=]*)(?:(?:\s+|(?<=["']))[^\s"'<>/=]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'<>]+))?)*\s*\/?>/gi;
+const ATTRIBUTE = /(?:\s|(?<=["']))([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>]+)))?/g;
+// After "<!--", a "<script" start keeps the next "</script>" inside the text, as browsers parse it.
+const SCRIPT_DATA = /<!--|-->|<(\/?)script[\t\n\f\r />]/gi;
+const STYLE_END = /<\/style[\t\n\f\r />]/gi;
 const TEXT_FILES = new Set([
   '.html',
   '.xml',
@@ -70,32 +75,70 @@ function decodePath(path: string): string {
   }
 }
 
-/** Every start tag in document order; script and style tags carry their raw contents. */
+function commentEnd(html: string, start: number): number {
+  // Browsers close "<!-->" and "<!--->" at once, so "-->" may overlap the opener; "--!>" also closes.
+  const plain = html.indexOf('-->', start + 2);
+  const bang = html.indexOf('--!>', start + 4);
+  if (bang !== -1 && (plain === -1 || bang < plain)) return bang + 4;
+  return plain === -1 ? html.length : plain + 3;
+}
+
+function nextIndex(pattern: RegExp, html: string, from: number): number {
+  const search = new RegExp(pattern);
+  search.lastIndex = from;
+  return search.exec(html)?.index ?? html.length;
+}
+
+function scriptEnd(html: string, from: number): number {
+  const token = new RegExp(SCRIPT_DATA);
+  token.lastIndex = from;
+  let state: 'data' | 'escaped' | 'double' = 'data';
+  for (let match = token.exec(html); match; match = token.exec(html)) {
+    if (match[0] === '<!--') {
+      if (state === 'data') state = 'escaped';
+      token.lastIndex = match.index + 2;
+    } else if (match[0] === '-->') state = 'data';
+    else if (!match[1]) {
+      if (state === 'escaped') state = 'double';
+    } else if (state === 'double') state = 'escaped';
+    else return match.index;
+  }
+  return html.length;
+}
+
+/** Every start tag in document order; script and style tags carry their text as the browser parses it. */
 export function startTags(html: string): StartTag[] {
   const tags: StartTag[] = [];
   const pattern = new RegExp(START_TAG_OR_COMMENT);
+  let foreignDepth = 0;
   for (let match = pattern.exec(html); match; match = pattern.exec(html)) {
-    const [tag, name] = match;
+    const [tag, foreignEnd, rawName = ''] = match;
     if (tag === '<!--') {
-      // Browsers close "<!-->" and "<!--->" at once, so "-->" may overlap the opener.
-      const end = html.indexOf('-->', match.index + 2);
-      pattern.lastIndex = end === -1 ? html.length : end + 3;
+      pattern.lastIndex = commentEnd(html, match.index);
       continue;
     }
+    if (foreignEnd) {
+      foreignDepth = Math.max(0, foreignDepth - 1);
+      continue;
+    }
+    const name = rawName.toLowerCase();
+    const foreign = foreignDepth > 0;
+    if ((name === 'svg' || name === 'math') && !tag.endsWith('/>')) foreignDepth += 1;
     let text = '';
     if (name === 'script' || name === 'style') {
-      const end = html.indexOf(`</${name}>`, pattern.lastIndex);
-      text = html.slice(pattern.lastIndex, end === -1 ? html.length : end);
-      pattern.lastIndex += text.length;
+      const from = pattern.lastIndex;
+      const end = name === 'script' ? scriptEnd(html, from) : nextIndex(STYLE_END, html, from);
+      text = html.slice(from, end).replace(/\r\n?/g, '\n').replace(/\0/g, '\uFFFD');
+      pattern.lastIndex = end;
     }
-    tags.push({ tag, name, text });
+    tags.push({ tag, name, text, foreign });
   }
   return tags;
 }
 
 export function attribute(tag: string, wanted: string): string | undefined {
   for (const [, name, double, single, bare] of tag.matchAll(ATTRIBUTE)) {
-    if (name === wanted) return double ?? single ?? bare ?? '';
+    if (name?.toLowerCase() === wanted) return double ?? single ?? bare ?? '';
   }
   return undefined;
 }

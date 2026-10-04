@@ -1,11 +1,15 @@
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { attribute, startTags, type DistIssue } from './dist-check';
 
-// JSON-LD is never executed, so it needs no hash; speculation rules do: Chromium checks them even with 'inline-speculation-rules' present.
+// A hash in script-src disables 'inline-speculation-rules', so speculation rules need their own hash; JSON-LD never runs.
 const DATA_SCRIPT_TYPES = new Set(['application/ld+json']);
+const UNSAFE_SCRIPT_SOURCES = ["'unsafe-inline'", "'unsafe-eval'", "'strict-dynamic'"];
+// Deliberately simpler than startTags, so a mistake in the scan cannot hide behind the scan.
+const PLAIN_SCRIPT =
+  /<!--(?:-?>|[\s\S]*?(?:--!?>|$))|<script(?=[\s/>])([^>]*)>([\s\S]*?)(?:<\/script[\s/>]|$)/gi;
 
 /** The bodies of the scripts a page runs inline; data blocks and external scripts are not hashed. */
 export function inlineScripts(html: string): string[] {
@@ -19,6 +23,15 @@ export function inlineScripts(html: string): string[] {
     )
     .map(({ text }) => text)
     .filter((text) => text !== '');
+}
+
+function countInlineScripts(html: string): number {
+  let count = 0;
+  for (const [, attributes = '', body] of html.matchAll(PLAIN_SCRIPT)) {
+    if (body && !/[\s/]src\s*=/i.test(attributes) && !/application\/ld\+json/i.test(attributes))
+      count += 1;
+  }
+  return count;
 }
 
 export function scriptHash(body: string): string {
@@ -43,17 +56,20 @@ export function cspHeader(hashes: string[]): string {
     "font-src 'self'",
     "connect-src 'self' https://cloudflareinsights.com",
     'frame-src https://giscus.app https://www.youtube-nocookie.com https://player.vimeo.com',
+    "object-src 'none'",
     "base-uri 'self'",
     "form-action 'none'",
     "frame-ancestors 'none'",
   ].join('; ');
 }
 
+/** The built pages; uploads under _media/ run under a sandbox policy of their own. */
 async function htmlFiles(dist: string): Promise<string[]> {
   const entries = await readdir(dist, { withFileTypes: true, recursive: true });
   return entries
     .filter((entry) => entry.isFile() && entry.name.endsWith('.html'))
     .map((entry) => join(entry.parentPath, entry.name))
+    .filter((file) => relative(dist, file).split(sep)[0] !== '_media')
     .sort();
 }
 
@@ -71,16 +87,30 @@ export async function missingCspHashes(dist: string): Promise<DistIssue[]> {
   if (!existsSync(file)) return [{ file: '_headers', message: 'is missing' }];
   const policy = /Content-Security-Policy: (.*)/.exec(await readFile(file, 'utf8'))?.[1] ?? '';
   const listed = new Set(policy.match(/sha256-[A-Za-z0-9+/=]+/g) ?? []);
-  const issues: DistIssue[] = [];
+  const sources = /(?:^|;)\s*script-src ([^;]*)/.exec(policy)?.[1]?.split(/\s+/) ?? [];
+  const issues: DistIssue[] = UNSAFE_SCRIPT_SOURCES.filter((keyword) =>
+    sources.includes(keyword),
+  ).map((keyword) => ({ file: '_headers', message: `script-src allows ${keyword}` }));
   for (const path of await htmlFiles(dist)) {
-    for (const body of inlineScripts(await readFile(path, 'utf8'))) {
+    const html = await readFile(path, 'utf8');
+    const page = relative(dist, path);
+    const bodies = inlineScripts(html);
+    for (const body of bodies) {
       const hash = scriptHash(body);
       if (!listed.has(hash))
-        issues.push({
-          file: relative(dist, path),
-          message: `inline script ${hash} is not in the CSP of _headers`,
-        });
+        issues.push({ file: page, message: `inline script ${hash} is not in the CSP of _headers` });
     }
+    const counted = countInlineScripts(html);
+    if (counted !== bodies.length)
+      issues.push({
+        file: page,
+        message: `inline scripts: a plain count finds ${counted}, the CSP scan read ${bodies.length}`,
+      });
+    if (startTags(html).some(({ name, foreign }) => name === 'script' && foreign))
+      issues.push({
+        file: page,
+        message: 'has a script inside <svg> or <math>, which the CSP scan cannot hash',
+      });
   }
   return issues;
 }

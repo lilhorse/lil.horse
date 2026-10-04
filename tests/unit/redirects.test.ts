@@ -80,4 +80,15 @@ describe('unresolvedRedirects', () => {
       { file: '_redirects', message: 'is missing' },
     ]);
   });
+
+  it('reports a static rule that would hide a page of this build', async () => {
+    const dist = await tempDir('redirects-shadow-');
+    await mkdir(join(dist, 'blog'));
+    await writeFile(join(dist, 'blog', 'helloworld.html'), '');
+    await writeFile(join(dist, 'blog.html'), '');
+    await writeFile(join(dist, '_redirects'), '/blog /blog/helloworld 301\n/*/ /:splat 301\n');
+    expect(await unresolvedRedirects(dist)).toEqual([
+      { file: '_redirects', message: '/blog hides a page of this build' },
+    ]);
+  });
 });

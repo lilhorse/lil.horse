@@ -20,15 +20,16 @@ Content is written in Notion. At build time, Astro reads it through the official
 2. **Sync.** `src/notion/sync.ts` queries the databases, validates every row and turns each page's blocks into a serializable AST. If a row fails validation, the build stops, and the error names the page and the field. `src/notion/` is a self-contained Notion reader: `src/notion/loaders.ts` is the Astro adapter, and an ESLint rule keeps the rest of the folder from importing site code (`sync.ts` has one marked exception).
 3. **Cache.** Each page's AST is cached in `.cache/`. The cached AST is reused while the page, its inline databases and its media stay unchanged. Notion reports edit times to the minute, so pages edited in the last two minutes are never cached. `NOTION_FULL_REFRESH=1` rebuilds every page.
 4. **Media.** Images, files, covers and bookmark previews are downloaded during the build and served from `/_media`, so the site never links to Notion's expiring file URLs. Images are converted to AVIF and WebP at several widths.
-5. **After the pages.** Once every page is built, Pagefind indexes the articles marked `data-pagefind-body` (Published posts, project pages, About and Contact) into one index for both languages, segmented as Chinese, in `dist/pagefind/`. Then `dist/_redirects` and `dist/_headers` are written for Cloudflare, with a Content-Security-Policy that lists the hash of every inline script in the built HTML.
+5. **After the pages.** Once every page is built, Pagefind indexes the articles marked `data-pagefind-body` (Published posts, project pages, About and Contact) into one index for both languages, segmented as Chinese, in `dist/pagefind/`. Then `dist/_redirects` and `dist/_headers` are written for Cloudflare, with a Content-Security-Policy that lists the hash of every inline script in the built pages.
 6. **Output check.** `pnpm check:dist` scans `dist/` for:
    - expiring Notion URLs
    - broken internal links, including the share images named in `og:image` and `twitter:image`
    - missing routes
    - JavaScript, CSS or preloaded fonts over budget
    - invalid HTML
-   - inline scripts whose hash is missing from the CSP
-   - redirects that are not 301 or lead to a page that does not exist
+   - inline scripts whose hash is missing from the CSP, that a second, plain count finds but the scan missed, or that sit inside `<svg>` or `<math>`
+   - `'unsafe-inline'`, `'unsafe-eval'` or `'strict-dynamic'` in the CSP's `script-src`
+   - redirects that are not 301, lead to a page that does not exist or hide a built page
 
 ## Design
 
@@ -68,7 +69,7 @@ At the end of the build, `integrations/cloudflare.ts` writes two files that Clou
 - `_redirects`, built in `src/lib/redirects.ts`, sends the old site's addresses to the new ones with 301: each post's and page's Notion ID, alone or after its slug (`/<id>`, `/<slug>-<id>`), the two posts that used to live at the root (`/helloworld`, `/douban`) and `/feed`. A final rule strips trailing slashes.
 - `_headers`, built in `src/lib/headers.ts`, sets the Content-Security-Policy and the other security headers for every path. It marks `/_astro/`, `/_media/` and the Pagefind index as immutable for a year, and puts uploaded files in `/_media/` under a sandboxing policy of their own.
 
-The Content-Security-Policy, built in `src/lib/csp.ts`, has no `'unsafe-inline'` in `script-src`. Instead, the build scans `dist/` and lists the hash of every inline script the pages run. Never add or edit a hash by hand; change the script and rebuild. `pnpm check:dist` fails if a page has an inline script whose hash is missing. Beyond the site itself, the policy allows Giscus (its script, its frame and the `default.css` that its `client.js` adds to the page), the Cloudflare Web Analytics beacon, YouTube and Vimeo embeds, and WebAssembly for Pagefind.
+The Content-Security-Policy, built in `src/lib/csp.ts`, has no `'unsafe-inline'` in `script-src`. Instead, the build scans `dist/` and lists the hash of every inline script the pages run, hashing the text as browsers do (line ends become `\n`). Uploaded files in `/_media/` are not scanned, so a script in an upload never widens the site's policy. Never add or edit a hash by hand; change the script and rebuild. `pnpm check:dist` fails if a page has an inline script whose hash is missing. Beyond the site itself, the policy allows Giscus (its script, its frame and the `default.css` that its `client.js` adds to the page), the Cloudflare Web Analytics beacon, YouTube and Vimeo embeds, and WebAssembly for Pagefind. It allows no plugins (`object-src 'none'`).
 
 `pnpm preview` ignores both files. To try them locally, run `pnpm exec tsx scripts/serve-dist.ts 4323`, which serves `dist/` on port 4323 and applies the redirects and headers as Cloudflare would. The end-to-end tests use the same server.
 
