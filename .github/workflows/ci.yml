@@ -109,9 +109,13 @@ jobs:
         id: upload
         run: |
           pnpm exec wrangler versions upload --preview-alias "pr-$PR_NUMBER" --message "PR #$PR_NUMBER $HEAD_SHA" | tee upload.log
+          if ! urls=$(grep -o 'https://[A-Za-z0-9.-]*\.workers\.dev' upload.log | sort -u); then
+            echo '::error::wrangler versions upload printed no workers.dev URL. Check that wrangler.jsonc still sets workers_dev and preview_urls to true.'
+            exit 1
+          fi
           {
             echo 'urls<<EOF'
-            grep -o 'https://[A-Za-z0-9.-]*\.workers\.dev' upload.log | sort -u
+            echo "$urls"
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
         env:
@@ -124,9 +128,9 @@ jobs:
           {
             echo '### Preview'
             echo
-            echo "Built from $HEAD_SHA with live Notion data. The alias address follows the latest push; the version address is this build only."
+            echo "Built with live Notion data from head commit ${HEAD_SHA:0:7} merged into $GITHUB_BASE_REF. The site footer shows the merge commit, ${GITHUB_SHA:0:7}. The alias address follows the latest push; the version address is this build only."
             echo
-            sed 's/^/- /' <<< "$URLS"
+            echo "- ${URLS//$'\n'/$'\n'- }"
           } > comment.md
           gh pr comment "$PR_NUMBER" --edit-last --create-if-none --body-file comment.md
         env:
