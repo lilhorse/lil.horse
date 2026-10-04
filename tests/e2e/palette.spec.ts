@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { devices, type Page } from '@playwright/test';
 import { expect, test } from './fixtures';
+import { builtFromFixtures, searchableTitle } from './site';
 
 const WCAG = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 const dialog = (page: Page) => page.locator('dialog[data-palette]');
@@ -43,21 +44,24 @@ test('opens with the shortcuts and the header button, and closes with Escape', a
 });
 
 test.describe('search', () => {
-  for (const [text, href] of [
-    ['Schindler', '/blog/douban'],
-    ['辛德勒', '/blog/douban'],
-    ['餐馆', '/blog/douban'],
-    ['当哈利遇到莎莉', '/blog/douban'],
-    ['programming', '/blog/helloworld'],
-  ]) {
-    test(`finds ${text}`, async ({ page }) => {
-      await page.goto('/');
-      await open(page);
-      await query(page).fill(text);
-      await expect(results(page).first()).toHaveAttribute('data-href', href);
-      await expect(results(page).first().locator('mark').first()).toBeVisible();
-    });
-  }
+  test.describe('recall', () => {
+    test.skip(!builtFromFixtures(), 'the queries name what the recorded fixtures contain');
+    for (const [text, href] of [
+      ['Schindler', '/blog/douban'],
+      ['辛德勒', '/blog/douban'],
+      ['餐馆', '/blog/douban'],
+      ['当哈利遇到莎莉', '/blog/douban'],
+      ['programming', '/blog/helloworld'],
+    ]) {
+      test(`finds ${text}`, async ({ page }) => {
+        await page.goto('/');
+        await open(page);
+        await query(page).fill(text);
+        await expect(results(page).first()).toHaveAttribute('data-href', href);
+        await expect(results(page).first().locator('mark').first()).toBeVisible();
+      });
+    }
+  });
 
   test('leaves the navigation and footer out of the index', async ({ page }) => {
     await page.goto('/');
@@ -68,13 +72,21 @@ test.describe('search', () => {
   });
 
   test('opens the first result with Enter', async ({ page }) => {
+    const title = await searchableTitle(page);
     await page.goto('/');
     await open(page);
-    await query(page).fill('Schindler');
-    await expect(results(page).first()).toHaveAttribute('aria-selected', 'true');
-    await expect(results(page).first()).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    await query(page).fill(title);
+    const first = results(page).first();
+    await expect(first).toBeVisible();
+    // A command that also matches the title keeps the selection; the arrows wrap round to the results.
+    for (let step = 0; (await first.getAttribute('aria-selected')) !== 'true'; step += 1) {
+      expect(step, 'arrow presses').toBeLessThan(20);
+      await page.keyboard.press('ArrowDown');
+    }
+    await expect(first).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    const href = new URL((await first.getAttribute('data-href')) ?? '', page.url()).href;
     await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(/\/blog\/douban$/);
+    await expect(page).toHaveURL(href);
   });
 });
 
@@ -117,11 +129,12 @@ test('copies the address built at runtime, which the HTML never spells out', asy
 });
 
 test('is accessible while open, in both themes', async ({ page }) => {
+  const title = await searchableTitle(page);
   for (const colorScheme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme });
     await page.goto('/blog');
     await open(page);
-    await query(page).fill('Schindler');
+    await query(page).fill(title);
     await expect(results(page).first()).toBeVisible();
     expect(await violations(page), `${colorScheme}, results`).toEqual([]);
     await query(page).fill('zzzqqq');

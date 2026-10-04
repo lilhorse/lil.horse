@@ -1,4 +1,5 @@
 import { expect, test } from './fixtures';
+import { pagePaths } from './site';
 
 test('serves a full-text RSS 2.0 feed with absolute addresses', async ({ request }) => {
   const response = await request.get('/feed.xml');
@@ -6,7 +7,11 @@ test('serves a full-text RSS 2.0 feed with absolute addresses', async ({ request
   expect(response.headers()['content-type']).toContain('xml');
   const xml = await response.text();
   expect(xml).toContain('<rss version="2.0"');
-  expect(xml).toContain('<link>https://lil.horse/blog/douban</link>');
+  const posts = [...xml.matchAll(/<link>https:\/\/lil\.horse(\/blog\/[^<]+)<\/link>/g)].map(
+    ([, path = '']) => decodeURI(path),
+  );
+  expect(posts.length, 'post links').toBeGreaterThan(0);
+  expect(pagePaths()).toEqual(expect.arrayContaining(posts));
   expect(xml).toContain('<content:encoded>');
   expect(xml).toContain('<copyright>');
   expect(xml).not.toMatch(/<link>[^<]*\.html<\/link>/);

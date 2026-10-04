@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { pageContaining, pagePaths } from './site';
+import { pageContaining, pagePaths, searchableTitle } from './site';
 
 const TRANSPARENT = 'rgba(0, 0, 0, 0)';
 
@@ -38,6 +38,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
 }
 
 test('the theme button and the palette work in this engine', async ({ page }) => {
+  const title = await searchableTitle(page);
   await page.emulateMedia({ colorScheme: 'light' });
   await page.goto('/');
   const before = (await colours(page)).body;
@@ -48,9 +49,8 @@ test('the theme button and the palette work in this engine', async ({ page }) =>
   await page.keyboard.press('ControlOrMeta+k');
   const query = page.getByRole('combobox', { name: 'Search posts, pages and commands' });
   await expect(query).toBeFocused();
-  await query.fill('Schindler');
-  await expect(page.locator('[data-results] [role="option"]').first()).toHaveAttribute(
-    'data-href',
-    '/blog/douban',
-  );
+  await query.fill(title);
+  const first = page.locator('[data-results] [role="option"]').first();
+  await expect(first).toHaveAttribute('data-href', /^\//);
+  expect(pagePaths()).toContain(decodeURI((await first.getAttribute('data-href')) ?? ''));
 });

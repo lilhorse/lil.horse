@@ -40,6 +40,16 @@ export function builtFromFixtures(): boolean {
   return existsSync(join(DIST, FIXTURE_MARKER));
 }
 
+/** Opens a page the search index covers and returns its title: a query that any build answers. */
+export async function searchableTitle(page: Page): Promise<string> {
+  const path = pageContaining('data-pagefind-body');
+  if (!path) throw new Error('no page in dist/ is indexed for search');
+  await page.goto(encodeURI(path));
+  const title = await page.locator('[data-title]').first().getAttribute('data-title');
+  if (!title) throw new Error(`${path} names no title for search`);
+  return title;
+}
+
 /** Waits for web fonts and for Expressive Code to make overflowing code blocks focusable. */
 export async function settle(page: Page): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
