@@ -1,6 +1,7 @@
 ---
 import { Font } from 'astro:assets';
 import { siteConfig } from '../../site.config';
+import CommandPalette from '../components/shell/CommandPalette.astro';
 import SiteFooter from '../components/shell/SiteFooter.astro';
 import SiteHeader from '../components/shell/SiteHeader.astro';
 import { siteVersion } from '../lib/build-info';
@@ -79,5 +80,6 @@ const canonicalUrl = new URL(canonicalPath, siteConfig.url).toString();
       <slot />
     </main>
     <SiteFooter social={socialLinks(site.profile)} version={siteVersion()} />
+    <CommandPalette posts={site.posts} profile={site.profile} />
   </body>
 </html>

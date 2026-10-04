@@ -201,16 +201,16 @@ test('the skip link appears on focus and jumps to the content', async ({ page })
   await expect(page).toHaveURL(/#main$/);
 });
 
-test('the phone menu opens from the keyboard', async ({ page }, testInfo) => {
+test('the phone menu button opens the command palette from the keyboard', async ({
+  page,
+}, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile', 'phones only');
   await page.goto('/blog');
   const menu = page.locator('.site-menu');
   await menu.locator('summary').focus();
   await page.keyboard.press('Enter');
-  await expect(menu).toHaveAttribute('open', '');
-  await expect(menu.getByRole('link', { name: 'contact' })).toBeVisible();
-  await expect(menu.getByRole('link', { name: 'blog' })).toHaveAttribute('aria-current', 'page');
-  expect(await smallTargets(page, '.site-menu a[href]')).toEqual([]);
+  await expect(page.locator('dialog[data-palette]')).toHaveAttribute('open', '');
+  await expect(menu).not.toHaveAttribute('open', '');
 });
 
 test('the 404 page names the missing path, decoded', async ({ page }) => {

@@ -25,8 +25,24 @@ export interface PageContentDeps {
   warn: (message: string) => void;
 }
 
-// Ids the page layout already uses (Base.astro's <main id="main">) must never become heading anchors.
-const LAYOUT_IDS = ['main'];
+// Ids the page layout already uses (<main>, the dialogs, the comments section) must never become heading anchors.
+const LAYOUT_IDS = [
+  'main',
+  'palette-query',
+  'palette-options',
+  'palette-nav-home',
+  'palette-nav-blog',
+  'palette-nav-projects',
+  'palette-nav-about',
+  'palette-nav-contact',
+  'palette-theme',
+  'palette-copy-email',
+  'palette-email',
+  'palette-rss',
+  'palette-help',
+  'help-title',
+  'comments-title',
+];
 
 export async function buildPageContent(
   pageId: string,

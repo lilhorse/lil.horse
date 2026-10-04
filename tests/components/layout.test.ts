@@ -55,6 +55,13 @@ describe('SiteHeader', () => {
     expect(html.match(/<span class="theme-dark">/g)).toHaveLength(2);
   });
 
+  it('offers a search button that names the shortcut', async () => {
+    const html = await render(SiteHeader, { current: null, path: '~', file: null });
+    expect(html).toContain(
+      '<button class="palette-open" type="button" data-palette-open><span class="button">search <kbd>⌘K</kbd></span></button>',
+    );
+  });
+
   it('offers a theme button whose icon and label CSS picks by preference', async () => {
     const html = await render(SiteHeader, { current: null, path: '~', file: null });
     const button = element(html, '<button class="theme-toggle"', 'button');
@@ -120,6 +127,17 @@ describe('Base layout', () => {
       /media="\(prefers-color-scheme: dark\)">\s*<script>\(\(\)=>\{let p="system";/,
     );
     expect(html.indexOf('let p="system"')).toBeLessThan(html.indexOf('<body'));
+  });
+
+  it('mounts the command palette once, after the footer', async () => {
+    const html = await render(NotFound);
+    expect(html.match(/<dialog class="palette"/g)).toHaveLength(1);
+    expect(html.indexOf('<dialog class="palette"')).toBeGreaterThan(
+      html.indexOf('<footer class="site-footer"'),
+    );
+    expect(html).toContain(
+      '<button class="link-button" type="button" data-palette-open>search</button>',
+    );
   });
 
   it('asks the browser to prerender hovered page links', async () => {

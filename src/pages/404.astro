@@ -16,7 +16,11 @@ import Base from '../layouts/Base.astro';
       </span>
     </p>
     <p class="help">
-      Go <a href="/">home</a> or <a href="/blog">browse the blog</a>.
+      Go <a href="/">home</a>, <a href="/blog">browse the blog</a> or{' '}
+      <button class="link-button" type="button" data-palette-open>
+        search
+      </button>
+      .
     </p>
   </section>
   <script is:inline>
@@ -47,13 +51,26 @@ import Base from '../layouts/Base.astro';
     color: var(--danger);
     overflow-wrap: anywhere;
   }
-  .help a {
+  .help a,
+  .link-button {
     display: inline-flex;
     align-items: center;
     min-block-size: 24px;
   }
+  .link-button {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font: inherit;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
   @media (max-width: 639.98px) {
-    .help a {
+    .help a,
+    .link-button {
       justify-content: center;
       min-block-size: 44px;
       min-inline-size: 44px;

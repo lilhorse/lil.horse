@@ -16,16 +16,26 @@ const noMedia = {
 };
 
 describe('buildPageContent', () => {
-  it('never gives a heading the id the layout uses for <main>', async () => {
+  it('never gives a heading an id the layout, the dialogs or the comments use', async () => {
     const api = new FakeNotionApi();
     const pageId = nextId();
     api.setChildren(pageId, [
       block('heading_1', { rich_text: [rt('Main')], color: 'default', is_toggleable: false }),
+      block('heading_2', { rich_text: [rt('Help title')], color: 'default', is_toggleable: false }),
+      block('heading_2', {
+        rich_text: [rt('Comments title')],
+        color: 'default',
+        is_toggleable: false,
+      }),
     ]);
 
     const content = await buildPageContent(pageId, { api, ...noMedia });
 
-    expect(content.headings).toEqual([{ anchor: 'main-1', text: 'Main', level: 2 }]);
+    expect(content.headings).toEqual([
+      { anchor: 'main-1', text: 'Main', level: 2 },
+      { anchor: 'help-title-1', text: 'Help title', level: 3 },
+      { anchor: 'comments-title-1', text: 'Comments title', level: 3 },
+    ]);
   });
 
   it('names the page it could not build and keeps the original error as the cause', async () => {

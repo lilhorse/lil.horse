@@ -58,6 +58,11 @@ const isPage = (section: Section) => section === current;
   </a>
   <span class="path">{path}</span>
   <div class="actions">
+    <button class="palette-open" type="button" data-palette-open>
+      <span class="button">
+        search <kbd>⌘K</kbd>
+      </span>
+    </button>
     <SiteMenu current={current} />
     <button class="theme-toggle" type="button" data-theme-toggle>
       <span class="button">
@@ -173,6 +178,7 @@ const isPage = (section: Section) => section === current;
     align-items: center;
     margin-inline-start: auto;
   }
+  .palette-open,
   .theme-toggle {
     display: inline-flex;
     align-items: center;
@@ -183,6 +189,7 @@ const isPage = (section: Section) => section === current;
     font: inherit;
     cursor: pointer;
   }
+  .palette-open .button,
   .theme-toggle .button {
     display: inline-flex;
     gap: 6px;
@@ -194,8 +201,20 @@ const isPage = (section: Section) => section === current;
     background: var(--bg);
     font-size: var(--text-ui);
   }
+  .palette-open:hover .button,
   .theme-toggle:hover .button {
     border-color: var(--accent);
+  }
+  .palette-open .button {
+    color: var(--muted);
+  }
+  kbd {
+    padding: 0 4px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--fg);
+    font: inherit;
+    font-size: 0.75rem;
   }
   .icon {
     inline-size: 14px;
@@ -220,7 +239,8 @@ const isPage = (section: Section) => section === current;
       padding-block: 0;
     }
     .dots,
-    .tabs {
+    .tabs,
+    .palette-open {
       display: none;
     }
     .home {

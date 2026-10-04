@@ -39,7 +39,8 @@ test('keeps the open phone menu above positioned page content', async ({ page },
         '<div style="position: relative; block-size: 100vh"></div>',
       ),
   );
-  await page.locator('.site-menu summary').click();
+  // With JavaScript the summary opens the command palette instead; the panel opens only without it.
+  await page.locator('.site-menu').evaluate((menu) => menu.setAttribute('open', ''));
   const covered = await page.$$eval('.site-menu .panel a', (links) =>
     links
       .filter((link) => {
