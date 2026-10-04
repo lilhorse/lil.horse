@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { pageContaining, pagePaths, settle } from './site';
+import { blockThirdParty, pageContaining, pagePaths, settle } from './site';
 
 const BACKGROUND = { light: 'rgb(242, 244, 247)', dark: 'rgb(26, 27, 38)' };
 const TARGETS = 'a[href], button, summary';
@@ -26,6 +26,8 @@ function smallTargets(page: Page, selector: string): Promise<string[]> {
     }),
   );
 }
+
+test.beforeEach(({ page }) => blockThirdParty(page));
 
 test('no page scrolls sideways', async ({ page }) => {
   for (const path of [...pagePaths(), '/no-such-page']) {

@@ -37,7 +37,8 @@ export function cspHeader(hashes: string[]): string {
   return [
     "default-src 'self'",
     `script-src ${scripts.join(' ')}`,
-    "style-src 'self' 'unsafe-inline'",
+    // Giscus's client adds its frame stylesheet, giscus.app/default.css, to the page.
+    "style-src 'self' 'unsafe-inline' https://giscus.app",
     "img-src 'self' data:",
     "font-src 'self'",
     "connect-src 'self' https://cloudflareinsights.com",

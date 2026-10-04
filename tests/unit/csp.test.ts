@@ -37,7 +37,7 @@ describe('scriptHash and cspHeader', () => {
       "script-src 'self' 'wasm-unsafe-eval' 'inline-speculation-rules' 'sha256-abc=' 'sha256-def=' https://giscus.app https://static.cloudflareinsights.com;",
     );
     expect(csp).toContain("default-src 'self'; ");
-    expect(csp).toContain("style-src 'self' 'unsafe-inline'");
+    expect(csp).toContain("style-src 'self' 'unsafe-inline' https://giscus.app; ");
     expect(csp).toContain(
       'frame-src https://giscus.app https://www.youtube-nocookie.com https://player.vimeo.com',
     );

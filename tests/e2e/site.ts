@@ -34,6 +34,13 @@ export function pageContaining(text: string): string | null {
   return file ? routeOf(file) : null;
 }
 
+/** Stubs giscus.app with an empty script, so a test that brings comments into view never loads them from the network. */
+export async function blockThirdParty(page: Page): Promise<void> {
+  await page.route('https://giscus.app/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
+  );
+}
+
 /** Waits for web fonts and for Expressive Code to make overflowing code blocks focusable. */
 export async function settle(page: Page): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
