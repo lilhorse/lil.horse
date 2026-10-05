@@ -39,14 +39,17 @@ test('the banner is an image named by the title in plain letters', async ({ page
 test('the intro plays once per session, in place, and ends as the page began', async ({ page }) => {
   await page.addInitScript(() => {
     const shifts: number[] = [];
-    Object.assign(window, { cardShifts: shifts });
-    new PerformanceObserver((list) => {
+    const observer = new PerformanceObserver((list) => {
       for (const entry of list.getEntries() as LayoutShiftEntry[]) {
         const card = document.querySelector('.neofetch');
         if (entry.sources.some((source) => source.node && card?.contains(source.node)))
           shifts.push(entry.value);
       }
-    }).observe({ type: 'layout-shift', buffered: true });
+    });
+    observer.observe({ type: 'layout-shift', buffered: true });
+    // Taken before page.clock replaces it, so the test can still wait for real frames.
+    const frame = requestAnimationFrame.bind(window);
+    Object.assign(window, { cardShifts: shifts, shiftObserver: observer, nativeFrame: frame });
   });
   // A paused clock fires the intro's timers only when the test moves it on.
   await page.clock.install({ time: new Date('2026-10-05T00:00:00Z') });
@@ -62,6 +65,18 @@ test('the intro plays once per session, in place, and ends as the page began', a
   };
 
   await expect(page.locator('.slogan .typed')).toHaveText('▋');
+  // Web fonts swap in after the first paint, and with Linux's fallback fonts they nudge the card.
+  await page.evaluate(async () => {
+    const state = window as unknown as {
+      cardShifts: number[];
+      shiftObserver: PerformanceObserver;
+      nativeFrame: typeof requestAnimationFrame;
+    };
+    await document.fonts.ready;
+    await new Promise((resolve) => state.nativeFrame(() => state.nativeFrame(resolve)));
+    state.shiftObserver.takeRecords();
+    state.cardShifts.length = 0;
+  });
   expect(
     await page.evaluate(() => document.documentElement.hasAttribute('data-intro-pending')),
   ).toBe(false);
