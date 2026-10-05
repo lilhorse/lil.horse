@@ -83,7 +83,7 @@ describe('inlineCode', () => {
 describe('profileReadme', () => {
   it('writes the card for today’s profile', () => {
     expect(readme())
-      .toBe(`<a href="https://lil.horse"><picture><source media="(prefers-color-scheme: dark)" srcset="https://lil.horse/brand/horse-night.svg"><img align="left" width="120" alt="" src="https://lil.horse/brand/horse-chestnut.svg"></picture></a>
+      .toBe(`<picture><source media="(prefers-color-scheme: dark)" srcset="https://lil.horse/brand/horse-night.svg"><a href="https://lil.horse"><img align="left" width="120" alt="lil.horse" src="https://lil.horse/brand/horse-chestnut.svg"></a></picture>
 
 \`\`\`text
  ▄█▀▀▀▄▄   ██    █▄█▀   ▀█     ▄█▄▄█                       ▄  ▄▄
@@ -173,6 +173,6 @@ describe('profileReadme', () => {
       site: 'https://lil.horse',
     });
     expect(markdown).not.toContain('```');
-    expect(markdown).toContain('</a>\n\n**小马 \\***\n\n**Role**');
+    expect(markdown).toContain('</picture>\n\n**小马 \\***\n\n**Role**');
   });
 });

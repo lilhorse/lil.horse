@@ -53,9 +53,11 @@ export function profileReadme({
   site,
 }: ProfileReadmeInput): string {
   const base = site.replace(/\/+$/, '');
-  const horse = `<a href="${escapeAttr(base)}"><picture><source media="(prefers-color-scheme: dark)" srcset="${escapeAttr(base)}/brand/horse-night.svg"><img align="left" width="120" alt="" src="${escapeAttr(base)}/brand/horse-chestnut.svg"></picture></a>`;
+  const host = new URL(base).host;
+  // GitHub links every image whose parent is not a link, which would split a <picture> nested in one.
+  const horse = `<picture><source media="(prefers-color-scheme: dark)" srcset="${escapeAttr(base)}/brand/horse-night.svg"><a href="${escapeAttr(base)}"><img align="left" width="120" alt="${escapeAttr(host)}" src="${escapeAttr(base)}/brand/horse-chestnut.svg"></a></picture>`;
   const contact = [
-    `[${escapeMarkdown(new URL(base).host)}](${destination(base)})`,
+    `[${escapeMarkdown(host)}](${destination(base)})`,
     ...(profile.email ? [`[email](${destination(`${base}/contact`)})`] : []),
     ...socialLinks(profile).map((link) => `[${link.label}](${destination(link.href)})`),
   ];
