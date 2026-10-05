@@ -101,7 +101,7 @@ The CSP (`src/lib/csp.ts`) has no `'unsafe-inline'` in `script-src`; it lists th
 2. For the `page.*` and `data_source.*` events in `BUILD_EVENTS`, the Worker dispatches `deploy.yml` on `main` of this repository (`vars.GITHUB_REPOSITORY` in `wrangler.jsonc`) with `GITHUB_DISPATCH_TOKEN`. It answers `202` if GitHub accepts and `502` if not, so Notion retries; until `deploy.yml` exists on `main`, GitHub answers `404` and the Worker `502`. Other events, such as comments and page locks, get `200` and change nothing.
 3. `.github/workflows/deploy.yml` builds from live Notion data, runs `pnpm check:dist`, deploys with `wrangler deploy`, and then syncs the [GitHub profile README](#github-profile-readme).
 
-The workflow also runs on every push to `main`, by hand (from the Actions tab, or with `gh workflow run deploy.yml`, where `-f full_refresh=true` sets `NOTION_FULL_REFRESH=1`), and daily at 17:00 UTC with a full refresh through `.github/workflows/refresh.yml` on `main`. GitHub disables a scheduled workflow after 60 days without activity in a public repository; if that happens, re-enable Daily refresh in the Actions tab.
+The workflow also runs on every push to `main`, by hand (from the Actions tab, or with `gh workflow run deploy.yml`, where `-f full_refresh=true` sets `NOTION_FULL_REFRESH=1`), and daily at 17:00 UTC with a full refresh through `.github/workflows/refresh.yml` on `main`. GitHub disables a scheduled workflow after 60 days without activity in a public repository; this stops only the daily refresh, not deploys from a push or from Notion. If it happens, re-enable Daily refresh in the Actions tab.
 
 Only `main` deploys; a manual run on another branch skips the job. A newer run cancels one in progress, so a burst of edits deploys once. `.cache/` and Astro's data store in `node_modules/.astro` are restored from the last successful run.
 
@@ -251,6 +251,10 @@ Share images set the title in JetBrains Mono (Noto Sans SC for Chinese), adding 
 ## Site configuration
 
 Besides the Notion IDs, `site.config.ts` holds the site's name and URL, the Giscus repository and discussion category with their IDs, and the Cloudflare Web Analytics token, `analytics.cloudflareToken`. The token is empty on purpose: Cloudflare injects the beacon for lil.horse at the edge, excluding visitor data from the EU, and the CSP allows it. If you set a token, turn off that automatic injection, or every visit is counted twice; the site then adds the beacon itself, and a prerendered page loads it only once shown. Fixture builds never include it.
+
+## History
+
+This repository used to host a Next.js site based on [nextjs-notion-starter-kit](https://github.com/transitive-bullshit/nextjs-notion-starter-kit). The `archive/v1-nextjs` branch keeps that version.
 
 ## License
 
