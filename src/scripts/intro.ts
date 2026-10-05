@@ -1,7 +1,7 @@
 export const INTRO_KEY = 'intro-played';
 export const CHAR_MS = 35;
 export const STRIKE_GAP_MS = 60;
-// Keep in sync with the strike's transition in src/components/shell/Neofetch.astro.
+// Keep in sync with the strike's transition in src/styles/intro.css.
 export const STRIKE_MS = 200;
 
 export interface IntroEnv {

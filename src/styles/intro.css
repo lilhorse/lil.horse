@@ -1,0 +1,67 @@
+/* The home card's motion lives here, outside any layer, so the card's own styles stay under Astro's 4 KB inline limit. */
+
+/* While the intro plays, the text keeps the line breaks and stays readable to screen readers. */
+.neofetch .typing > .slogan-text,
+.neofetch .typing > .cursor,
+.neofetch.intro .note-text,
+.neofetch.intro .comment > .cursor {
+  opacity: 0;
+}
+
+.neofetch .typed {
+  position: absolute;
+  inset: 0;
+}
+
+.neofetch .typed .cursor {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  animation: none;
+}
+
+.neofetch .typed.parked .cursor {
+  animation: cursor-blink 1s steps(1) infinite;
+}
+
+@property --strike {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: transparent;
+}
+
+/* Unlike text-decoration, a background line can grow from the left, and a hover can fade it. */
+[data-stack] s {
+  --strike: var(--muted);
+  color: var(--fg-soft);
+  text-decoration: none;
+  background: linear-gradient(var(--strike), var(--strike)) no-repeat 0 56% / 100% 1px;
+}
+
+.intro [data-stack] s {
+  background-size: 0 1px;
+}
+
+.intro [data-stack] s[data-drawn] {
+  background-size: 100% 1px;
+  transition: background-size 200ms linear;
+}
+
+@media (hover: hover) {
+  [data-stack] s {
+    transition:
+      --strike 150ms,
+      color 150ms;
+  }
+
+  [data-stack] s:hover {
+    --strike: transparent;
+    color: var(--fg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-stack] s {
+    transition: none;
+  }
+}

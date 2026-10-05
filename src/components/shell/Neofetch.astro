@@ -123,14 +123,7 @@ const note = profile.stack.length > 0 ? siteConfig.stackNote.text || null : null
         </div>
       )}
     </dl>
-    <p class="swatches" aria-hidden="true">
-      <i></i>
-      <i></i>
-      <i></i>
-      <i></i>
-      <i></i>
-      <i></i>
-    </p>
+    <div class="swatches" aria-hidden="true"></div>
     {profile.bio && <p class="bio">{profile.bio}</p>}
   </div>
 </div>
@@ -182,62 +175,9 @@ const note = profile.stack.length > 0 ? siteConfig.stackNote.text || null : null
       opacity: 0;
     }
   }
-  /* While the intro plays, the text keeps the line breaks and stays readable to screen readers. */
-  .typing > .slogan-text,
-  .typing > .cursor,
-  .intro .note-text,
-  .intro .comment > .cursor {
-    opacity: 0;
-  }
-  .info :global(.typed) {
-    position: absolute;
-    inset: 0;
-  }
-  .info :global(.typed) .cursor {
-    position: absolute;
-    inset-block-start: 0;
-    inset-inline-start: 0;
-    animation: none;
-  }
-  .info :global(.typed.parked) .cursor {
-    animation: cursor-blink 1s steps(1) infinite;
-  }
-  @property --strike {
-    syntax: '<color>';
-    inherits: false;
-    initial-value: transparent;
-  }
-  /* Unlike text-decoration, a background line can grow from the left, and a hover can fade it. */
-  [data-stack] s {
-    --strike: var(--muted);
-    color: var(--fg-soft);
-    text-decoration: none;
-    background: linear-gradient(var(--strike), var(--strike)) no-repeat 0 56% / 100% 1px;
-  }
-  .intro [data-stack] s {
-    background-size: 0 1px;
-  }
-  .intro [data-stack] s[data-drawn] {
-    background-size: 100% 1px;
-    transition: background-size 200ms linear;
-  }
-  @media (hover: hover) {
-    [data-stack] s {
-      transition:
-        --strike 150ms,
-        color 150ms;
-    }
-    [data-stack] s:hover {
-      --strike: transparent;
-      color: var(--fg);
-    }
-  }
   @media (prefers-reduced-motion: reduce) {
     .cursor {
       animation: none;
-    }
-    [data-stack] s {
-      transition: none;
     }
   }
   .sep {
@@ -286,28 +226,18 @@ const note = profile.stack.length > 0 ? siteConfig.stackNote.text || null : null
     color: var(--muted);
   }
   .swatches {
-    display: flex;
-    margin-block-start: 8px;
-  }
-  .swatches i {
-    inline-size: 20px;
+    inline-size: 120px;
     block-size: 12px;
-    background: var(--swatch-1);
-  }
-  .swatches i:nth-child(2) {
-    background: var(--swatch-2);
-  }
-  .swatches i:nth-child(3) {
-    background: var(--swatch-3);
-  }
-  .swatches i:nth-child(4) {
-    background: var(--swatch-4);
-  }
-  .swatches i:nth-child(5) {
-    background: var(--swatch-5);
-  }
-  .swatches i:nth-child(6) {
-    background: var(--swatch-6);
+    margin-block-start: 8px;
+    background: linear-gradient(
+      90deg,
+      var(--swatch-1) 20px,
+      var(--swatch-2) 0 40px,
+      var(--swatch-3) 0 60px,
+      var(--swatch-4) 0 80px,
+      var(--swatch-5) 0 100px,
+      var(--swatch-6) 0
+    );
   }
   dd a {
     text-decoration-line: none;
