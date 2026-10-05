@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { siteConfig } from '../../site.config';
 import Neofetch from '../../src/components/shell/Neofetch.astro';
 import { bannerBitmap, bannerPath, shimmerBand } from '../../src/lib/banner';
 import Home from '../../src/pages/index.astro';
@@ -21,6 +22,7 @@ const rows = (html: string) =>
 
 const TITLE = '𝕷𝖎𝖑’𝕳𝖔𝖗𝖘𝖊';
 const SLOGAN = 'Dis is da cyberspace of Lil’Horse, just chill and have fun 🍻.';
+const NOTE = { strikethrough: true, text: '# AI & co 😎' };
 
 describe('Neofetch', () => {
   it('draws the masthead title as a pixel banner named in plain letters', async () => {
@@ -85,13 +87,14 @@ describe('Neofetch', () => {
     const html = await render(Neofetch, {
       profile: { ...profile, stack: ['TypeScript', 'Go'] },
       masthead: { title: TITLE, slogan: SLOGAN },
+      stackNote: NOTE,
     });
     expect(html).toContain('<div class="neofetch" data-intro>');
     expect(element(html, '<p class="slogan"', 'p')).toBe(
       `<p class="slogan" data-slogan><span class="slogan-text">${SLOGAN}</span></p>`,
     );
     expect(html).toContain(
-      '<dd data-stack><s>TypeScript</s>\u00a0· <s>Go</s><span class="comment" data-note><span class="note-text"> # DEPRECATED: use Claude &amp; Codex instead 😎</span><span class="cursor" aria-hidden="true">▋</span></span></dd>',
+      '<dd data-stack><s>TypeScript</s>\u00a0· <s>Go</s><span class="comment" data-note><span class="note-text"> # AI &amp; co 😎</span><span class="cursor" aria-hidden="true">▋</span></span></dd>',
     );
     expect(html.match(/class="cursor"/g)).toHaveLength(1);
     expect(await htmlErrors(html)).toEqual([]);
@@ -124,11 +127,12 @@ describe('Neofetch', () => {
         stack: ['TypeScript', 'Go'],
         bio: 'Indie Coder & GFW Hater.',
       },
+      stackNote: NOTE,
     });
     expect(rows(html)).toEqual([
       'Role: Developer',
       'Location: Auckland',
-      'Stack: TypeScript\u00a0· Go # DEPRECATED: use Claude &amp; Codex instead 😎▋',
+      'Stack: TypeScript\u00a0· Go # AI &amp; co 😎▋',
       'Status: Open to work',
       'Contact: sup@lil.horse · github',
     ]);
@@ -143,8 +147,29 @@ describe('Neofetch', () => {
     const html = await render(Neofetch, {
       masthead,
       profile: { ...profile, stack: ['TypeScript', 'Tailwind CSS', 'Go'] },
+      stackNote: NOTE,
     });
     expect(html).toContain('<s>TypeScript</s>\u00a0· <s>Tailwind\u00a0CSS</s>\u00a0· <s>Go</s>');
+  });
+
+  it('strikes nothing and adds no note unless the stack note asks', async () => {
+    const card = (stackNote?: typeof NOTE | { strikethrough: boolean }) =>
+      render(Neofetch, {
+        profile: { ...profile, stack: ['TypeScript', 'Go'] },
+        masthead: { title: TITLE, slogan: SLOGAN },
+        stackNote,
+      });
+    const plain = await card();
+    expect(element(plain, '<dd data-stack', 'dd')).toBe('<dd data-stack>TypeScript\u00a0· Go</dd>');
+    expect(element(plain, '<p class="slogan"', 'p')).toContain('<span class="cursor"');
+    expect(
+      element(await card({ strikethrough: false, text: '# AI' }), '<dd data-stack', 'dd'),
+    ).toBe(
+      '<dd data-stack>TypeScript\u00a0· Go<span class="comment" data-note><span class="note-text"> # AI</span><span class="cursor" aria-hidden="true">▋</span></span></dd>',
+    );
+    expect(element(await card({ strikethrough: true }), '<dd data-stack', 'dd')).toBe(
+      '<dd data-stack><s>TypeScript</s>\u00a0· <s>Go</s></dd>',
+    );
   });
 
   it('leaves out the stack and contact rows when they are empty', async () => {
@@ -163,6 +188,19 @@ describe('home page', () => {
     expect(html).toMatch(/<h1 class="sr-only">Lil(&#39;|')Horse<\/h1>/);
     expect(html).toContain('neofetch');
     expect(await htmlErrors(html)).toEqual([]);
+  });
+
+  it('gives the card the stack note from site.config.ts', async () => {
+    const stacked = { ...profile, stack: ['TypeScript', 'Go'] };
+    useSite({ profile: stacked });
+    const card = await render(Neofetch, {
+      profile: stacked,
+      masthead,
+      stackNote: siteConfig.stackNote,
+    });
+    expect(element(await render(Home), '<dd data-stack', 'dd')).toBe(
+      element(card, '<dd data-stack', 'dd'),
+    );
   });
 
   it('heads the card with the masthead from the root page', async () => {

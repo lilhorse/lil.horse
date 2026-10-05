@@ -1,13 +1,13 @@
 ---
 import { bannerBitmap, bannerLabel, bannerPath, bannerScale, shimmerBand } from '../../lib/banner';
-import { emailHtml, socialLinks } from '../../lib/profile';
+import { emailHtml, socialLinks, type StackNote } from '../../lib/profile';
 import type { Availability, MastheadEntry, ProfileEntry } from '../../notion/types';
 import PixelHorse from './PixelHorse.astro';
-import { siteConfig } from '../../../site.config';
 
 interface Props {
   profile: ProfileEntry;
   masthead: MastheadEntry;
+  stackNote?: StackNote;
 }
 
 const STATUS: Record<Availability, string> = {
@@ -18,14 +18,14 @@ const STATUS: Record<Availability, string> = {
 
 const SWATCHES = [1, 2, 3, 4, 5, 6];
 
-const { profile, masthead } = Astro.props;
+const { profile, masthead, stackNote = { strikethrough: false } } = Astro.props;
 const email = profile.email ? emailHtml(profile.email) : null;
 const social = socialLinks(profile);
 const banner = bannerBitmap(masthead.title, (message) => console.warn(message));
 const scale = bannerScale(banner.width);
 const band = shimmerBand(banner.width);
 // The resting cursor ends the note when the stack row shows one, and the slogan otherwise.
-const note = profile.stack.length > 0 ? siteConfig.stackNote.text || null : null;
+const note = profile.stack.length > 0 ? stackNote.text || null : null;
 ---
 
 <div class="neofetch" data-intro>
@@ -103,7 +103,7 @@ const note = profile.stack.length > 0 ? siteConfig.stackNote.text || null : null
             {profile.stack.map((item, index) => (
               <Fragment>
                 {index > 0 && '\u00a0· '}
-                {siteConfig.stackNote.strikethrough ? (
+                {stackNote.strikethrough ? (
                   <s>{item.replaceAll(' ', '\u00a0')}</s>
                 ) : (
                   item.replaceAll(' ', '\u00a0')

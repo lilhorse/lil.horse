@@ -3,7 +3,7 @@ import type { Availability, ProfileEntry } from '../notion/types';
 import { bannerImageSize, bannerLabel, bannerSvg, type BannerTheme, type Bitmap } from './banner';
 import { servedHorse } from './brand-horses';
 import { escapeAttr } from './html';
-import { socialLinks } from './profile';
+import { socialLinks, type StackNote } from './profile';
 
 const STATUS: Record<Availability, string> = {
   'Open to work': '🟢 Open to work',
@@ -45,7 +45,7 @@ export interface ProfileReadmeInput {
   slogan: string | null;
   profile: ProfileEntry;
   site: string;
-  stackNote?: { strikethrough: boolean; text?: string };
+  stackNote?: StackNote;
 }
 
 /** The home page's neofetch card as a GitHub profile README. It never holds the email address. */
