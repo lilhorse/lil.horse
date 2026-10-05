@@ -59,6 +59,22 @@ describe('Neofetch', () => {
     expect(html.indexOf(slogan)).toBeLessThan(html.indexOf('<p class="rule"'));
   });
 
+  it('moves the resting cursor from the slogan to the end of the stack note', async () => {
+    const html = await render(Neofetch, {
+      profile: { ...profile, stack: ['TypeScript', 'Go'] },
+      masthead: { title: TITLE, slogan: SLOGAN },
+    });
+    expect(html).toContain('<div class="neofetch" data-intro>');
+    expect(element(html, '<p class="slogan"', 'p')).toBe(
+      `<p class="slogan" data-slogan><span class="slogan-text">${SLOGAN}</span></p>`,
+    );
+    expect(html).toContain(
+      '<dd data-stack><s>TypeScript</s>\u00a0· <s>Go</s><span class="comment" data-note><span class="note-text"> # DEPRECATED: use Claude &amp; Codex instead 😎</span><span class="cursor" aria-hidden="true">▋</span></span></dd>',
+    );
+    expect(html.match(/class="cursor"/g)).toHaveLength(1);
+    expect(await htmlErrors(html)).toEqual([]);
+  });
+
   it('keeps a short title title-sized', async () => {
     const html = await render(Neofetch, { profile, masthead: { title: 'Hi', slogan: null } });
     const banner = bannerBitmap('Hi', () => undefined);
@@ -90,7 +106,7 @@ describe('Neofetch', () => {
     expect(rows(html)).toEqual([
       'Role: Developer',
       'Location: Auckland',
-      'Stack: TypeScript\u00a0· Go # unlimited stack via Claude &amp; Codex 😎',
+      'Stack: TypeScript\u00a0· Go # DEPRECATED: use Claude &amp; Codex instead 😎▋',
       'Status: Open to work',
       'Contact: sup@lil.horse · github',
     ]);

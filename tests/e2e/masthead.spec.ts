@@ -1,9 +1,7 @@
 import type { Page } from '@playwright/test';
-import { CHAR_MS } from '../../src/scripts/slogan';
+import { CHAR_MS, STRIKE_GAP_MS, STRIKE_MS } from '../../src/scripts/intro';
 import { expect, test } from './fixtures';
 import { builtFromFixtures } from './site';
-
-const typing = (page: Page) => page.locator('.slogan-typed');
 
 /** The parts of a layout-shift entry this file reads; TypeScript's DOM types lack them. */
 interface LayoutShiftEntry extends PerformanceEntry {
@@ -11,11 +9,11 @@ interface LayoutShiftEntry extends PerformanceEntry {
   sources: { node: Node | null }[];
 }
 
-/** Checked once, without retrying: typing that had started would still be running. */
-const typingNow = (page: Page) =>
+/** Checked once, without retrying: an intro that had started would still be playing. */
+const playingNow = (page: Page) =>
   page.evaluate(() => ({
-    overlays: document.querySelectorAll('.slogan-typed').length,
-    hidden: document.querySelector('.slogan')?.classList.contains('typing'),
+    overlays: document.querySelectorAll('.typed').length,
+    playing: document.querySelector('[data-intro]')?.classList.contains('intro'),
   }));
 
 async function openHome(page: Page): Promise<void> {
@@ -33,51 +31,65 @@ test('the banner is an image named by the title in plain letters', async ({ page
   await expect(page.getByRole('img', { name, exact: true })).toBeVisible();
 });
 
-test('the slogan types out once per session, in place', async ({ page }) => {
+test('the intro plays once per session, in place, and ends as the page began', async ({ page }) => {
   await page.addInitScript(() => {
     const shifts: number[] = [];
-    Object.assign(window, { sloganShifts: shifts });
+    Object.assign(window, { cardShifts: shifts });
     new PerformanceObserver((list) => {
       for (const entry of list.getEntries() as LayoutShiftEntry[]) {
-        const slogan = document.querySelector('.slogan');
-        if (entry.sources.some((source) => source.node && slogan?.contains(source.node)))
+        const card = document.querySelector('.neofetch');
+        if (entry.sources.some((source) => source.node && card?.contains(source.node)))
           shifts.push(entry.value);
       }
     }).observe({ type: 'layout-shift', buffered: true });
   });
-  // A paused clock fires the typing's timers only when the test moves it on.
+  // A paused clock fires the intro's timers only when the test moves it on.
   await page.clock.install({ time: new Date('2026-10-05T00:00:00Z') });
   await page.clock.pauseAt(new Date('2026-10-05T00:00:01Z'));
   await openHome(page);
-  const chars = Array.from((await page.locator('.slogan-text').textContent()) ?? '');
+  const note = Array.from((await page.locator('.note-text').textContent()) ?? '');
+  test.skip(note.length === 0, 'the card has no stack note');
+  const slogan = Array.from((await page.locator('.slogan-text').textContent()) ?? '');
+  const items = await page.locator('[data-stack] s').count();
   const card = page.locator('.neofetch');
-  const tick = async (count: number) => {
-    for (let step = 0; step < count; step++) await page.clock.runFor(CHAR_MS);
+  const run = async (ms: number, times = 1) => {
+    for (let step = 0; step < times; step++) await page.clock.runFor(ms);
   };
 
-  await expect(typing(page)).toHaveText('▋');
+  await expect(page.locator('.slogan .typed')).toHaveText('▋');
   const before = await card.boundingBox();
-  await tick(10);
-  await expect(typing(page)).toHaveText(`${chars.slice(0, 10).join('')}▋`);
+  await run(CHAR_MS, slogan.length);
+  await expect(page.locator('.slogan .typed.parked')).toHaveText(`${slogan.join('')}▋`);
+  await expect(page.locator('[data-stack] s[data-drawn]')).toHaveCount(Math.min(items, 1));
+  await run(STRIKE_GAP_MS, items - 1);
+  await expect(page.locator('[data-stack] s[data-drawn]')).toHaveCount(items);
   expect(await card.boundingBox()).toEqual(before);
-  await tick(chars.length - 10);
-  await expect(typing(page)).toHaveCount(0);
+  await run(STRIKE_MS);
+  await expect(page.locator('.slogan .typed')).toHaveCount(0);
+  await expect(page.locator('.comment .typed')).toHaveText('▋');
+  await run(CHAR_MS, 10);
+  await expect(page.locator('.comment .typed')).toHaveText(`${note.slice(0, 10).join('')}▋`);
+  await run(CHAR_MS, note.length - 10);
+  await expect(page.locator('.typed')).toHaveCount(0);
   expect(await card.boundingBox()).toEqual(before);
-  await expect(page.locator('.slogan-text')).toHaveCSS('opacity', '1');
+  await expect(page.locator('.note-text')).toHaveCSS('opacity', '1');
+  await expect(page.locator('.comment > .cursor')).toHaveCSS('opacity', '1');
   expect(
-    await page.evaluate(() => (window as unknown as { sloganShifts: number[] }).sloganShifts),
+    await page.evaluate(() => (window as unknown as { cardShifts: number[] }).cardShifts),
   ).toEqual([]);
 
+  const played = await card.evaluate((element) => element.outerHTML);
   await page.reload();
-  expect(await typingNow(page)).toEqual({ overlays: 0, hidden: false });
+  expect(await playingNow(page)).toEqual({ overlays: 0, playing: false });
+  expect(await card.evaluate((element) => element.outerHTML)).toBe(played);
 });
 
-test('the slogan never types, and its cursor never blinks, under reduced motion', async ({
+test('the intro never plays, and the cursor never blinks, under reduced motion', async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await openHome(page);
-  expect(await typingNow(page)).toEqual({ overlays: 0, hidden: false });
-  await expect(page.locator('.slogan > .cursor')).toHaveCSS('animation-name', 'none');
+  expect(await playingNow(page)).toEqual({ overlays: 0, playing: false });
+  await expect(page.locator('.neofetch .cursor')).toHaveCSS('animation-name', 'none');
   expect(await page.evaluate(() => sessionStorage.length)).toBe(0);
 });
