@@ -1,6 +1,7 @@
 import type { Help } from './help';
 import type { Palette } from './palette';
 import { initShortcuts, singleKeysSwitch } from './shortcuts';
+import { typeSlogan } from './slogan';
 import { initTheme } from './theme';
 
 function storage(): Storage | null {
@@ -91,6 +92,8 @@ initShortcuts(document, {
   cycleTheme: theme.cycle,
   navigate,
 });
+const slogan = document.querySelector<HTMLElement>('[data-slogan]');
+if (slogan) void typeSlogan(slogan);
 if (!/Mac|iPhone|iPad/.test(navigator.platform)) {
   for (const key of document.querySelectorAll('[data-palette-open] kbd'))
     key.textContent = 'Ctrl K';

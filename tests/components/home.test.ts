@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Neofetch from '../../src/components/shell/Neofetch.astro';
+import { bannerBitmap, bannerPath } from '../../src/lib/banner';
 import Home from '../../src/pages/index.astro';
 import { htmlErrors, render, textOf } from '../helpers/astro-render';
-import { element, post, profile, project, useSite } from '../helpers/site-data';
+import { element, masthead, post, profile, project, useSite } from '../helpers/site-data';
 
 vi.mock('../../src/lib/content', async () => {
   const { siteState } = await import('../helpers/site-data');
@@ -18,9 +19,60 @@ const rows = (html: string) =>
     ([, term = '', value = '']) => `${textOf(term)}: ${textOf(value)}`,
   );
 
+const TITLE = '𝕷𝖎𝖑’𝕳𝖔𝖗𝖘𝖊';
+const SLOGAN = 'Dis is da cyberspace of Lil’Horse, just chill and have fun 🍻.';
+
 describe('Neofetch', () => {
+  it('draws the masthead title as a pixel banner named in plain letters', async () => {
+    const html = await render(Neofetch, { profile, masthead: { title: TITLE, slogan: SLOGAN } });
+    const svg = element(html, '<svg class="banner"', 'svg');
+    const banner = bannerBitmap(TITLE, () => undefined);
+    expect(svg).toContain('role="img"');
+    expect(svg).toContain('aria-label="Lil’Horse"');
+    expect(svg).toContain(`viewBox="0 0 ${banner.width} ${banner.height}"`);
+    expect(svg).toContain(`width="${banner.width * 4}" height="${banner.height * 4}"`);
+    expect(svg).toContain('shape-rendering="crispEdges"');
+    expect(svg).toContain(`<path fill="url(#masthead-gradient)" d="${bannerPath(banner)}"></path>`);
+    expect(
+      [...svg.matchAll(/<stop offset="(\d+)%" style="stop-color: var\(--(swatch-\d)\)"/g)].map(
+        ([, offset, token]) => `${offset} ${token}`,
+      ),
+    ).toEqual([
+      '0 swatch-1',
+      '20 swatch-2',
+      '40 swatch-3',
+      '60 swatch-4',
+      '80 swatch-5',
+      '100 swatch-6',
+    ]);
+    expect(html).not.toContain('lilhorse@lil.horse');
+    expect(await htmlErrors(html)).toEqual([]);
+  });
+
+  it('prints the slogan between the banner and the rule, ending in a hidden cursor', async () => {
+    const html = await render(Neofetch, { profile, masthead: { title: TITLE, slogan: SLOGAN } });
+    const slogan = element(html, '<p class="slogan"', 'p');
+    expect(slogan).toBe(
+      `<p class="slogan" data-slogan><span class="slogan-text">${SLOGAN}</span><span class="cursor" aria-hidden="true">▋</span></p>`,
+    );
+    expect(html.indexOf('</svg>')).toBeLessThan(html.indexOf(slogan));
+    expect(html.indexOf(slogan)).toBeLessThan(html.indexOf('<p class="rule"'));
+  });
+
+  it('leaves out the slogan when the root page has none', async () => {
+    const html = await render(Neofetch, { profile, masthead: { title: TITLE, slogan: null } });
+    expect(html).not.toContain('slogan');
+  });
+
+  it('prints a title that the banner font cannot draw as text', async () => {
+    const html = await render(Neofetch, { profile, masthead: { title: '小马', slogan: null } });
+    expect(html).not.toContain('<svg class="banner"');
+    expect(textOf(element(html, '<p class="title"', 'p'))).toBe('小马');
+  });
+
   it('prints the profile fields and never the whole email address', async () => {
     const html = await render(Neofetch, {
+      masthead,
       profile: {
         ...profile,
         email: 'sup@lil.horse',
@@ -29,7 +81,6 @@ describe('Neofetch', () => {
         bio: 'Indie Coder & GFW Hater.',
       },
     });
-    expect(textOf(element(html, '<p class="title"', 'p'))).toBe('lilhorse@lil.horse');
     expect(rows(html)).toEqual([
       'Role: Developer',
       'Location: Auckland',
@@ -46,13 +97,17 @@ describe('Neofetch', () => {
 
   it('keeps each stack item and its separator together when the line wraps', async () => {
     const html = await render(Neofetch, {
+      masthead,
       profile: { ...profile, stack: ['TypeScript', 'Tailwind CSS', 'Go'] },
     });
     expect(html).toContain('<dd>TypeScript\u00a0· Tailwind\u00a0CSS\u00a0· Go</dd>');
   });
 
   it('leaves out the stack and contact rows when they are empty', async () => {
-    const html = await render(Neofetch, { profile: { ...profile, availability: 'Busy' } });
+    const html = await render(Neofetch, {
+      masthead,
+      profile: { ...profile, availability: 'Busy' },
+    });
     expect(rows(html)).toEqual(['Role: Developer', 'Location: Auckland', 'Status: Busy']);
     expect(html).toContain('<dd class="status busy">');
   });
@@ -63,6 +118,14 @@ describe('home page', () => {
     const html = await render(Home);
     expect(html).toMatch(/<h1 class="sr-only">Lil(&#39;|')Horse<\/h1>/);
     expect(html).toContain('neofetch');
+    expect(await htmlErrors(html)).toEqual([]);
+  });
+
+  it('heads the card with the masthead from the root page', async () => {
+    useSite({ masthead: { title: TITLE, slogan: SLOGAN } });
+    const html = await render(Home);
+    expect(html).toContain('aria-label="Lil’Horse"');
+    expect(html).toContain(`<span class="slogan-text">${SLOGAN}</span>`);
     expect(await htmlErrors(html)).toEqual([]);
   });
 

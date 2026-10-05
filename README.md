@@ -9,7 +9,7 @@ Content is written in Notion. At build time, Astro reads it through the official
 - [Astro](https://astro.build) 7 with static output
 - The official Notion API (`@notionhq/client`), read by a custom content loader
 - [sharp](https://sharp.pixelplumbing.com) for images, [KaTeX](https://katex.org) for math and [Expressive Code](https://expressive-code.com) for code blocks
-- [Pagefind](https://pagefind.app) for search, [Satori](https://github.com/vercel/satori) with resvg for share images, `@astrojs/rss` for the feed and [Giscus](https://giscus.app) for comments
+- [Pagefind](https://pagefind.app) for search, [Satori](https://github.com/vercel/satori) with resvg for share images, resvg and STIX Two Math for the masthead banner, `@astrojs/rss` for the feed and [Giscus](https://giscus.app) for comments
 - Plain CSS with cascade layers and `light-dark()`
 - JetBrains Mono and IBM Plex Sans from [Fontsource](https://fontsource.org), self-hosted through Astro's Fonts API
 - [Cloudflare Workers](https://developers.cloudflare.com/workers/static-assets/) static assets for hosting, deployed with [Wrangler](https://developers.cloudflare.com/workers/wrangler/) from GitHub Actions
@@ -46,7 +46,22 @@ The site looks like a terminal. Each page has a tab bar, a prompt and a command 
 - **Colours.** Every theme colour is a token in `src/styles/tokens.css`. `tests/unit/tokens.test.ts` checks each token and the contrast of the text and background pairs the site uses, in both themes. The Giscus themes and the share-image template in `src/og/template.ts` cannot use the tokens, so they copy their values. `tests/unit/giscus-themes.test.ts` and `tests/unit/og.test.ts` fail when a copied value is not in the theme.
 - **Styles.** `tokens.css`, `base.css` and `prose.css` (Notion content) in `src/styles/` are global. Components keep their own scoped styles. Code block colours are in `src/styles/code-themes.mjs`, and Expressive Code reads them through `ec.config.mjs`.
 - **Logo.** The pixel horse with sunglasses is drawn in `brand/horse.ts`: a 24 × 24 grid for the home page and a 16 × 16 grid for the favicon and the header. `pnpm brand` regenerates the SVGs in `src/assets/brand/` and the favicons, app icons and web manifest in `public/`. The generated files are committed, and `tests/unit/brand.test.ts` fails when they are out of date.
+- **Masthead.** The `neofetch` card on the home page opens with the root page's title as a pixel banner and its slogan below (see [Writing content](#writing-content)). At build time, `src/lib/banner.ts` renders the title with resvg at 16 px in the [banner font](#banner-font), the only font it loads, keeps the pixels whose alpha is at least 128 and crops them to the ink; today's title gives 72 × 14 pixels. The page draws that bitmap as an inline SVG, one rectangle per run of lit pixels in a row, filled with a gradient through the card's six swatch colours, at a whole number of screen pixels per pixel, close to 300 px wide. The banner's accessible name is the title in plain letters (Unicode NFKC, so `𝕷𝖎𝖑’𝕳𝖔𝖗𝖘𝖊` reads `Lil’Horse`). The build warns about a character the font lacks and leaves it out; a title with nothing the font can draw shows as plain text.
+- **Slogan.** On the first view of the home page in a browser session, the slogan types out at 35 ms a character. A copy hidden from screen readers does the typing over the slogan, which stays in the page, invisible, so the card keeps its size and screen readers, crawlers and visitors without JavaScript get the whole text. `sessionStorage` remembers under `slogan-typed` that it has run; without storage, it runs on every view. It never runs, and the cursor never blinks, for visitors who prefer reduced motion.
 - **Accessibility.** `pnpm test:e2e` runs axe on every built page in both themes, at desktop and phone sizes, and on the open command palette and shortcuts help. It also checks that no page scrolls sideways and that, on a phone, every link and button outside running text is at least 44 × 44 px.
+
+### Banner font
+
+`src/assets/fonts/stix-two-math-subset.otf` is a subset of STIX Two Math 2.13 b171, from `fonts/static_otf/STIXTwoMath-Regular.otf` at the `v2.13b171` tag of [stipub/stixfonts](https://github.com/stipub/stixfonts). It is licensed under the SIL Open Font License 1.1, whose text is beside it in `OFL.txt`. The build reads it to draw the banner and never serves it. It keeps Basic Latin, Latin-1, the general punctuation from U+2010 to U+2027 (with `’`) and from U+2032 to U+2034, and the Mathematical Alphanumeric Symbols, the styled letters such as `𝕷` that a Notion title can use. To make it again, with fontTools (`pip install fonttools`):
+
+```bash
+pyftsubset STIXTwoMath-Regular.otf \
+  --unicodes='U+0020-007E,U+00A0-00FF,U+2010-2027,U+2032-2034,U+1D400-1D7FF' \
+  --name-IDs='*' \
+  --output-file=src/assets/fonts/stix-two-math-subset.otf
+```
+
+`--name-IDs='*'` keeps the copyright and license entries in the font's name table.
 
 ## Pages
 
@@ -237,6 +252,6 @@ This repository used to host a Next.js site based on [nextjs-notion-starter-kit]
 
 ## License
 
-The code is released under the [MIT License](LICENSE).
+The code is released under the [MIT License](LICENSE). The banner font in `src/assets/fonts/` keeps its own license, the SIL Open Font License 1.1 (see [Banner font](#banner-font)).
 
 The site's content is licensed under [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). This covers the posts and other writing published on lil.horse, including the copies recorded in `tests/fixtures`. Third-party material on the site, such as link-preview images, keeps its own license.
