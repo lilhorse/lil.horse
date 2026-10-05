@@ -46,7 +46,7 @@ The site looks like a terminal. Each page has a tab bar, a prompt and a command 
 - **Colours.** Every theme colour is a token in `src/styles/tokens.css`. `tests/unit/tokens.test.ts` checks each token and the contrast of the text and background pairs the site uses, in both themes. The Giscus themes and the share-image template in `src/og/template.ts` cannot use the tokens, so they copy their values. `tests/unit/giscus-themes.test.ts` and `tests/unit/og.test.ts` fail when a copied value is not in the theme.
 - **Styles.** `tokens.css`, `base.css` and `prose.css` (Notion content) in `src/styles/` are global. Components keep their own scoped styles. Code block colours are in `src/styles/code-themes.mjs`, and Expressive Code reads them through `ec.config.mjs`.
 - **Logo.** The pixel horse with sunglasses is drawn in `brand/horse.ts`: a 24 × 24 grid for the home page and a 16 × 16 grid for the favicon and the header. `pnpm brand` regenerates the SVGs in `src/assets/brand/` and the favicons, app icons and web manifest in `public/`. The generated files are committed, and `tests/unit/brand.test.ts` fails when they are out of date.
-- **Masthead.** The `neofetch` card on the home page opens with the root page's title as a pixel banner and its slogan below (see [Writing content](#writing-content)). At build time, `src/lib/banner.ts` renders the title with resvg at 16 px in the [banner font](#banner-font), the only font it loads, keeps the pixels whose alpha is at least 128 and crops them to the ink; today's title gives 72 × 14 pixels. The page draws that bitmap as an inline SVG, one rectangle per run of lit pixels in a row, filled with a gradient through the card's six swatch colours, at a whole number of screen pixels per pixel, close to 300 px wide. The banner's accessible name is the title in plain letters (Unicode NFKC, so `𝕷𝖎𝖑’𝕳𝖔𝖗𝖘𝖊` reads `Lil’Horse`). The build warns about a character the font lacks and leaves it out; a title with nothing the font can draw shows as plain text.
+- **Masthead.** The `neofetch` card on the home page opens with the root page's title as a pixel banner and its slogan below (see [Writing content](#writing-content)). At build time, `src/lib/banner.ts` renders the title with resvg at 16 px in the [banner font](#banner-font), the only font it loads, keeps the pixels whose alpha is at least 128 and crops them to the ink; today's title gives 72 × 14 pixels. The page draws that bitmap as an inline SVG, one rectangle per run of lit pixels in a row, filled with a gradient through the card's six swatch colours, at a whole number of screen pixels per pixel, close to 300 px wide. The banner's accessible name is the title in plain letters (Unicode NFKC, so `𝕷𝖎𝖑’𝕳𝖔𝖗𝖘𝖊` reads `Lil’Horse`). The [GitHub profile README](#github-profile-readme) draws the same bitmap in half blocks. The build warns about a character the font lacks and leaves it out; a title with nothing the font can draw shows as plain text.
 - **Slogan.** On the first view of the home page in a browser session, the slogan types out at 35 ms a character. A copy hidden from screen readers does the typing over the slogan, which stays in the page, invisible, so the card keeps its size and screen readers, crawlers and visitors without JavaScript get the whole text. `sessionStorage` remembers under `slogan-typed` that it has run; without storage, it runs on every view. It never runs, and the cursor never blinks, for visitors who prefer reduced motion.
 - **Accessibility.** `pnpm test:e2e` runs axe on every built page in both themes, at desktop and phone sizes, and on the open command palette and shortcuts help. It also checks that no page scrolls sideways and that, on a phone, every link and button outside running text is at least 44 × 44 px.
 
@@ -65,18 +65,20 @@ pyftsubset STIXTwoMath-Regular.otf \
 
 ## Pages
 
-| Route                               | Content                                                                            |
-| ----------------------------------- | ---------------------------------------------------------------------------------- |
-| `/`                                 | The profile as `neofetch`, featured projects and latest posts                      |
-| `/blog`                             | All posts, grouped by year                                                         |
-| `/blog/<slug>`                      | A post                                                                             |
-| `/blog/tags/<tag>`                  | The posts with a tag                                                               |
-| `/projects`                         | All visible projects                                                               |
-| `/projects/<slug>`                  | A project whose Notion page has content                                            |
-| `/about`, `/contact`                | The About and Contact pages                                                        |
-| `/feed.xml`                         | RSS 2.0 with the full text of the 20 latest Published posts                        |
-| `/og/<type>/<slug>.png`             | 1200 × 630 share images for the home page, posts, project pages, About and Contact |
-| `/sitemap-index.xml`, `/robots.txt` | The sitemap and the crawler rules; Unlisted posts stay out of the sitemap          |
+| Route                                                 | Content                                                                                   |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `/`                                                   | The profile as `neofetch`, featured projects and latest posts                             |
+| `/blog`                                               | All posts, grouped by year                                                                |
+| `/blog/<slug>`                                        | A post                                                                                    |
+| `/blog/tags/<tag>`                                    | The posts with a tag                                                                      |
+| `/projects`                                           | All visible projects                                                                      |
+| `/projects/<slug>`                                    | A project whose Notion page has content                                                   |
+| `/about`, `/contact`                                  | The About and Contact pages                                                               |
+| `/feed.xml`                                           | RSS 2.0 with the full text of the 20 latest Published posts                               |
+| `/og/<type>/<slug>.png`                               | 1200 × 630 share images for the home page, posts, project pages, About and Contact        |
+| `/sitemap-index.xml`, `/robots.txt`                   | The sitemap and the crawler rules; Unlisted posts stay out of the sitemap                 |
+| `/profile/README.md`                                  | The home page's card in Markdown, for the [GitHub profile README](#github-profile-readme) |
+| `/brand/horse-night.svg`, `/brand/horse-chestnut.svg` | The 24 × 24 horses from `src/assets/brand/`, which the profile README shows               |
 
 Every page's `<head>` has Open Graph and Twitter Card tags that point to its share image (pages without one of their own use the home page's) and a link to the feed. The home page, About and posts also carry JSON-LD structured data.
 
@@ -99,7 +101,7 @@ The Worker is in `src/worker/hook.ts`. It handles `POST /hooks/notion`, answers 
 
 1. Notion sends a webhook event. The Worker refuses a body over 1 MiB with 413. Before it parses the body, it checks `X-Notion-Signature`, the HMAC-SHA256 of the raw body keyed by the subscription's verification token (`NOTION_WEBHOOK_SECRET`), and answers 401 if it does not match.
 2. For events that can change the site, the `page.*` and `data_source.*` events listed in `BUILD_EVENTS`, the Worker starts `deploy.yml` on `main` with a workflow dispatch on this repository (`vars.GITHUB_REPOSITORY` in `wrangler.jsonc`), using `GITHUB_DISPATCH_TOKEN`. The Worker answers 202 when GitHub accepts the dispatch and 502 when GitHub does not, so Notion retries. GitHub accepts the dispatch only once `deploy.yml` exists on `main`; before that, it answers 404, and the Worker answers 502. Other events, such as comments and page locks, get 200 and change nothing.
-3. `.github/workflows/deploy.yml` builds from live Notion data, runs `pnpm check:dist` and deploys with `wrangler deploy`.
+3. `.github/workflows/deploy.yml` builds from live Notion data, runs `pnpm check:dist`, deploys with `wrangler deploy` and syncs the [GitHub profile README](#github-profile-readme).
 
 The deploy workflow also runs on every push to `main`, and by hand from the Actions tab or with `gh workflow run deploy.yml` (add `-f full_refresh=true` for a full refresh, which sets `NOTION_FULL_REFRESH=1`). Every day at 17:00 UTC, `.github/workflows/refresh.yml` runs it on `main` as a reusable workflow, with a full refresh. The schedule has a workflow of its own because GitHub disables a workflow with a schedule after 60 days without activity in a public repository: that rule can stop only the daily refresh, never the deploys from a push or from Notion. If it does, enable the Daily refresh workflow again from the Actions tab. The deploy workflow deploys only `main`: a run started by hand on another branch skips the job. A newer run cancels one still in progress, so a burst of edits deploys once. The `.cache/` page cache and Astro's data store in `node_modules/.astro` are restored from the last successful run.
 
@@ -123,13 +125,14 @@ To rotate the token, first delete the secret with `pnpm exec wrangler secret del
 
 The deploy workflow and the `preview` job read the GitHub secrets, and the Worker reads its own:
 
-| Where          | Secret                  | Scope                                                                                                                                           |
-| -------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| GitHub Actions | `NOTION_TOKEN`          | The read-only Notion integration token                                                                                                          |
-| GitHub Actions | `CLOUDFLARE_API_TOKEN`  | Account-owned Cloudflare API token with the Workers Editor role on this account, which deploys but cannot create or delete Workers              |
-| GitHub Actions | `CLOUDFLARE_ACCOUNT_ID` | The Cloudflare account ID                                                                                                                       |
-| Worker         | `NOTION_WEBHOOK_SECRET` | The webhook subscription's verification token                                                                                                   |
-| Worker         | `GITHUB_DISPATCH_TOKEN` | Fine-grained GitHub token for this repository only, with "Actions: Read and write" and the mandatory "Metadata: Read-only"; it cannot push code |
+| Where          | Secret                  | Scope                                                                                                                                                                     |
+| -------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GitHub Actions | `NOTION_TOKEN`          | The read-only Notion integration token                                                                                                                                    |
+| GitHub Actions | `CLOUDFLARE_API_TOKEN`  | Account-owned Cloudflare API token with the Workers Editor role on this account, which deploys but cannot create or delete Workers                                        |
+| GitHub Actions | `CLOUDFLARE_ACCOUNT_ID` | The Cloudflare account ID                                                                                                                                                 |
+| GitHub Actions | `PROFILE_README_TOKEN`  | Fine-grained GitHub token for `lilhorse/lilhorse` only, with "Contents: Read and write" and the mandatory "Metadata: Read-only"; it can change nothing in this repository |
+| Worker         | `NOTION_WEBHOOK_SECRET` | The webhook subscription's verification token                                                                                                                             |
+| Worker         | `GITHUB_DISPATCH_TOKEN` | Fine-grained GitHub token for this repository only, with "Actions: Read and write" and the mandatory "Metadata: Read-only"; it cannot push code                           |
 
 Nothing secret is in the repository or in `wrangler.jsonc`.
 
@@ -146,6 +149,12 @@ printf '' | pbcopy
 Cloudflare refuses to change a secret while the Worker's newest version is not the deployed one. That is the case after every pull request preview, which runs `wrangler versions upload`, and after a rollback, until the next deployment. Deploy first (`gh workflow run deploy.yml`) and wait for the run to finish. Do not follow wrangler's suggestions to deploy the latest version or to use `wrangler versions secret put`: both build on the newest version, not on the deployed one.
 
 `GITHUB_DISPATCH_TOKEN` does not expire, but GitHub revokes a personal access token that has not been used for a year, and the Worker uses this one only when an edit in Notion starts a build. Once the token is revoked, GitHub answers 401, the Worker logs `GitHub dispatch answered 401` and answers 502, and edits in Notion stop starting builds; the daily build still publishes them. Create a new token with the same permissions and store it the same way. Notion inactivates a subscription after repeated failed deliveries, so after storing the new token, check in the Webhooks tab of the integration's settings in Notion that the subscription is still active.
+
+### GitHub profile README
+
+The GitHub profile repository, `lilhorse/lilhorse`, shows the home page's card as its README. The build writes it to `dist/profile/README.md` (`src/pages/profile/README.md.ts`, from `src/lib/profile-readme.ts`): the horse, the masthead banner in half blocks (`█`, `▀` and `▄`, two pixel rows to a line) in a `text` code block, the slogan, the profile's rows, the swatches and the bio. Text from Notion has its Markdown and HTML escaped and stays on one line. The email row links to the contact page, so the address itself never appears in the README. The horses come from `https://lil.horse/brand/horse-night.svg` and `horse-chestnut.svg`, which the build serves from the same files in `src/assets/brand/` as the home page.
+
+After `wrangler deploy`, the deploy workflow runs `scripts/sync-profile-readme.ts` with `PROFILE_README_TOKEN` as `GH_TOKEN` and `PROFILE_REPOSITORY` set to `lilhorse/lilhorse`. Through GitHub's contents API, it compares the profile repository's `README.md` with the build and, when they differ, commits the build's version as `chore: sync the profile card from lil.horse` (or creates the file); otherwise it prints `Profile README unchanged`. The daily refresh runs the same workflow with the same secrets, so the card follows Notion within a day, and at once when an edit in Notion starts a deploy. Without a token, as in a fork or a local run, the script prints a notice and does nothing. When GitHub refuses, for example because the token has expired, the step fails with GitHub's reason after the site is already deployed; create a new token with the same permissions and store it as above.
 
 ### Rollback
 
