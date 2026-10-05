@@ -165,6 +165,9 @@ const scale = Math.max(1, Math.round(BANNER_WIDTH / Math.max(banner.width, 1)));
     inset: 0;
   }
   .slogan :global(.slogan-typed) .cursor {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 0;
     animation: none;
   }
   @media (prefers-reduced-motion: reduce) {

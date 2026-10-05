@@ -4,6 +4,12 @@ import { builtFromFixtures } from './site';
 
 const typing = (page: Page) => page.locator('.slogan-typed');
 
+/** The parts of a layout-shift entry this file reads; TypeScript's DOM types lack them. */
+interface LayoutShiftEntry extends PerformanceEntry {
+  value: number;
+  sources: { node: Node | null }[];
+}
+
 /** Checked once, without retrying: typing that had started would still be running. */
 const typingNow = (page: Page) =>
   page.evaluate(() => ({
@@ -27,6 +33,17 @@ test('the banner is an image named by the title in plain letters', async ({ page
 });
 
 test('the slogan types out once per session, in place', async ({ page }) => {
+  await page.addInitScript(() => {
+    const shifts: number[] = [];
+    Object.assign(window, { sloganShifts: shifts });
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries() as LayoutShiftEntry[]) {
+        const slogan = document.querySelector('.slogan');
+        if (entry.sources.some((source) => source.node && slogan?.contains(source.node)))
+          shifts.push(entry.value);
+      }
+    }).observe({ type: 'layout-shift', buffered: true });
+  });
   await openHome(page);
   const card = page.locator('.neofetch');
   await expect(typing(page)).toBeVisible();
@@ -34,6 +51,9 @@ test('the slogan types out once per session, in place', async ({ page }) => {
   await expect(typing(page)).toHaveCount(0);
   expect(await card.boundingBox()).toEqual(during);
   await expect(page.locator('.slogan-text')).toHaveCSS('opacity', '1');
+  expect(
+    await page.evaluate(() => (window as unknown as { sloganShifts: number[] }).sloganShifts),
+  ).toEqual([]);
 
   await page.reload();
   expect(await typingNow(page)).toEqual({ overlays: 0, hidden: false });

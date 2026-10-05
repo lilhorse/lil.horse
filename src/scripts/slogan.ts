@@ -47,6 +47,20 @@ function rememberTyped(storage: SloganEnv['storage']): void {
   }
 }
 
+/** The end of the typed text, from the overlay's top left, with the line snapped to the line height. */
+function caretOffset(overlay: HTMLElement, typed: Text, lastChar: string): [number, number] {
+  const range = overlay.ownerDocument.createRange();
+  range.setStart(typed, typed.length - lastChar.length);
+  range.setEnd(typed, typed.length);
+  const rects = range.getClientRects();
+  const rect = rects[rects.length - 1];
+  if (!rect) return [0, 0];
+  const box = overlay.getBoundingClientRect();
+  const top = rect.top - box.top;
+  const line = Number.parseFloat(getComputedStyle(overlay).lineHeight);
+  return [rect.right - box.left, line > 0 ? Math.round(top / line) * line : top];
+}
+
 /**
  * Types the slogan out once per browser session, over a copy hidden from screen readers.
  * The slogan itself stays in the page, invisible, so the card never changes size.
@@ -64,15 +78,19 @@ export async function typeSlogan(
 
   const doc = slogan.ownerDocument;
   const typed = doc.createTextNode('');
+  const caret = cursor.cloneNode(true) as HTMLElement;
   const overlay = doc.createElement('span');
   overlay.className = 'slogan-typed';
   overlay.setAttribute('aria-hidden', 'true');
-  overlay.append(typed, cursor.cloneNode(true));
+  overlay.append(typed, caret);
   slogan.append(overlay);
   slogan.classList.add('typing');
   for (const char of Array.from(text)) {
     await env.wait(CHAR_MS);
     typed.data += char;
+    // A transform, unlike a caret in the text flow, moves without counting as a layout shift.
+    const [x, y] = caretOffset(overlay, typed, char);
+    caret.style.transform = `translate(${x}px, ${y}px)`;
   }
   overlay.remove();
   slogan.classList.remove('typing');
