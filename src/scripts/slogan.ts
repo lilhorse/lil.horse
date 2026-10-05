@@ -4,7 +4,7 @@ export const CHAR_MS = 35;
 export interface SloganEnv {
   storage: Pick<Storage, 'getItem' | 'setItem'> | null;
   reducedMotion(): boolean;
-  /** Resolves once the page is in front of the visitor, not just prerendered. */
+  /** Resolves once the page is in front of the visitor: neither prerendered nor in a hidden tab. */
   shown(): Promise<void>;
   wait(ms: number): Promise<void>;
 }
@@ -22,11 +22,20 @@ export function defaultEnv(doc: Document): SloganEnv {
     storage: sessionStore(),
     reducedMotion: () => matchMedia('(prefers-reduced-motion: reduce)').matches,
     shown: () =>
-      (doc as Document & { prerendering?: boolean }).prerendering
-        ? new Promise((resolve) =>
-            doc.addEventListener('prerenderingchange', () => resolve(), { once: true }),
-          )
-        : Promise.resolve(),
+      new Promise((resolve) => {
+        const ready = () =>
+          !(doc as Document & { prerendering?: boolean }).prerendering &&
+          doc.visibilityState === 'visible';
+        const check = () => {
+          if (!ready()) return;
+          doc.removeEventListener('prerenderingchange', check);
+          doc.removeEventListener('visibilitychange', check);
+          resolve();
+        };
+        doc.addEventListener('prerenderingchange', check);
+        doc.addEventListener('visibilitychange', check);
+        check();
+      }),
     wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   };
 }
@@ -61,10 +70,7 @@ function caretOffset(overlay: HTMLElement, typed: Text, lastChar: string): [numb
   return [rect.right - box.left, line > 0 ? Math.round(top / line) * line : top];
 }
 
-/**
- * Types the slogan out once per browser session, over a copy hidden from screen readers.
- * The slogan itself stays in the page, invisible, so the card never changes size.
- */
+/** Types the slogan out once per browser session, over a copy hidden from screen readers. */
 export async function typeSlogan(
   slogan: HTMLElement,
   env: SloganEnv = defaultEnv(slogan.ownerDocument),
@@ -85,13 +91,16 @@ export async function typeSlogan(
   overlay.append(typed, caret);
   slogan.append(overlay);
   slogan.classList.add('typing');
-  for (const char of Array.from(text)) {
-    await env.wait(CHAR_MS);
-    typed.data += char;
-    // A transform, unlike a caret in the text flow, moves without counting as a layout shift.
-    const [x, y] = caretOffset(overlay, typed, char);
-    caret.style.transform = `translate(${x}px, ${y}px)`;
+  try {
+    for (const char of Array.from(text)) {
+      await env.wait(CHAR_MS);
+      typed.data += char;
+      // A transform, unlike a caret in the text flow, moves without counting as a layout shift.
+      const [x, y] = caretOffset(overlay, typed, char);
+      caret.style.transform = `translate(${x}px, ${y}px)`;
+    }
+  } finally {
+    overlay.remove();
+    slogan.classList.remove('typing');
   }
-  overlay.remove();
-  slogan.classList.remove('typing');
 }

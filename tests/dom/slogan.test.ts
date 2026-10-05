@@ -101,7 +101,20 @@ describe('typeSlogan', () => {
     }
   });
 
-  it('waits until a prerendered page is shown', async () => {
+  it('puts the slogan back when typing fails partway', async () => {
+    const before = slogan().outerHTML;
+    let ticks = 0;
+    const { value } = env({
+      wait: async () => {
+        ticks += 1;
+        if (ticks === 3) throw new Error('the timer is gone');
+      },
+    });
+    await expect(typeSlogan(slogan(), value)).rejects.toThrow('the timer is gone');
+    expect(slogan().outerHTML).toBe(before);
+  });
+
+  it('waits until the page is shown', async () => {
     let show: () => void = () => undefined;
     const storage = new MemoryStorage();
     const { value, frames } = env({
@@ -121,7 +134,27 @@ describe('typeSlogan', () => {
   });
 });
 
+const settled = () => new Promise((resolve) => setTimeout(resolve, 0));
+
 describe('defaultEnv', () => {
+  it('waits for a hidden tab to come to the front before it reports the page shown', async () => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    let shown = false;
+    const waiting = defaultEnv(document)
+      .shown()
+      .then(() => {
+        shown = true;
+      });
+    document.dispatchEvent(new Event('visibilitychange'));
+    await settled();
+    expect(shown).toBe(false);
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    document.dispatchEvent(new Event('visibilitychange'));
+    await waiting;
+    expect(shown).toBe(true);
+    Reflect.deleteProperty(document, 'visibilityState');
+  });
+
   it('waits for prerendering to end before it reports the page shown', async () => {
     Object.defineProperty(document, 'prerendering', { configurable: true, value: true });
     let shown = false;

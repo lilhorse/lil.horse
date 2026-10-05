@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { CHAR_MS } from '../../src/scripts/slogan';
 import { expect, test } from './fixtures';
 import { builtFromFixtures } from './site';
 
@@ -44,12 +45,24 @@ test('the slogan types out once per session, in place', async ({ page }) => {
       }
     }).observe({ type: 'layout-shift', buffered: true });
   });
+  // A paused clock fires the typing's timers only when the test moves it on.
+  await page.clock.install({ time: new Date('2026-10-05T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-10-05T00:00:01Z'));
   await openHome(page);
+  const chars = Array.from((await page.locator('.slogan-text').textContent()) ?? '');
   const card = page.locator('.neofetch');
-  await expect(typing(page)).toBeVisible();
-  const during = await card.boundingBox();
+  const tick = async (count: number) => {
+    for (let step = 0; step < count; step++) await page.clock.runFor(CHAR_MS);
+  };
+
+  await expect(typing(page)).toHaveText('▋');
+  const before = await card.boundingBox();
+  await tick(10);
+  await expect(typing(page)).toHaveText(`${chars.slice(0, 10).join('')}▋`);
+  expect(await card.boundingBox()).toEqual(before);
+  await tick(chars.length - 10);
   await expect(typing(page)).toHaveCount(0);
-  expect(await card.boundingBox()).toEqual(during);
+  expect(await card.boundingBox()).toEqual(before);
   await expect(page.locator('.slogan-text')).toHaveCSS('opacity', '1');
   expect(
     await page.evaluate(() => (window as unknown as { sloganShifts: number[] }).sloganShifts),
