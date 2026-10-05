@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { CHAR_MS, STRIKE_GAP_MS, STRIKE_MS } from '../../src/scripts/intro';
+import { CHAR_MS, INTRO_KEY, STRIKE_GAP_MS, STRIKE_MS } from '../../src/scripts/intro';
 import { expect, test } from './fixtures';
 import { builtFromFixtures } from './site';
 
@@ -92,4 +92,24 @@ test('the intro never plays, and the cursor never blinks, under reduced motion',
   expect(await playingNow(page)).toEqual({ overlays: 0, playing: false });
   await expect(page.locator('.neofetch .cursor')).toHaveCSS('animation-name', 'none');
   expect(await page.evaluate(() => sessionStorage.length)).toBe(0);
+});
+
+test('hovering a stack item lifts its strike', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'needs a pointer that hovers');
+  await page.addInitScript((key) => sessionStorage.setItem(key, '1'), INTRO_KEY);
+  await page.goto('/');
+  const item = page.locator('[data-stack] s').first();
+  test.skip((await item.count()) === 0, 'the stack is not struck');
+  const strike = () =>
+    item.evaluate((element) => getComputedStyle(element).getPropertyValue('--strike'));
+  const transparent = 'rgba(0, 0, 0, 0)';
+  expect(await strike()).not.toBe(transparent);
+  await item.hover();
+  await expect.poll(strike).toBe(transparent);
+  const text = await page
+    .locator('[data-stack]')
+    .evaluate((element) => getComputedStyle(element).color);
+  await expect(item).toHaveCSS('color', text);
+  await page.mouse.move(0, 0);
+  await expect.poll(strike).not.toBe(transparent);
 });

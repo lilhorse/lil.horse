@@ -207,7 +207,7 @@ const note = profile.stack.length > 0 ? siteConfig.stackNote.text || null : null
     inherits: false;
     initial-value: transparent;
   }
-  /* Unlike text-decoration, a background line can grow from the left. */
+  /* Unlike text-decoration, a background line can grow from the left, and a hover can fade it. */
   [data-stack] s {
     --strike: var(--muted);
     color: var(--fg-soft);
@@ -221,9 +221,23 @@ const note = profile.stack.length > 0 ? siteConfig.stackNote.text || null : null
     background-size: 100% 1px;
     transition: background-size 200ms linear;
   }
+  @media (hover: hover) {
+    [data-stack] s {
+      transition:
+        --strike 150ms,
+        color 150ms;
+    }
+    [data-stack] s:hover {
+      --strike: transparent;
+      color: var(--fg);
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
     .cursor {
       animation: none;
+    }
+    [data-stack] s {
+      transition: none;
     }
   }
   .sep {
