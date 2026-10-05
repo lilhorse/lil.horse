@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
 export const COMMIT_MESSAGE = 'chore: sync the profile card from lil.horse';
+export const RETRY_DELAY_MS = 2_000;
 const README_FILE = 'dist/profile/README.md';
 const REPOSITORY = /^[\w.-]+\/[\w.-]+$/;
 
@@ -9,6 +10,7 @@ export interface ProfileSyncDeps {
   env: Record<string, string | undefined>;
   fetch: typeof fetch;
   readReadme(): Promise<string>;
+  wait?(ms: number): Promise<void>;
 }
 
 interface Contents {
@@ -21,6 +23,7 @@ export async function syncProfileReadme({
   env,
   fetch,
   readReadme,
+  wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 }: ProfileSyncDeps): Promise<string> {
   const token = env.GH_TOKEN?.trim();
   if (!token) return 'GH_TOKEN is not set, so the profile README is not synced';
@@ -29,7 +32,7 @@ export async function syncProfileReadme({
     throw new Error('PROFILE_REPOSITORY must name the profile repository as owner/name');
   const readme = await readReadme();
   const path = `/repos/${repository}/contents/README.md`;
-  const request = async (method: 'GET' | 'PUT', body?: object) => {
+  const send = async (method: 'GET' | 'PUT', body?: object) => {
     const response = await fetch(`https://api.github.com${path}`, {
       method,
       headers: {
@@ -46,6 +49,13 @@ export async function syncProfileReadme({
     });
     const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
     return { status: response.status, ok: response.ok, data };
+  };
+  // Once more after a network error or a 5xx; any other answer stands.
+  const request = async (method: 'GET' | 'PUT', body?: object) => {
+    const first = await send(method, body).catch((error: Error) => error);
+    if (!(first instanceof Error) && first.status < 500) return first;
+    await wait(RETRY_DELAY_MS);
+    return send(method, body);
   };
   const fail = (method: string, status: number, data: Record<string, unknown>) =>
     new Error(

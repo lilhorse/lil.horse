@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { COMMIT_MESSAGE, syncProfileReadme } from '../../scripts/sync-profile-readme';
+import {
+  COMMIT_MESSAGE,
+  RETRY_DELAY_MS,
+  syncProfileReadme,
+} from '../../scripts/sync-profile-readme';
 
 const README = '```text\n▄█▀\n```\n\n*Chill 🍻.*\n';
 const CONTENTS = 'https://api.github.com/repos/lilhorse/lilhorse/contents/README.md';
@@ -9,7 +13,7 @@ const base64 = (text: string) => Buffer.from(text, 'utf8').toString('base64');
 // GitHub wraps the base64 content of a file at 60 characters.
 const wrapped = (text: string) => base64(text).replace(/.{60}/g, '$&\n');
 
-type Reply = { status: number; body?: unknown };
+type Reply = { status: number; body?: unknown } | { fails: string };
 
 function github(...replies: Reply[]) {
   const requests: { url: string; method: string; headers: Headers; body: unknown }[] = [];
@@ -22,13 +26,17 @@ function github(...replies: Reply[]) {
     });
     const reply = replies.shift();
     if (!reply) throw new Error('unexpected request');
+    if ('fails' in reply) throw new TypeError(reply.fails);
     return new Response(JSON.stringify(reply.body ?? {}), { status: reply.status });
   });
   return { fetch: fetch as unknown as typeof globalThis.fetch, requests };
 }
 
-const run = (fetch: typeof globalThis.fetch, env: Record<string, string | undefined> = ENV) =>
-  syncProfileReadme({ env, fetch, readReadme: async () => README });
+const run = (
+  fetch: typeof globalThis.fetch,
+  env: Record<string, string | undefined> = ENV,
+  wait: (ms: number) => Promise<void> = async () => undefined,
+) => syncProfileReadme({ env, fetch, readReadme: async () => README, wait });
 
 describe('syncProfileReadme', () => {
   it('leaves the profile alone when its README already matches', async () => {
@@ -101,8 +109,25 @@ describe('syncProfileReadme', () => {
     );
   });
 
+  it('tries each request once more after a network error or a 5xx, after a pause', async () => {
+    const waits: number[] = [];
+    const { fetch, requests } = github(
+      { status: 503, body: { message: 'Service Unavailable' } },
+      { status: 200, body: { sha: 'old', encoding: 'base64', content: wrapped('Before\n') } },
+      { fails: 'fetch failed' },
+      { status: 200, body: { commit: { sha: '0123456789abcdef0123456789abcdef01234567' } } },
+    );
+    expect(
+      await run(fetch, ENV, async (ms: number) => {
+        waits.push(ms);
+      }),
+    ).toBe('Updated the profile README in lilhorse/lilhorse: 0123456');
+    expect(requests.map((request) => request.method)).toEqual(['GET', 'GET', 'PUT', 'PUT']);
+    expect(waits).toEqual([RETRY_DELAY_MS, RETRY_DELAY_MS]);
+  });
+
   it('names the request when GitHub gives no reason or cannot be reached', async () => {
-    const silent = github({ status: 502 });
+    const silent = github({ status: 502 }, { status: 502 });
     await expect(run(silent.fetch)).rejects.toThrow(
       /^GitHub answered 502 to GET \/repos\/lilhorse\/lilhorse\/contents\/README\.md$/,
     );
