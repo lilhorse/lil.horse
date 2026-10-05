@@ -31,6 +31,7 @@ export const siteConfig = {
   name: "Lil'Horse",
   url: 'https://lil.horse',
   notion,
+  stackNote: { strikethrough: true, text: '# unlimited stack via Claude & Codex 😎' },
   // Cloudflare Web Analytics site token; empty means no beacon.
   analytics: { cloudflareToken: '' },
   giscus: {

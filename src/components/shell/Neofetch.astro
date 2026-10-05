@@ -3,6 +3,7 @@ import { bannerBitmap, bannerLabel, bannerPath, bannerScale } from '../../lib/ba
 import { emailHtml, socialLinks } from '../../lib/profile';
 import type { Availability, MastheadEntry, ProfileEntry } from '../../notion/types';
 import PixelHorse from './PixelHorse.astro';
+import { siteConfig } from '../../../site.config';
 
 interface Props {
   profile: ProfileEntry;
@@ -72,7 +73,21 @@ const scale = bannerScale(banner.width);
       {profile.stack.length > 0 && (
         <div>
           <dt>Stack</dt>
-          <dd>{profile.stack.map((item) => item.replaceAll(' ', '\u00a0')).join('\u00a0· ')}</dd>
+          <dd>
+            {profile.stack.map((item, index) => (
+              <Fragment>
+                {index > 0 && '\u00a0· '}
+                {siteConfig.stackNote.strikethrough ? (
+                  <s>{item.replaceAll(' ', '\u00a0')}</s>
+                ) : (
+                  item.replaceAll(' ', '\u00a0')
+                )}
+              </Fragment>
+            ))}
+            {siteConfig.stackNote.text && (
+              <span class="comment">{` ${siteConfig.stackNote.text}`}</span>
+            )}
+          </dd>
         </div>
       )}
       <div>
@@ -175,6 +190,13 @@ const scale = bannerScale(banner.width);
   }
   .sep {
     color: var(--muted);
+  }
+  .comment {
+    display: inline-block;
+    color: var(--muted);
+  }
+  dd s {
+    text-decoration-color: var(--muted);
   }
   .rule {
     color: var(--faint);

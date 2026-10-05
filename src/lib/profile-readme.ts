@@ -44,6 +44,7 @@ export interface ProfileReadmeInput {
   slogan: string | null;
   profile: ProfileEntry;
   site: string;
+  stackNote?: { strikethrough: boolean; text?: string };
 }
 
 /** The home page's neofetch card as a GitHub profile README. It never holds the email address. */
@@ -53,6 +54,7 @@ export function profileReadme({
   slogan,
   profile,
   site,
+  stackNote,
 }: ProfileReadmeInput): string {
   const base = site.replace(/\/+$/, '');
   const host = new URL(base).host;
@@ -93,7 +95,13 @@ export function profileReadme({
   const info = [
     `**Role** · ${field(profile.role)}`,
     `**Location** · ${field(profile.location)}`,
-    ...(stack.length > 0 ? [`**Stack** · ${stack.join(' · ')}`] : []),
+    ...(stack.length > 0
+      ? [
+          `**Stack** · ${stack.map((chip) => (stackNote?.strikethrough ? `~~${chip}~~` : chip)).join(' · ')}${
+            stackNote?.text ? ` *${field(stackNote.text)}*` : ''
+          }`,
+        ]
+      : []),
     `**Status** · ${STATUS[profile.availability]}`,
     `**Contact** · ${contact.join(' · ')}`,
   ];
