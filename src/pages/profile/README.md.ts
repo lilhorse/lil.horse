@@ -15,6 +15,7 @@ export const GET: APIRoute = async () => {
       slogan: masthead.slogan,
       profile,
       site: siteConfig.url,
+      stackNote: siteConfig.stackNote,
     }),
     { headers: { 'Content-Type': 'text/markdown; charset=utf-8' } },
   );

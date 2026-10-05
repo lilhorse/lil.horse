@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { siteConfig } from '../../site.config';
 import Neofetch from '../../src/components/shell/Neofetch.astro';
-import { bannerBitmap, bannerPath } from '../../src/lib/banner';
+import { bannerBitmap, bannerPath, shimmerBand } from '../../src/lib/banner';
 import Home from '../../src/pages/index.astro';
 import { htmlErrors, render, textOf } from '../helpers/astro-render';
 import { element, masthead, post, profile, project, useSite } from '../helpers/site-data';
@@ -21,6 +22,7 @@ const rows = (html: string) =>
 
 const TITLE = '𝕷𝖎𝖑’𝕳𝖔𝖗𝖘𝖊';
 const SLOGAN = 'Dis is da cyberspace of Lil’Horse, just chill and have fun 🍻.';
+const NOTE = { strikethrough: true, text: '# AI & co 😎' };
 
 describe('Neofetch', () => {
   it('draws the masthead title as a pixel banner named in plain letters', async () => {
@@ -32,7 +34,9 @@ describe('Neofetch', () => {
     expect(svg).toContain(`viewBox="0 0 ${banner.width} ${banner.height}"`);
     expect(svg).toContain(`width="${banner.width * 4}" height="${banner.height * 4}"`);
     expect(svg).toContain('shape-rendering="crispEdges"');
-    expect(svg).toContain(`<path fill="url(#masthead-gradient)" d="${bannerPath(banner)}"></path>`);
+    expect(svg).toContain(
+      `<path id="masthead-letters" fill="url(#masthead-gradient)" d="${bannerPath(banner)}"></path>`,
+    );
     expect(
       [...svg.matchAll(/<stop offset="(\d+)%" style="stop-color: var\(--(swatch-\d)\)"/g)].map(
         ([, offset, token]) => `${offset} ${token}`,
@@ -49,6 +53,26 @@ describe('Neofetch', () => {
     expect(await htmlErrors(html)).toEqual([]);
   });
 
+  it('clips a band of light for the shimmer to the letters, without a second copy of them', async () => {
+    const html = await render(Neofetch, { profile, masthead: { title: TITLE, slogan: SLOGAN } });
+    const svg = element(html, '<svg class="banner"', 'svg');
+    const banner = bannerBitmap(TITLE, () => undefined);
+    const band = shimmerBand(banner.width);
+    expect(svg).toContain(
+      '<clipPath id="masthead-ink"><use href="#masthead-letters"></use></clipPath>',
+    );
+    expect(svg).toContain(
+      `<g clip-path="url(#masthead-ink)"><rect class="shine" x="${-band}" y="0" width="${band}" height="${banner.height}" fill="url(#masthead-shine)" style="--sweep: ${banner.width + band}px"></rect></g>`,
+    );
+    expect(svg).toContain(
+      '<stop offset="0.3" style="stop-color: light-dark(#ffffff33, #ffffff40)"></stop>' +
+        '<stop offset="0.5" style="stop-color: light-dark(#ffffff99, #ffffffbf)"></stop>' +
+        '<stop offset="0.7" style="stop-color: light-dark(#ffffff33, #ffffff40)"></stop>',
+    );
+    expect(svg.split(bannerPath(banner))).toHaveLength(2);
+    expect(await htmlErrors(html)).toEqual([]);
+  });
+
   it('prints the slogan between the banner and the rule, ending in a hidden cursor', async () => {
     const html = await render(Neofetch, { profile, masthead: { title: TITLE, slogan: SLOGAN } });
     const slogan = element(html, '<p class="slogan"', 'p');
@@ -57,6 +81,23 @@ describe('Neofetch', () => {
     );
     expect(html.indexOf('</svg>')).toBeLessThan(html.indexOf(slogan));
     expect(html.indexOf(slogan)).toBeLessThan(html.indexOf('<p class="rule"'));
+  });
+
+  it('moves the resting cursor from the slogan to the end of the stack note', async () => {
+    const html = await render(Neofetch, {
+      profile: { ...profile, stack: ['TypeScript', 'Go'] },
+      masthead: { title: TITLE, slogan: SLOGAN },
+      stackNote: NOTE,
+    });
+    expect(html).toContain('<div class="neofetch" data-intro>');
+    expect(element(html, '<p class="slogan"', 'p')).toBe(
+      `<p class="slogan" data-slogan><span class="slogan-text">${SLOGAN}</span></p>`,
+    );
+    expect(html).toContain(
+      '<dd data-stack><s>TypeScript</s>\u00a0· <s>Go</s> <span class="comment" data-note><span class="note-text"># AI &amp; co 😎</span><span class="cursor" aria-hidden="true">▋</span></span></dd>',
+    );
+    expect(html.match(/class="cursor"/g)).toHaveLength(1);
+    expect(await htmlErrors(html)).toEqual([]);
   });
 
   it('keeps a short title title-sized', async () => {
@@ -86,11 +127,12 @@ describe('Neofetch', () => {
         stack: ['TypeScript', 'Go'],
         bio: 'Indie Coder & GFW Hater.',
       },
+      stackNote: NOTE,
     });
     expect(rows(html)).toEqual([
       'Role: Developer',
       'Location: Auckland',
-      'Stack: TypeScript\u00a0· Go',
+      'Stack: TypeScript\u00a0· Go # AI &amp; co 😎▋',
       'Status: Open to work',
       'Contact: sup@lil.horse · github',
     ]);
@@ -105,8 +147,39 @@ describe('Neofetch', () => {
     const html = await render(Neofetch, {
       masthead,
       profile: { ...profile, stack: ['TypeScript', 'Tailwind CSS', 'Go'] },
+      stackNote: NOTE,
     });
-    expect(html).toContain('<dd>TypeScript\u00a0· Tailwind\u00a0CSS\u00a0· Go</dd>');
+    expect(html).toContain('<s>TypeScript</s>\u00a0· <s>Tailwind\u00a0CSS</s>\u00a0· <s>Go</s>');
+  });
+
+  it('strikes nothing and adds no note unless the stack note asks', async () => {
+    const card = (stackNote?: typeof NOTE | { strikethrough: boolean }) =>
+      render(Neofetch, {
+        profile: { ...profile, stack: ['TypeScript', 'Go'] },
+        masthead: { title: TITLE, slogan: SLOGAN },
+        stackNote,
+      });
+    const plain = await card();
+    expect(element(plain, '<dd data-stack', 'dd')).toBe('<dd data-stack>TypeScript\u00a0· Go</dd>');
+    expect(element(plain, '<p class="slogan"', 'p')).toContain('<span class="cursor"');
+    expect(
+      element(await card({ strikethrough: false, text: '# AI' }), '<dd data-stack', 'dd'),
+    ).toBe(
+      '<dd data-stack>TypeScript\u00a0· Go <span class="comment" data-note><span class="note-text"># AI</span><span class="cursor" aria-hidden="true">▋</span></span></dd>',
+    );
+    expect(element(await card({ strikethrough: true }), '<dd data-stack', 'dd')).toBe(
+      '<dd data-stack><s>TypeScript</s>\u00a0· <s>Go</s></dd>',
+    );
+  });
+
+  it('treats a blank stack note as none, leaving the cursor on the slogan', async () => {
+    const html = await render(Neofetch, {
+      profile: { ...profile, stack: ['TypeScript', 'Go'] },
+      masthead: { title: TITLE, slogan: SLOGAN },
+      stackNote: { strikethrough: true, text: ' \n ' },
+    });
+    expect(html).not.toContain('data-note');
+    expect(element(html, '<p class="slogan"', 'p')).toContain('<span class="cursor"');
   });
 
   it('leaves out the stack and contact rows when they are empty', async () => {
@@ -125,6 +198,19 @@ describe('home page', () => {
     expect(html).toMatch(/<h1 class="sr-only">Lil(&#39;|')Horse<\/h1>/);
     expect(html).toContain('neofetch');
     expect(await htmlErrors(html)).toEqual([]);
+  });
+
+  it('gives the card the stack note from site.config.ts', async () => {
+    const stacked = { ...profile, stack: ['TypeScript', 'Go'] };
+    useSite({ profile: stacked });
+    const card = await render(Neofetch, {
+      profile: stacked,
+      masthead,
+      stackNote: siteConfig.stackNote,
+    });
+    expect(element(await render(Home), '<dd data-stack', 'dd')).toBe(
+      element(card, '<dd data-stack', 'dd'),
+    );
   });
 
   it('heads the card with the masthead from the root page', async () => {

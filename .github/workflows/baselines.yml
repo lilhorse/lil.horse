@@ -1,9 +1,7 @@
 name: Visual baselines
 
+# Run by `pnpm baselines:linux`, which commits the result: a GITHUB_TOKEN push from here would start no CI.
 on:
-  # workflow_dispatch needs this file on main; until then, push to a baselines/** branch.
-  push:
-    branches: ['baselines/**']
   workflow_dispatch:
 
 permissions:

@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
 import type { Availability, ProfileEntry } from '../notion/types';
 import { bannerImageSize, bannerLabel, bannerSvg, type BannerTheme, type Bitmap } from './banner';
+import { servedHorse } from './brand-horses';
 import { escapeAttr } from './html';
-import { socialLinks } from './profile';
+import { socialLinks, type StackNote } from './profile';
 
 const STATUS: Record<Availability, string> = {
   'Open to work': '🟢 Open to work',
@@ -44,6 +45,7 @@ export interface ProfileReadmeInput {
   slogan: string | null;
   profile: ProfileEntry;
   site: string;
+  stackNote?: StackNote;
 }
 
 /** The home page's neofetch card as a GitHub profile README. It never holds the email address. */
@@ -53,6 +55,7 @@ export function profileReadme({
   slogan,
   profile,
   site,
+  stackNote,
 }: ProfileReadmeInput): string {
   const base = site.replace(/\/+$/, '');
   const host = new URL(base).host;
@@ -67,16 +70,15 @@ export function profileReadme({
       '    </picture>',
       '  </a>',
     ].join('\n');
+  // GitHub's image cache fetches a changed image at once only when its address changes too.
+  const versioned = (path: string, served: string) =>
+    `${href}${path}?v=${createHash('sha256').update(served).digest('hex').slice(0, 8)}`;
   const horse = picture(
-    `${href}/brand/horse-night.svg`,
-    `<img align="left" width="120" alt="${escapeAttr(host)}" src="${href}/brand/horse-chestnut.svg">`,
+    versioned('/brand/horse-night.svg', servedHorse('horse-night')),
+    `<img align="left" width="120" alt="${escapeAttr(host)}" src="${versioned('/brand/horse-chestnut.svg', servedHorse('horse-chestnut'))}">`,
   );
-  // GitHub's image cache fetches a changed banner at once only when its address changes too.
   const bannerUrl = (theme: BannerTheme) =>
-    `${href}/brand/masthead-${theme}.svg?v=${createHash('sha256')
-      .update(bannerSvg(banner, title, theme))
-      .digest('hex')
-      .slice(0, 8)}`;
+    versioned(`/brand/masthead-${theme}.svg`, bannerSvg(banner, title, theme));
   const masthead =
     banner.width > 0
       ? picture(
@@ -89,11 +91,16 @@ export function profileReadme({
     ...(profile.email ? [`[email](${destination(`${base}/contact`)})`] : []),
     ...socialLinks(profile).map((link) => `[${link.label}](${destination(link.href)})`),
   ];
-  const stack = profile.stack.map((item) => inlineCode(oneLine(item)));
+  const stack = profile.stack.map((item) => {
+    const chip = inlineCode(oneLine(item));
+    return stackNote?.strikethrough ? `~~${chip}~~` : chip;
+  });
   const info = [
     `**Role** · ${field(profile.role)}`,
     `**Location** · ${field(profile.location)}`,
-    ...(stack.length > 0 ? [`**Stack** · ${stack.join(' · ')}`] : []),
+    ...(stack.length > 0
+      ? [`**Stack** · ${[stack.join(' · '), ...italic(stackNote?.text ?? null)].join(' ')}`]
+      : []),
     `**Status** · ${STATUS[profile.availability]}`,
     `**Contact** · ${contact.join(' · ')}`,
   ];

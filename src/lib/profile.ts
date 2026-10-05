@@ -1,6 +1,12 @@
 import type { ProfileEntry } from '../notion/types';
 import { escapeHtml, isSafeHref } from './html';
 
+/** The stack row's note from site.config.ts: whether to strike every item, and a comment after them. */
+export interface StackNote {
+  strikethrough: boolean;
+  text?: string;
+}
+
 export interface SocialLink {
   label: string;
   href: string;

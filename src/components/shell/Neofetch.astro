@@ -1,12 +1,20 @@
 ---
-import { bannerBitmap, bannerLabel, bannerPath, bannerScale } from '../../lib/banner';
-import { emailHtml, socialLinks } from '../../lib/profile';
+import {
+  bannerBitmap,
+  bannerLabel,
+  bannerPath,
+  bannerScale,
+  shimmerBand,
+  SHIMMER_STOPS,
+} from '../../lib/banner';
+import { emailHtml, socialLinks, type StackNote } from '../../lib/profile';
 import type { Availability, MastheadEntry, ProfileEntry } from '../../notion/types';
 import PixelHorse from './PixelHorse.astro';
 
 interface Props {
   profile: ProfileEntry;
   masthead: MastheadEntry;
+  stackNote?: StackNote;
 }
 
 const STATUS: Record<Availability, string> = {
@@ -16,15 +24,25 @@ const STATUS: Record<Availability, string> = {
 };
 
 const SWATCHES = [1, 2, 3, 4, 5, 6];
+const hexAlpha = (opacity: number) =>
+  Math.round(opacity * 255)
+    .toString(16)
+    .padStart(2, '0');
+const shine = SHIMMER_STOPS.map(({ offset, opacity }) => ({
+  offset,
+  color: `light-dark(#ffffff${hexAlpha(opacity.light)}, #ffffff${hexAlpha(opacity.dark)})`,
+}));
 
-const { profile, masthead } = Astro.props;
+const { profile, masthead, stackNote = { strikethrough: false } } = Astro.props;
 const email = profile.email ? emailHtml(profile.email) : null;
 const social = socialLinks(profile);
 const banner = bannerBitmap(masthead.title, (message) => console.warn(message));
 const scale = bannerScale(banner.width);
+const band = shimmerBand(banner.width);
+const note = profile.stack.length > 0 ? stackNote.text?.trim() || null : null;
 ---
 
-<div class="neofetch">
+<div class="neofetch" data-intro>
   <PixelHorse grid={24} size={120} animated />
   <div class="info">
     {banner.width > 0 ? (
@@ -43,8 +61,29 @@ const scale = bannerScale(banner.width);
               <stop offset={`${index * 20}%`} style={`stop-color: var(--swatch-${swatch})`} />
             ))}
           </linearGradient>
+          <linearGradient id="masthead-shine">
+            <stop offset="0" style="stop-color: #fff0" />
+            {shine.map(({ offset, color }) => (
+              <stop offset={offset} style={`stop-color: ${color}`} />
+            ))}
+            <stop offset="1" style="stop-color: #fff0" />
+          </linearGradient>
+          <clipPath id="masthead-ink">
+            <use href="#masthead-letters" />
+          </clipPath>
         </defs>
-        <path fill="url(#masthead-gradient)" d={bannerPath(banner)} />
+        <path id="masthead-letters" fill="url(#masthead-gradient)" d={bannerPath(banner)} />
+        <g clip-path="url(#masthead-ink)">
+          <rect
+            class="shine"
+            x={-band}
+            y="0"
+            width={band}
+            height={banner.height}
+            fill="url(#masthead-shine)"
+            style={`--sweep: ${banner.width + band}px`}
+          />
+        </g>
       </svg>
     ) : (
       <p class="title">{masthead.title}</p>
@@ -52,9 +91,11 @@ const scale = bannerScale(banner.width);
     {masthead.slogan && (
       <p class="slogan" data-slogan>
         <span class="slogan-text">{masthead.slogan}</span>
-        <span class="cursor" aria-hidden="true">
-          ▋
-        </span>
+        {!note && (
+          <span class="cursor" aria-hidden="true">
+            ▋
+          </span>
+        )}
       </p>
     )}
     <p class="rule" aria-hidden="true">
@@ -72,7 +113,29 @@ const scale = bannerScale(banner.width);
       {profile.stack.length > 0 && (
         <div>
           <dt>Stack</dt>
-          <dd>{profile.stack.map((item) => item.replaceAll(' ', '\u00a0')).join('\u00a0· ')}</dd>
+          <dd data-stack>
+            {profile.stack.map((item, index) => (
+              <Fragment>
+                {index > 0 && '\u00a0· '}
+                {stackNote.strikethrough ? (
+                  <s>{item.replaceAll(' ', '\u00a0')}</s>
+                ) : (
+                  item.replaceAll(' ', '\u00a0')
+                )}
+              </Fragment>
+            ))}
+            {note && (
+              <Fragment>
+                {' '}
+                <span class="comment" data-note>
+                  <span class="note-text">{note}</span>
+                  <span class="cursor" aria-hidden="true">
+                    ▋
+                  </span>
+                </span>
+              </Fragment>
+            )}
+          </dd>
         </div>
       )}
       <div>
@@ -99,14 +162,7 @@ const scale = bannerScale(banner.width);
         </div>
       )}
     </dl>
-    <p class="swatches" aria-hidden="true">
-      <i></i>
-      <i></i>
-      <i></i>
-      <i></i>
-      <i></i>
-      <i></i>
-    </p>
+    <div class="swatches" aria-hidden="true"></div>
     {profile.bio && <p class="bio">{profile.bio}</p>}
   </div>
 </div>
@@ -143,35 +199,14 @@ const scale = bannerScale(banner.width);
     color: var(--fg-soft);
     font-style: italic;
   }
+  .comment {
+    position: relative;
+    display: inline-block;
+    color: var(--muted);
+  }
   .cursor {
     color: var(--ok);
     font-style: normal;
-    animation: cursor-blink 1s steps(1) infinite;
-  }
-  @keyframes cursor-blink {
-    50% {
-      opacity: 0;
-    }
-  }
-  /* While the slogan types out, its text keeps the line breaks and stays readable to screen readers. */
-  .typing .slogan-text,
-  .typing > .cursor {
-    opacity: 0;
-  }
-  .slogan :global(.slogan-typed) {
-    position: absolute;
-    inset: 0;
-  }
-  .slogan :global(.slogan-typed) .cursor {
-    position: absolute;
-    inset-block-start: 0;
-    inset-inline-start: 0;
-    animation: none;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .cursor {
-      animation: none;
-    }
   }
   .sep {
     color: var(--muted);
@@ -219,28 +254,18 @@ const scale = bannerScale(banner.width);
     color: var(--muted);
   }
   .swatches {
-    display: flex;
-    margin-block-start: 8px;
-  }
-  .swatches i {
-    inline-size: 20px;
+    inline-size: 120px;
     block-size: 12px;
-    background: var(--swatch-1);
-  }
-  .swatches i:nth-child(2) {
-    background: var(--swatch-2);
-  }
-  .swatches i:nth-child(3) {
-    background: var(--swatch-3);
-  }
-  .swatches i:nth-child(4) {
-    background: var(--swatch-4);
-  }
-  .swatches i:nth-child(5) {
-    background: var(--swatch-5);
-  }
-  .swatches i:nth-child(6) {
-    background: var(--swatch-6);
+    margin-block-start: 8px;
+    background: linear-gradient(
+      90deg,
+      var(--swatch-1) 20px,
+      var(--swatch-2) 0 40px,
+      var(--swatch-3) 0 60px,
+      var(--swatch-4) 0 80px,
+      var(--swatch-5) 0 100px,
+      var(--swatch-6) 0
+    );
   }
   dd a {
     text-decoration-line: none;
