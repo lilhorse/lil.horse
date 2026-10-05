@@ -9,7 +9,7 @@
 }
 
 :root[data-intro-pending] [data-stack] s {
-  background-size: 0 1px;
+  background-size: 0 var(--strike-thickness);
   animation: intro-failsafe 0s 3s forwards;
 }
 
@@ -20,7 +20,7 @@
 @keyframes intro-failsafe {
   to {
     opacity: 1;
-    background-size: 100% 1px;
+    background-size: 100% var(--strike-thickness);
   }
 }
 
@@ -56,18 +56,20 @@
 
 /* Unlike text-decoration, a background line can grow from the left, and a hover can fade it. */
 [data-stack] s {
-  --strike: var(--muted);
+  --strike: var(--danger);
+  --strike-thickness: 2px;
   color: var(--fg-soft);
   text-decoration: none;
-  background: linear-gradient(var(--strike), var(--strike)) no-repeat 0 56% / 100% 1px;
+  background: linear-gradient(var(--strike), var(--strike)) no-repeat 0 56%;
+  background-size: 100% var(--strike-thickness);
 }
 
 .intro [data-stack] s {
-  background-size: 0 1px;
+  background-size: 0 var(--strike-thickness);
 }
 
 .intro [data-stack] s[data-drawn] {
-  background-size: 100% 1px;
+  background-size: 100% var(--strike-thickness);
   transition: background-size 200ms linear;
 }
 

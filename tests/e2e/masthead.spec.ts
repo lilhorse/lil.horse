@@ -72,6 +72,7 @@ test('the intro plays once per session, in place, and ends as the page began', a
   await expect(page.locator('[data-stack] s[data-drawn]')).toHaveCount(Math.min(items, 1));
   await run(STRIKE_GAP_MS, items - 1);
   await expect(page.locator('[data-stack] s[data-drawn]')).toHaveCount(items);
+  await expect(page.locator('[data-stack] s').last()).toHaveCSS('background-size', '100% 2px');
   expect(await card.boundingBox()).toEqual(before);
   await run(STRIKE_MS);
   await expect(page.locator('.slogan .typed')).toHaveCount(0);
@@ -125,11 +126,11 @@ test('hides what the intro will type until it starts, and shows it after 3 s if 
       strike: style('[data-stack] s')?.backgroundSize,
     };
   });
-  expect(first).toEqual({ pending: true, early: true, slogan: '0', note: '0', strike: '0px 1px' });
+  expect(first).toEqual({ pending: true, early: true, slogan: '0', note: '0', strike: '0px 2px' });
 
   await expect(page.locator('.slogan-text')).toHaveCSS('opacity', '1', { timeout: 5_000 });
   await expect(page.locator('.note-text')).toHaveCSS('opacity', '1');
-  await expect(page.locator('[data-stack] s').first()).toHaveCSS('background-size', '100% 1px');
+  await expect(page.locator('[data-stack] s').first()).toHaveCSS('background-size', '100% 2px');
   const shine = page.locator('.neofetch .banner .shine');
   if ((await shine.count()) > 0) await expect(shine).toHaveCSS('animation-delay', '3s');
 });
@@ -140,6 +141,24 @@ test('the banner shimmers at once when the intro has already played', async ({ p
   test.skip((await page.locator('.neofetch .banner .shine').count()) === 0, 'no banner');
   expect(await shimmer(page)).toBe('shine');
 });
+
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`the stack's strike is a bold line in the ${colorScheme} theme's red`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme });
+    await page.addInitScript((key) => sessionStorage.setItem(key, '1'), INTRO_KEY);
+    await page.goto('/');
+    const item = page.locator('[data-stack] s').first();
+    test.skip((await item.count()) === 0, 'the stack is not struck');
+    const strike = await item.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { colour: style.getPropertyValue('--strike'), size: style.backgroundSize };
+    });
+    expect(strike).toEqual({
+      colour: colorScheme === 'light' ? 'rgb(201, 42, 42)' : 'rgb(247, 118, 142)',
+      size: '100% 2px',
+    });
+  });
+}
 
 test('hovering a stack item lifts its strike', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'needs a pointer that hovers');
