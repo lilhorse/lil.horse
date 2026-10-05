@@ -1,4 +1,6 @@
 export const INTRO_KEY = 'intro-played';
+/** Set by the head script while the intro has yet to start; src/styles/intro.css hides what it will type. */
+export const PENDING_ATTR = 'data-intro-pending';
 export const CHAR_MS = 35;
 export const STRIKE_GAP_MS = 60;
 // Keep in sync with the strike's transition in src/styles/intro.css.
@@ -84,9 +86,16 @@ export async function playIntro(
   const cursor = card.querySelector('.cursor');
   const sloganText = slogan?.querySelector('.slogan-text')?.textContent ?? '';
   const noteText = note?.querySelector('.note-text')?.textContent ?? '';
-  if (!cursor || (!sloganText && items.length === 0 && !noteText)) return;
+  const clearPending = () => card.ownerDocument.documentElement.removeAttribute(PENDING_ATTR);
+  if (!cursor || (!sloganText && items.length === 0 && !noteText)) {
+    clearPending();
+    return;
+  }
   await env.shown();
-  if (env.reducedMotion() || playedBefore(env.storage)) return;
+  if (env.reducedMotion() || playedBefore(env.storage)) {
+    clearPending();
+    return;
+  }
   rememberPlayed(env.storage);
 
   const overlays: HTMLElement[] = [];
@@ -117,6 +126,8 @@ export async function playIntro(
   };
 
   card.classList.add('intro');
+  // Safe now: the intro class, and the typing class typeOut adds before it first waits, take over the hiding.
+  clearPending();
   try {
     let parked: HTMLElement | undefined;
     if (slogan && sloganText) {

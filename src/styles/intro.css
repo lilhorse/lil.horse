@@ -1,5 +1,29 @@
 /* The home card's motion lives here, outside any layer, so the card's own styles stay under Astro's 4 KB inline limit. */
 
+/* Hidden from the first paint until the intro starts, and shown after 3 s should its script never run. */
+:root[data-intro-pending]
+  .neofetch
+  :is(.slogan-text, .slogan > .cursor, .note-text, .comment > .cursor) {
+  opacity: 0;
+  animation: intro-failsafe 0s 3s forwards;
+}
+
+:root[data-intro-pending] [data-stack] s {
+  background-size: 0 1px;
+  animation: intro-failsafe 0s 3s forwards;
+}
+
+:root[data-intro-pending] .neofetch .banner .shine {
+  animation-delay: 3s;
+}
+
+@keyframes intro-failsafe {
+  to {
+    opacity: 1;
+    background-size: 100% 1px;
+  }
+}
+
 /* While the intro plays, the text keeps the line breaks and stays readable to screen readers. */
 .neofetch .typing > .slogan-text,
 .neofetch .typing > .cursor,

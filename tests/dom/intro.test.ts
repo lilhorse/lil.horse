@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CHAR_MS,
   defaultEnv,
@@ -67,7 +67,10 @@ function env(overrides: Partial<IntroEnv> = {}) {
 
 beforeEach(() => {
   document.body.innerHTML = card(SLOGAN, ITEMS + NOTE);
+  document.documentElement.dataset.introPending = '';
 });
+
+const pending = () => document.documentElement.hasAttribute('data-intro-pending');
 
 describe('playIntro', () => {
   it('types the slogan, strikes the items left to right, then types the note, and leaves the card as it was', async () => {
@@ -114,6 +117,44 @@ describe('playIntro', () => {
       `${CHAR_MS} slogan:Hi 🍻▋ strikes: note:-`,
       `${CHAR_MS} slogan:- strikes: note:▋`,
     ]);
+  });
+
+  it('clears the pending mark as it starts, in the same task as its own classes take over the hiding', async () => {
+    const html = document.documentElement;
+    const remove = html.removeAttribute.bind(html);
+    const handedOver: boolean[] = [];
+    vi.spyOn(html, 'removeAttribute').mockImplementation((name) => {
+      remove(name);
+      queueMicrotask(() =>
+        handedOver.push(
+          root().classList.contains('intro') &&
+            root().querySelector('[data-slogan]')?.classList.contains('typing') === true,
+        ),
+      );
+    });
+    try {
+      await playIntro(root(), env().value);
+    } finally {
+      vi.restoreAllMocks();
+    }
+    expect(handedOver).toEqual([true]);
+    expect(pending()).toBe(false);
+  });
+
+  it('clears the pending mark when it does not play', async () => {
+    await playIntro(root(), env({ reducedMotion: () => true }).value);
+    expect(pending()).toBe(false);
+
+    const storage = new MemoryStorage();
+    storage.setItem(INTRO_KEY, '1');
+    document.documentElement.dataset.introPending = '';
+    await playIntro(root(), env({ storage }).value);
+    expect(pending()).toBe(false);
+
+    document.body.innerHTML = card('', '');
+    document.documentElement.dataset.introPending = '';
+    await playIntro(root(), env().value);
+    expect(pending()).toBe(false);
   });
 
   it('hides the typing from screen readers, which read the card itself', async () => {

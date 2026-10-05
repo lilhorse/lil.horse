@@ -62,6 +62,9 @@ test('the intro plays once per session, in place, and ends as the page began', a
   };
 
   await expect(page.locator('.slogan .typed')).toHaveText('▋');
+  expect(
+    await page.evaluate(() => document.documentElement.hasAttribute('data-intro-pending')),
+  ).toBe(false);
   expect(await shimmer(page)).toBe('none');
   const before = await card.boundingBox();
   await run(CHAR_MS, slogan.length);
@@ -101,6 +104,34 @@ test('the intro never plays, and nothing blinks or shimmers, under reduced motio
   await expect(page.locator('.neofetch .cursor')).toHaveCSS('animation-name', 'none');
   expect(await shimmer(page)).toBe('none');
   expect(await page.evaluate(() => sessionStorage.length)).toBe(0);
+});
+
+test('hides what the intro will type until it starts, and shows it after 3 s if it never does', async ({
+  page,
+}) => {
+  await page.route('**/_astro/*.js', (route) => route.abort());
+  await openHome(page);
+  test.skip((await page.locator('[data-stack] s').count()) === 0, 'the stack is not struck');
+  const first = await page.evaluate(() => {
+    const style = (selector: string) => {
+      const element = document.querySelector(selector);
+      return element ? getComputedStyle(element) : null;
+    };
+    return {
+      pending: document.documentElement.hasAttribute('data-intro-pending'),
+      early: Number(document.timeline.currentTime) < 2500,
+      slogan: style('.slogan-text')?.opacity,
+      note: style('.note-text')?.opacity,
+      strike: style('[data-stack] s')?.backgroundSize,
+    };
+  });
+  expect(first).toEqual({ pending: true, early: true, slogan: '0', note: '0', strike: '0px 1px' });
+
+  await expect(page.locator('.slogan-text')).toHaveCSS('opacity', '1', { timeout: 5_000 });
+  await expect(page.locator('.note-text')).toHaveCSS('opacity', '1');
+  await expect(page.locator('[data-stack] s').first()).toHaveCSS('background-size', '100% 1px');
+  const shine = page.locator('.neofetch .banner .shine');
+  if ((await shine.count()) > 0) await expect(shine).toHaveCSS('animation-delay', '3s');
 });
 
 test('the banner shimmers at once when the intro has already played', async ({ page }) => {
