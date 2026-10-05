@@ -73,6 +73,14 @@
   transition: background-size 200ms linear;
 }
 
+/* Forced colours and print drop background images. */
+@media (forced-colors: active), print {
+  [data-stack] s {
+    background: none;
+    text-decoration: line-through var(--strike) var(--strike-thickness);
+  }
+}
+
 @media (hover: hover) {
   [data-stack] s {
     transition:

@@ -191,6 +191,22 @@ test('a space parts the last stack item from the note on a shared line', async (
   expect(gap).toBeGreaterThan(4);
 });
 
+test('keeps the strike as a native line-through in forced colours and in print', async ({
+  page,
+}) => {
+  await page.addInitScript((key) => sessionStorage.setItem(key, '1'), INTRO_KEY);
+  await page.goto('/');
+  const item = page.locator('[data-stack] s').first();
+  test.skip((await item.count()) === 0, 'the stack is not struck');
+  await page.emulateMedia({ forcedColors: 'active' });
+  await expect(item).toHaveCSS('text-decoration-line', 'line-through');
+  await expect(item).toHaveCSS('background-image', 'none');
+  await page.emulateMedia({ forcedColors: 'none', media: 'print', colorScheme: 'light' });
+  await expect(item).toHaveCSS('text-decoration-line', 'line-through');
+  await expect(item).toHaveCSS('text-decoration-color', 'rgb(201, 42, 42)');
+  await expect(item).toHaveCSS('background-image', 'none');
+});
+
 test('hovering a stack item lifts its strike', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'needs a pointer that hovers');
   await page.addInitScript((key) => sessionStorage.setItem(key, '1'), INTRO_KEY);
