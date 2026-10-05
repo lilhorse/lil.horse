@@ -253,7 +253,7 @@ A visible project needs a `Description`. If its page has content, it also needs 
 
 In the profile, `GitHub` and `X` take a handle, `@handle` or a full URL.
 
-The masthead of the home page comes from the root page, `mastheadPageId` in `site.config.ts`. Its title becomes the banner, and its first line of text becomes the slogan: the first heading, paragraph, quote or callout with any text, as plain text on one line. The root page never stops the build. If it cannot be read, the build warns and the home page shows the profile's `Name` with no slogan; an untitled root page also shows the `Name`.
+The masthead of the home page comes from the root page, `mastheadPageId` in `site.config.ts`. Its title becomes the banner, and its first line of text becomes the slogan: the first heading (Heading 1 to 4), paragraph, quote or callout with any text, as plain text on one line. The root page never stops the build. If it cannot be read, the build warns and the home page shows the profile's `Name` with no slogan; an untitled root page also shows the `Name`.
 
 An inline database shows the columns and row order of its first table view. To pick the columns and sort order yourself, or to show a column as star ratings, add an entry for its block ID to `databaseDisplay` in `site.config.ts`.
 

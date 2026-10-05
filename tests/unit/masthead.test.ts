@@ -42,7 +42,8 @@ describe('sloganOf', () => {
   });
 
   it('accepts headings, paragraphs, quotes and callouts', () => {
-    for (const type of ['heading_1', 'heading_2', 'heading_3', 'paragraph', 'quote', 'callout'])
+    const types = ['heading_1', 'heading_2', 'heading_3', 'heading_4', 'paragraph', 'quote'];
+    for (const type of [...types, 'callout'])
       expect(sloganOf([text(type, `A ${type}`)]), type).toBe(`A ${type}`);
   });
 

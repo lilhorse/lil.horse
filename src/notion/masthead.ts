@@ -15,6 +15,8 @@ function sloganText(block: BlockObjectResponse): RichTextItemResponse[] | null {
       return block.heading_2.rich_text;
     case 'heading_3':
       return block.heading_3.rich_text;
+    case 'heading_4':
+      return block.heading_4.rich_text;
     case 'paragraph':
       return block.paragraph.rich_text;
     case 'quote':
