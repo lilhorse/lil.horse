@@ -129,6 +129,107 @@ describe('bannerLabel', () => {
   });
 });
 
+type Subtable = { platform: number; encoding: number; body: Uint8Array };
+
+/** A font file with only a cmap table, holding the given subtables. */
+function sfnt(subtables: Subtable[]): Uint8Array {
+  const offsets: number[] = [];
+  let length = 4 + subtables.length * 8;
+  for (const { body } of subtables) {
+    offsets.push(length);
+    length += body.length;
+  }
+  const font = new Uint8Array(28 + length);
+  const view = new DataView(font.buffer);
+  view.setUint32(0, 0x00010000);
+  view.setUint16(4, 1);
+  font.set(
+    [...'cmap'].map((char) => char.charCodeAt(0)),
+    12,
+  );
+  view.setUint32(20, 28);
+  view.setUint32(24, length);
+  view.setUint16(30, subtables.length);
+  subtables.forEach(({ platform, encoding, body }, index) => {
+    view.setUint16(32 + index * 8, platform);
+    view.setUint16(34 + index * 8, encoding);
+    view.setUint32(36 + index * 8, offsets[index] ?? 0);
+    font.set(body, 28 + (offsets[index] ?? 0));
+  });
+  return font;
+}
+
+/** A format 4 subtable mapping each [start, end] range by delta, with the closing 0xFFFF segment. */
+function format4(...ranges: [number, number, number][]): Uint8Array {
+  const segments = [...ranges, [0xffff, 0xffff, 1] as [number, number, number]];
+  const count = segments.length;
+  const body = new Uint8Array(16 + count * 8);
+  const view = new DataView(body.buffer);
+  view.setUint16(0, 4);
+  view.setUint16(2, body.length);
+  view.setUint16(6, count * 2);
+  segments.forEach(([start, end, delta], index) => {
+    view.setUint16(14 + index * 2, end);
+    view.setUint16(16 + count * 2 + index * 2, start);
+    view.setUint16(16 + count * 4 + index * 2, delta & 0xffff);
+  });
+  return body;
+}
+
+/** A format 12 subtable from [start, end, first glyph] groups. */
+function format12(...groups: [number, number, number][]): Uint8Array {
+  const body = new Uint8Array(16 + groups.length * 12);
+  const view = new DataView(body.buffer);
+  view.setUint16(0, 12);
+  view.setUint32(4, body.length);
+  view.setUint32(12, groups.length);
+  groups.forEach(([start, end, glyph], index) => {
+    view.setUint32(16 + index * 12, start);
+    view.setUint32(20 + index * 12, end);
+    view.setUint32(24 + index * 12, glyph);
+  });
+  return body;
+}
+
+describe('fontCoverage', () => {
+  it('reads Unicode subtables in formats 4 and 12', () => {
+    const font = sfnt([
+      { platform: 3, encoding: 1, body: format4([0x41, 0x43, 1]) },
+      { platform: 3, encoding: 10, body: format12([0x1d400, 0x1d401, 10]) },
+      { platform: 0, encoding: 4, body: format12([0x2019, 0x2019, 20]) },
+    ]);
+    expect([...fontCoverage(font)].sort((a, b) => a - b)).toEqual([
+      0x41, 0x42, 0x43, 0x2019, 0x1d400, 0x1d401,
+    ]);
+  });
+
+  it('skips a format 12 group that ends past U+10FFFF', () => {
+    const font = sfnt([
+      { platform: 3, encoding: 10, body: format12([0x41, 0x41, 1], [0x10fff0, 0xffffffff, 2]) },
+    ]);
+    expect([...fontCoverage(font)]).toEqual([0x41]);
+  });
+
+  it('ignores symbol and Macintosh subtables', () => {
+    const font = sfnt([
+      { platform: 3, encoding: 0, body: format4([0xf020, 0xf022, 1]) },
+      { platform: 1, encoding: 0, body: format12([0x41, 0x43, 1]) },
+    ]);
+    expect(fontCoverage(font).size).toBe(0);
+  });
+
+  it('reads what lies inside a truncated or lying file and never throws', () => {
+    const font = sfnt([{ platform: 3, encoding: 10, body: format12([0x41, 0x5a, 1]) }]);
+    for (let length = 0; length <= font.length; length++)
+      expect(() => fontCoverage(font.subarray(0, length)), `${length} bytes`).not.toThrow();
+    const lying = sfnt([{ platform: 3, encoding: 10, body: format12([0x41, 0x42, 1]) }]);
+    new DataView(lying.buffer).setUint32(28 + 12 + 12, 0xffffffff);
+    expect([...fontCoverage(lying)]).toEqual([0x41, 0x42]);
+    new DataView(lying.buffer).setUint32(36, 0x7fffffff);
+    expect(fontCoverage(lying).size).toBe(0);
+  });
+});
+
 describe('the banner font', () => {
   it('covers the title, plain Latin and nothing outside its subset', () => {
     const covers = fontCoverage(readFileSync(BANNER_FONT));

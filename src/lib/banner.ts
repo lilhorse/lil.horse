@@ -34,53 +34,68 @@ export const BANNER_COLORS = {
 
 export type BannerTheme = keyof typeof BANNER_COLORS;
 
-function addFormat4(data: DataView, at: number, covered: Set<number>): void {
-  const segments = data.getUint16(at + 6) / 2;
-  const ends = at + 14;
-  const starts = ends + segments * 2 + 2;
-  const deltas = starts + segments * 2;
-  const rangeOffsets = deltas + segments * 2;
-  for (let segment = 0; segment < segments; segment++) {
-    const start = data.getUint16(starts + segment * 2);
-    const end = data.getUint16(ends + segment * 2);
-    const delta = data.getUint16(deltas + segment * 2);
-    const rangeOffset = data.getUint16(rangeOffsets + segment * 2);
-    for (let code = start; code <= end && code !== 0xffff; code++) {
-      let glyph = (code + delta) & 0xffff;
-      if (rangeOffset !== 0) {
-        const index = data.getUint16(rangeOffsets + segment * 2 + rangeOffset + (code - start) * 2);
-        glyph = index === 0 ? 0 : (index + delta) & 0xffff;
-      }
-      if (glyph !== 0) covered.add(code);
-    }
-  }
-}
-
-function addFormat12(data: DataView, at: number, covered: Set<number>): void {
-  const groups = data.getUint32(at + 12);
-  for (let group = 0; group < groups; group++) {
-    const record = at + 16 + group * 12;
-    const start = data.getUint32(record);
-    const end = data.getUint32(record + 4);
-    const glyph = data.getUint32(record + 8);
-    for (let code = start; code <= end; code++) if (glyph + code - start !== 0) covered.add(code);
-  }
-}
-
-/** The code points that a font's Unicode cmap subtables (formats 4 and 12) map to a glyph. */
+/** The code points that a font's Unicode cmap subtables (formats 4 and 12) map to a glyph; it reads nothing past the file's end. */
 export function fontCoverage(font: Uint8Array): Set<number> {
   const data = new DataView(font.buffer, font.byteOffset, font.byteLength);
+  const fits = (at: number, bytes: number) => at >= 0 && at + bytes <= data.byteLength;
   const covered = new Set<number>();
-  for (let table = 0; table < data.getUint16(4); table++) {
+
+  const format4 = (at: number) => {
+    if (!fits(at, 14)) return;
+    const segments = Math.floor(data.getUint16(at + 6) / 2);
+    const ends = at + 14;
+    const starts = ends + segments * 2 + 2;
+    const deltas = starts + segments * 2;
+    const rangeOffsets = deltas + segments * 2;
+    if (!fits(rangeOffsets, segments * 2)) return;
+    for (let segment = 0; segment < segments; segment++) {
+      const start = data.getUint16(starts + segment * 2);
+      const end = data.getUint16(ends + segment * 2);
+      const delta = data.getUint16(deltas + segment * 2);
+      const rangeOffset = data.getUint16(rangeOffsets + segment * 2);
+      for (let code = start; code <= end && code !== 0xffff; code++) {
+        let glyph = (code + delta) & 0xffff;
+        if (rangeOffset !== 0) {
+          const index = rangeOffsets + segment * 2 + rangeOffset + (code - start) * 2;
+          if (!fits(index, 2)) break;
+          const id = data.getUint16(index);
+          glyph = id === 0 ? 0 : (id + delta) & 0xffff;
+        }
+        if (glyph !== 0) covered.add(code);
+      }
+    }
+  };
+
+  const format12 = (at: number) => {
+    if (!fits(at, 16)) return;
+    const groups = data.getUint32(at + 12);
+    for (let group = 0; group < groups; group++) {
+      const record = at + 16 + group * 12;
+      if (!fits(record, 12)) return;
+      const start = data.getUint32(record);
+      const end = data.getUint32(record + 4);
+      const glyph = data.getUint32(record + 8);
+      if (end > 0x10ffff) continue;
+      for (let code = start; code <= end; code++) if (glyph + code - start !== 0) covered.add(code);
+    }
+  };
+
+  const tables = fits(4, 2) ? data.getUint16(4) : 0;
+  for (let table = 0; table < tables && fits(12 + table * 16, 16); table++) {
     const record = 12 + table * 16;
     if (String.fromCharCode(...font.subarray(record, record + 4)) !== 'cmap') continue;
     const cmap = data.getUint32(record + 8);
-    for (let subtable = 0; subtable < data.getUint16(cmap + 2); subtable++) {
-      const platform = data.getUint16(cmap + 4 + subtable * 8);
-      const at = cmap + data.getUint32(cmap + 8 + subtable * 8);
-      if (platform !== 0 && platform !== 3) continue;
-      if (data.getUint16(at) === 4) addFormat4(data, at, covered);
-      if (data.getUint16(at) === 12) addFormat12(data, at, covered);
+    const subtables = fits(cmap, 4) ? data.getUint16(cmap + 2) : 0;
+    for (let subtable = 0; subtable < subtables && fits(cmap + 4 + subtable * 8, 8); subtable++) {
+      const entry = cmap + 4 + subtable * 8;
+      const platform = data.getUint16(entry);
+      const encoding = data.getUint16(entry + 2);
+      // Windows encoding 0 is a symbol font's private-use codes, not Unicode text.
+      if (platform !== 0 && !(platform === 3 && (encoding === 1 || encoding === 10))) continue;
+      const at = cmap + data.getUint32(entry + 4);
+      if (!fits(at, 2)) continue;
+      if (data.getUint16(at) === 4) format4(at);
+      if (data.getUint16(at) === 12) format12(at);
     }
   }
   return covered;
