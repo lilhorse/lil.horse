@@ -17,6 +17,13 @@ vi.mock('../../src/lib/content', async () => {
 });
 
 const TITLE = '𝕷𝖎𝖑’𝕳𝖔𝖗𝖘𝖊';
+const version = (svg: string) => createHash('sha256').update(svg).digest('hex').slice(0, 8);
+const horseNames = () => getStaticPaths().map(({ params }) => params.name);
+const servedHorse = async (name: string) => {
+  const response = await horse({ params: { name } } as unknown as APIContext);
+  expect(response.headers.get('content-type')).toBe('image/svg+xml');
+  return response.text();
+};
 const SLOGAN = 'Dis is da cyberspace of Lil’Horse, just chill and have fun 🍻.';
 
 beforeEach(() => {
@@ -41,17 +48,19 @@ describe('/profile/README.md', () => {
   });
 });
 
-describe('/profile/README.md and /brand/masthead-*.svg', () => {
-  it('version the banner URLs by the SHA-256 of the files the site serves', async () => {
+describe('/profile/README.md and /brand/*.svg', () => {
+  it('version the image URLs by the SHA-256 of the files the site serves', async () => {
     const markdown = await (await readme({} as APIContext)).text();
     for (const theme of ['dark', 'light']) {
       const response = await masthead({ params: { theme } } as unknown as APIContext);
-      const version = createHash('sha256')
-        .update(await response.text())
-        .digest('hex')
-        .slice(0, 8);
-      expect(markdown).toContain(`https://lil.horse/brand/masthead-${theme}.svg?v=${version}"`);
+      expect(markdown).toContain(
+        `https://lil.horse/brand/masthead-${theme}.svg?v=${version(await response.text())}"`,
+      );
     }
+    for (const name of horseNames())
+      expect(markdown).toContain(
+        `https://lil.horse/brand/${name}.svg?v=${version(await servedHorse(name))}"`,
+      );
   });
 });
 
@@ -81,13 +90,31 @@ describe('/brand/masthead-*.svg', () => {
 });
 
 describe('/brand/horse-*.svg', () => {
-  it('serves the two 24-grid horses from src/assets/brand', async () => {
-    const names = getStaticPaths().map(({ params }) => params.name);
-    expect(names).toEqual(['horse-chestnut', 'horse-night']);
-    for (const name of names) {
-      const response = await horse({ params: { name } } as unknown as APIContext);
-      expect(response.headers.get('content-type')).toBe('image/svg+xml');
-      expect(await response.text()).toBe(readFileSync(`src/assets/brand/${name}.svg`, 'utf8'));
+  it('serves the two 24-grid horses from src/assets/brand, their sunglasses glinting but never under reduced motion', async () => {
+    expect(horseNames()).toEqual(['horse-chestnut', 'horse-night']);
+    for (const name of horseNames()) {
+      const svg = await servedHorse(name);
+      const style = /^<svg[^>]*>(<style>.*?<\/style>)/.exec(svg)?.[1] ?? '';
+      expect(svg.replace(style, '')).toBe(readFileSync(`src/assets/brand/${name}.svg`, 'utf8'));
+      expect(svg).toContain('class="horse-glint"');
+      expect(style).toContain('.horse-glint{animation:horse-glint ');
+      expect(style).toContain(
+        '@media (prefers-reduced-motion:reduce){.horse-glint{animation:none}}',
+      );
     }
+  });
+
+  it('glints with the same keyframes and timing as the horse on the site', async () => {
+    const squash = (css: string) => css.replace(/\s+/g, '').replaceAll(';}', '}');
+    const glint = (css: string) => ({
+      animation: /horse-glint\)?\s*\{\s*animation:\s*([^;}]+)/.exec(css)?.[1]?.trim(),
+      keyframes: squash(
+        /@keyframes horse-glint\s*\{(?:[^{}]*\{[^{}]*\})+\s*\}/.exec(css)?.[0] ?? '',
+      ),
+    });
+    const site = glint(readFileSync('src/components/shell/PixelHorse.astro', 'utf8'));
+    expect(site.animation).toMatch(/^horse-glint \S/);
+    expect(site.keyframes).toMatch(/^@keyframeshorse-glint\{.+\}$/);
+    for (const name of horseNames()) expect(glint(await servedHorse(name))).toEqual(site);
   });
 });

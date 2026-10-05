@@ -53,7 +53,7 @@ const line = (markdown: string, label: string) =>
 
 const versions = (markdown: string): Record<string, string | undefined> =>
   Object.fromEntries(
-    Array.from(markdown.matchAll(/\/brand\/masthead-(dark|light)\.svg\?v=([^"]*)"/g), (match) => [
+    Array.from(markdown.matchAll(/\/brand\/([\w-]+)\.svg\?v=([^"]*)"/g), (match) => [
       match[1],
       match[2],
     ]),
@@ -88,8 +88,8 @@ describe('profileReadme', () => {
     expect(readme()).toBe(`<div>
   <a href="https://lil.horse">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://lil.horse/brand/horse-night.svg">
-      <img align="left" width="120" alt="lil.horse" src="https://lil.horse/brand/horse-chestnut.svg">
+      <source media="(prefers-color-scheme: dark)" srcset="https://lil.horse/brand/horse-night.svg?v=61f9f6f9">
+      <img align="left" width="120" alt="lil.horse" src="https://lil.horse/brand/horse-chestnut.svg?v=616ebd23">
     </picture>
   </a>
   <a href="https://lil.horse">
@@ -180,26 +180,28 @@ describe('profileReadme', () => {
     expect(markdown).toContain('\n*\\_Me\\_ - me*\n');
   });
 
-  it('versions each banner URL by its SVG, and no horse URL', () => {
-    const markdown = readme();
-    expect(versions(markdown)).toEqual({
-      dark: expect.stringMatching(/^[0-9a-f]{8}$/),
-      light: expect.stringMatching(/^[0-9a-f]{8}$/),
+  it('versions each image URL by its SVG', () => {
+    const hex = expect.stringMatching(/^[0-9a-f]{8}$/);
+    expect(versions(readme())).toEqual({
+      'horse-night': hex,
+      'horse-chestnut': hex,
+      'masthead-dark': hex,
+      'masthead-light': hex,
     });
-    expect(markdown).not.toMatch(/horse-(?:night|chestnut)\.svg\?/);
   });
 
-  it('keeps the versions for the same title and changes them with the title', () => {
+  it('keeps the versions for the same title and changes the banner versions with the title', () => {
     const today = versions(readme());
     expect(versions(readme())).toEqual(today);
     const renamed = versions(readme({}, { title: 'Big Horse' }));
-    expect(renamed.dark).not.toBe(today.dark);
-    expect(renamed.light).not.toBe(today.light);
+    expect(renamed['masthead-dark']).not.toBe(today['masthead-dark']);
+    expect(renamed['masthead-light']).not.toBe(today['masthead-light']);
+    expect(renamed['horse-night']).toBe(today['horse-night']);
+    expect(renamed['horse-chestnut']).toBe(today['horse-chestnut']);
   });
 
-  it('gives the dark and light banners versions of their own', () => {
-    const { dark, light } = versions(readme());
-    expect(dark).not.toBe(light);
+  it('gives each image a version of its own', () => {
+    expect(new Set(Object.values(versions(readme())))).toHaveProperty('size', 4);
   });
 
   it('names the banner image by the title in plain letters, escaped', () => {
