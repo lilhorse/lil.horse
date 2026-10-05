@@ -94,8 +94,8 @@ describe('profileReadme', () => {
   </a>
   <a href="https://lil.horse">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://lil.horse/brand/masthead-dark.svg?v=16533973">
-      <img alt="Lil’Horse" width="312" src="https://lil.horse/brand/masthead-light.svg?v=884c65c9">
+      <source media="(prefers-color-scheme: dark)" srcset="https://lil.horse/brand/masthead-dark.svg?v=ba475ffc">
+      <img alt="Lil’Horse" width="312" src="https://lil.horse/brand/masthead-light.svg?v=d72ed268">
     </picture>
   </a>
 </div>

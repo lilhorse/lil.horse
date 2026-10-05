@@ -201,6 +201,8 @@ const GLOWS: Record<BannerTheme, (color: (typeof BANNER_COLORS)[BannerTheme]) =>
     `<feDropShadow dx="0" dy="0" stdDeviation="1.5" flood-color="${text}" flood-opacity="0.22"/>`,
 };
 
+const SHIMMER_OPACITY: Record<BannerTheme, number> = { dark: 0.35, light: 0.25 };
+
 /** The banner as a file of its own, in one theme's colours, for pages that cannot use the site's CSS. */
 export function bannerSvg(bitmap: Bitmap, title: string, theme: BannerTheme): string {
   const { width, height } = bannerImageSize(bitmap);
@@ -211,11 +213,20 @@ export function bannerSvg(bitmap: Bitmap, title: string, theme: BannerTheme): st
   const stops = colors.swatches
     .map((color, index) => `<stop offset="${index * 20}%" stop-color="${color}"/>`)
     .join('');
+  const band = Math.max(4, Math.round(bitmap.width / 4));
+  const shine = (opacity: number) =>
+    `<stop offset="0.5" stop-color="#fff" stop-opacity="${opacity}"/>`;
   return (
-    `${open}<defs>` +
+    open +
+    // A 1.6 s sweep, then 5 s of rest; the band waits off the letters between sweeps.
+    `<style>.shine{animation:shine 6.6s ease-in-out infinite}@keyframes shine{24.24%,100%{transform:translateX(${bitmap.width + band}px)}}@media (prefers-reduced-motion:reduce){.shine{display:none}}</style>` +
+    `<defs><path id="letters" d="${bannerPath(bitmap)}"/>` +
     `<linearGradient id="swatches" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="${bitmap.width}" y2="0">${stops}</linearGradient>` +
+    `<linearGradient id="band"><stop offset="0" stop-color="#fff" stop-opacity="0"/>${shine(SHIMMER_OPACITY[theme])}<stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>` +
+    '<clipPath id="ink"><use href="#letters"/></clipPath>' +
     // CSS filters blend in sRGB; SVG filters default to linearRGB, which would lighten the glow.
     `<filter id="glow" filterUnits="userSpaceOnUse" x="${x}" y="${y}" width="${w}" height="${h}" color-interpolation-filters="sRGB">${GLOWS[theme](colors)}</filter>` +
-    `</defs><path fill="url(#swatches)" filter="url(#glow)" d="${bannerPath(bitmap)}"/></svg>\n`
+    '</defs><use href="#letters" fill="url(#swatches)" filter="url(#glow)"/>' +
+    `<g clip-path="url(#ink)"><rect class="shine" x="${-band}" y="${y}" width="${band}" height="${h}" fill="url(#band)"/></g></svg>\n`
   );
 }
