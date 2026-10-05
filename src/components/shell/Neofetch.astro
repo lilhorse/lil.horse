@@ -1,5 +1,12 @@
 ---
-import { bannerBitmap, bannerLabel, bannerPath, bannerScale, shimmerBand } from '../../lib/banner';
+import {
+  bannerBitmap,
+  bannerLabel,
+  bannerPath,
+  bannerScale,
+  shimmerBand,
+  SHIMMER_STOPS,
+} from '../../lib/banner';
 import { emailHtml, socialLinks, type StackNote } from '../../lib/profile';
 import type { Availability, MastheadEntry, ProfileEntry } from '../../notion/types';
 import PixelHorse from './PixelHorse.astro';
@@ -17,6 +24,14 @@ const STATUS: Record<Availability, string> = {
 };
 
 const SWATCHES = [1, 2, 3, 4, 5, 6];
+const hexAlpha = (opacity: number) =>
+  Math.round(opacity * 255)
+    .toString(16)
+    .padStart(2, '0');
+const shine = SHIMMER_STOPS.map(({ offset, opacity }) => ({
+  offset,
+  color: `light-dark(#ffffff${hexAlpha(opacity.light)}, #ffffff${hexAlpha(opacity.dark)})`,
+}));
 
 const { profile, masthead, stackNote = { strikethrough: false } } = Astro.props;
 const email = profile.email ? emailHtml(profile.email) : null;
@@ -48,9 +63,9 @@ const note = profile.stack.length > 0 ? stackNote.text?.trim() || null : null;
           </linearGradient>
           <linearGradient id="masthead-shine">
             <stop offset="0" style="stop-color: #fff0" />
-            <stop offset="0.3" style="stop-color: light-dark(#ffffff33, #ffffff40)" />
-            <stop offset="0.5" style="stop-color: light-dark(#ffffff99, #ffffffbf)" />
-            <stop offset="0.7" style="stop-color: light-dark(#ffffff33, #ffffff40)" />
+            {shine.map(({ offset, color }) => (
+              <stop offset={offset} style={`stop-color: ${color}`} />
+            ))}
             <stop offset="1" style="stop-color: #fff0" />
           </linearGradient>
           <clipPath id="masthead-ink">
