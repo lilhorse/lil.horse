@@ -59,3 +59,19 @@ export async function settle(page: Page): Promise<void> {
     ),
   );
 }
+
+/** Pauses the intro's CSS failsafe the given time after it began, and returns each run's delay in ms. */
+export function seekFailsafe(page: Page, ms: number): Promise<number[]> {
+  return page.evaluate((at) => {
+    const runs = document
+      .getAnimations()
+      .filter(
+        (animation) => 'animationName' in animation && animation.animationName === 'intro-failsafe',
+      );
+    for (const run of runs) {
+      run.pause();
+      run.currentTime = at;
+    }
+    return runs.map((run) => Number(run.effect?.getTiming().delay));
+  }, ms);
+}

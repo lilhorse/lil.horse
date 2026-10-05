@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { CHAR_MS, INTRO_KEY, STRIKE_GAP_MS, STRIKE_MS } from '../../src/scripts/intro';
 import { expect, test } from './fixtures';
-import { builtFromFixtures } from './site';
+import { builtFromFixtures, seekFailsafe } from './site';
 
 /** The parts of a layout-shift entry this file reads; TypeScript's DOM types lack them. */
 interface LayoutShiftEntry extends PerformanceEntry {
@@ -113,24 +113,37 @@ test('hides what the intro will type until it starts, and shows it after 3 s if 
   await page.route('**/_astro/*.js', (route) => route.abort());
   await openHome(page);
   test.skip((await page.locator('[data-stack] s').count()) === 0, 'the stack is not struck');
-  const first = await page.evaluate(() => {
-    const style = (selector: string) => {
-      const element = document.querySelector(selector);
-      return element ? getComputedStyle(element) : null;
-    };
-    return {
-      pending: document.documentElement.hasAttribute('data-intro-pending'),
-      early: Number(document.timeline.currentTime) < 2500,
-      slogan: style('.slogan-text')?.opacity,
-      note: style('.note-text')?.opacity,
-      strike: style('[data-stack] s')?.backgroundSize,
-    };
-  });
-  expect(first).toEqual({ pending: true, early: true, slogan: '0', note: '0', strike: '0px 2px' });
+  const parts = () =>
+    page.evaluate(() => {
+      const style = (selector: string) => {
+        const element = document.querySelector(selector);
+        return element ? getComputedStyle(element) : null;
+      };
+      return {
+        pending: document.documentElement.hasAttribute('data-intro-pending'),
+        slogan: style('.slogan-text')?.opacity,
+        note: style('.note-text')?.opacity,
+        cursor: style('.comment > .cursor')?.opacity,
+        strike: style('[data-stack] s')?.backgroundSize,
+      };
+    });
 
-  await expect(page.locator('.slogan-text')).toHaveCSS('opacity', '1', { timeout: 5_000 });
-  await expect(page.locator('.note-text')).toHaveCSS('opacity', '1');
-  await expect(page.locator('[data-stack] s').first()).toHaveCSS('background-size', '100% 2px');
+  expect(new Set(await seekFailsafe(page, 0))).toEqual(new Set([3000]));
+  expect(await parts()).toEqual({
+    pending: true,
+    slogan: '0',
+    note: '0',
+    cursor: '0',
+    strike: '0px 2px',
+  });
+  await seekFailsafe(page, 3000);
+  expect(await parts()).toEqual({
+    pending: true,
+    slogan: '1',
+    note: '1',
+    cursor: '1',
+    strike: '100% 2px',
+  });
   const shine = page.locator('.neofetch .banner .shine');
   if ((await shine.count()) > 0) await expect(shine).toHaveCSS('animation-delay', '3s');
 });

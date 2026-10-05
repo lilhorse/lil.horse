@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { pageContaining, pagePaths, searchableTitle } from './site';
+import { pageContaining, pagePaths, searchableTitle, seekFailsafe } from './site';
 
 const TRANSPARENT = 'rgba(0, 0, 0, 0)';
 
@@ -36,6 +36,33 @@ for (const colorScheme of ['light', 'dark'] as const) {
     expect(highlighter, 'a page with a link in running text').toContain('linear-gradient');
   });
 }
+
+for (const [colorScheme, red] of [
+  ['light', 'rgb(201, 42, 42)'],
+  ['dark', 'rgb(247, 118, 142)'],
+] as const) {
+  test(`the stack's strike resolves to the ${colorScheme} theme's red`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme });
+    await page.addInitScript(() => sessionStorage.setItem('intro-played', '1'));
+    await page.goto('/');
+    const item = page.locator('[data-stack] s').first();
+    test.skip((await item.count()) === 0, 'the stack is not struck');
+    expect(
+      await item.evaluate((element) => getComputedStyle(element).getPropertyValue('--strike')),
+    ).toBe(red);
+  });
+}
+
+test('the intro failsafe shows the card in this engine', async ({ page }) => {
+  await page.route('**/_astro/*.js', (route) => route.abort());
+  await page.goto('/');
+  const slogan = page.locator('.neofetch .slogan-text');
+  test.skip((await slogan.count()) === 0, 'the root page has no slogan');
+  expect((await seekFailsafe(page, 0)).length).toBeGreaterThan(0);
+  await expect(slogan).toHaveCSS('opacity', '0');
+  await seekFailsafe(page, 3000);
+  await expect(slogan).toHaveCSS('opacity', '1');
+});
 
 test('the theme button and the palette work in this engine', async ({ page }) => {
   const title = await searchableTitle(page);
