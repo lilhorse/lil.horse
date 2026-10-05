@@ -91,16 +91,15 @@ export function profileReadme({
     ...(profile.email ? [`[email](${destination(`${base}/contact`)})`] : []),
     ...socialLinks(profile).map((link) => `[${link.label}](${destination(link.href)})`),
   ];
-  const stack = profile.stack.map((item) => inlineCode(oneLine(item)));
+  const stack = profile.stack.map((item) => {
+    const chip = inlineCode(oneLine(item));
+    return stackNote?.strikethrough ? `~~${chip}~~` : chip;
+  });
   const info = [
     `**Role** · ${field(profile.role)}`,
     `**Location** · ${field(profile.location)}`,
     ...(stack.length > 0
-      ? [
-          `**Stack** · ${stack.map((chip) => (stackNote?.strikethrough ? `~~${chip}~~` : chip)).join(' · ')}${
-            stackNote?.text ? ` *${field(stackNote.text)}*` : ''
-          }`,
-        ]
+      ? [`**Stack** · ${[stack.join(' · '), ...italic(stackNote?.text ?? null)].join(' ')}`]
       : []),
     `**Status** · ${STATUS[profile.availability]}`,
     `**Contact** · ${contact.join(' · ')}`,

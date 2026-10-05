@@ -172,6 +172,16 @@ describe('Neofetch', () => {
     );
   });
 
+  it('treats a blank stack note as none, leaving the cursor on the slogan', async () => {
+    const html = await render(Neofetch, {
+      profile: { ...profile, stack: ['TypeScript', 'Go'] },
+      masthead: { title: TITLE, slogan: SLOGAN },
+      stackNote: { strikethrough: true, text: ' \n ' },
+    });
+    expect(html).not.toContain('data-note');
+    expect(element(html, '<p class="slogan"', 'p')).toContain('<span class="cursor"');
+  });
+
   it('leaves out the stack and contact rows when they are empty', async () => {
     const html = await render(Neofetch, {
       masthead,

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { StackNote } from '../../src/lib/profile';
 import { escapeMarkdown, inlineCode, profileReadme } from '../../src/lib/profile-readme';
 import type { ProfileEntry } from '../../src/notion/types';
 
@@ -31,13 +32,17 @@ const TODAY: ProfileEntry = {
   x: 'lil_horse_',
   bio: 'Indie Coder & GFW Hater.',
 };
+const TODAY_NOTE: StackNote = {
+  strikethrough: true,
+  text: '# DEPRECATED: use Claude & Codex instead 😎',
+};
 
 // Blank, at the size src/lib/banner.ts draws today's title, so the pinned versions hold on any machine.
 const BANNER = { width: 72, height: 14, pixels: new Uint8Array(72 * 14) };
 
 const readme = (
   profile: Partial<ProfileEntry> = {},
-  extra: { title?: string; slogan?: string | null } = {},
+  extra: { title?: string; slogan?: string | null; stackNote?: StackNote } = {},
 ) =>
   profileReadme({
     title: '𝕷𝖎𝖑’𝕳𝖔𝖗𝖘𝖊',
@@ -85,7 +90,7 @@ describe('inlineCode', () => {
 
 describe('profileReadme', () => {
   it('writes the card for today’s profile', () => {
-    expect(readme()).toBe(`<div>
+    expect(readme({}, { stackNote: TODAY_NOTE })).toBe(`<div>
   <a href="https://lil.horse">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://lil.horse/brand/horse-night.svg?v=61f9f6f9">
@@ -104,7 +109,7 @@ describe('profileReadme', () => {
 
 **Role** · Freelance full-stack developer<br>
 **Location** · Auckland, New Zealand<br>
-**Stack** · \`TypeScript\` · \`Python\` · \`Go\` · \`PHP\` · \`Dart\` · \`Vue\` · \`React\` · \`Next.js\` · \`Flutter\` · \`Node.js\` · \`Tailwind CSS\` · \`Cloudflare\` · \`Docker\` · \`PostgreSQL\` · \`Redis\` · \`Solidity\`<br>
+**Stack** · ~~\`TypeScript\`~~ · ~~\`Python\`~~ · ~~\`Go\`~~ · ~~\`PHP\`~~ · ~~\`Dart\`~~ · ~~\`Vue\`~~ · ~~\`React\`~~ · ~~\`Next.js\`~~ · ~~\`Flutter\`~~ · ~~\`Node.js\`~~ · ~~\`Tailwind CSS\`~~ · ~~\`Cloudflare\`~~ · ~~\`Docker\`~~ · ~~\`PostgreSQL\`~~ · ~~\`Redis\`~~ · ~~\`Solidity\`~~ *\\# DEPRECATED: use Claude & Codex instead 😎*<br>
 **Status** · 🟢 Open to work<br>
 **Contact** · [lil.horse](https://lil.horse) · [email](https://lil.horse/contact) · [github](https://github.com/lilhorse) · [x](https://x.com/lil_horse_)<br>
 
@@ -112,6 +117,32 @@ describe('profileReadme', () => {
 
 *Indie Coder & GFW Hater.*
 `);
+  });
+
+  it('leaves the chips unstruck when the stack note asks for no strike', () => {
+    const markdown = readme(
+      { stack: ['Go', 'Vue'] },
+      { stackNote: { strikethrough: false, text: 'Still here' } },
+    );
+    expect(line(markdown, 'Stack')).toBe('**Stack** · `Go` · `Vue` *Still here*<br>');
+  });
+
+  it('adds no note, and no stray asterisks, when the stack note has no text', () => {
+    for (const stackNote of [
+      { strikethrough: true },
+      { strikethrough: true, text: '' },
+      { strikethrough: true, text: ' \n\t ' },
+    ])
+      expect(line(readme({ stack: ['Go'] }, { stackNote }), 'Stack')).toBe(
+        '**Stack** · ~~`Go`~~<br>',
+      );
+  });
+
+  it('escapes the stack note and keeps it on the line', () => {
+    const stackNote = { strikethrough: true, text: '# *not* _em_\n[x](y) <b>|~~' };
+    expect(line(readme({ stack: ['Go'] }, { stackNote }), 'Stack')).toBe(
+      '**Stack** · ~~`Go`~~ *\\# \\*not\\* \\_em\\_ \\[x\\](y) \\<b\\>\\|\\~\\~*<br>',
+    );
   });
 
   it('keeps each image a direct child of its picture inside one HTML block', () => {

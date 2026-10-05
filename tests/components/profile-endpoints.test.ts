@@ -2,7 +2,9 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { APIContext } from 'astro';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { siteConfig } from '../../site.config';
 import { bannerBitmap, bannerImageSize, bannerSvg } from '../../src/lib/banner';
+import { escapeMarkdown } from '../../src/lib/profile-readme';
 import { GET as horse, getStaticPaths } from '../../src/pages/brand/[name].svg';
 import {
   GET as masthead,
@@ -45,6 +47,16 @@ describe('/profile/README.md', () => {
     expect(markdown).toContain(`*${SLOGAN}*`);
     expect(markdown).toContain('[email](https://lil.horse/contact)');
     expect(markdown).not.toContain('sup@lil.horse');
+  });
+
+  it('writes the stack row with the stack note from site.config.ts', async () => {
+    useSite({ profile: { ...profile, stack: ['TypeScript', 'Go'] } });
+    const markdown = await (await readme({} as APIContext)).text();
+    const { strikethrough, text } = siteConfig.stackNote;
+    const chip = (item: string) => (strikethrough ? `~~\`${item}\`~~` : `\`${item}\``);
+    expect(markdown).toContain(
+      `\n**Stack** · ${chip('TypeScript')} · ${chip('Go')} *${escapeMarkdown(text)}*<br>\n`,
+    );
   });
 });
 

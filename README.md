@@ -252,6 +252,8 @@ Share images set the title in JetBrains Mono (Noto Sans SC for Chinese), adding 
 
 Besides the Notion IDs, `site.config.ts` holds the site's name and URL, the Giscus repository and discussion category with their IDs, and the Cloudflare Web Analytics token, `analytics.cloudflareToken`. The token is empty on purpose: Cloudflare injects the beacon for lil.horse at the edge, excluding visitor data from the EU, which a static page can't do because it can't tell where its visitor is; the CSP allows the beacon. If you set a token, turn off that automatic injection, or every visit is counted twice; the site then adds the beacon itself, which counts EU visitors too, and a prerendered page loads it only once shown. Fixture builds never include it.
 
+`stackNote` applies only when the profile has a stack: `strikethrough` strikes every stack item, on the card and in the profile README, and `text` follows the items, typed out on the card and in italics in the README.
+
 ## History
 
 This repository used to host a Next.js site based on [nextjs-notion-starter-kit](https://github.com/transitive-bullshit/nextjs-notion-starter-kit). The `archive/v1-nextjs` branch keeps that version.

@@ -25,7 +25,7 @@ const banner = bannerBitmap(masthead.title, (message) => console.warn(message));
 const scale = bannerScale(banner.width);
 const band = shimmerBand(banner.width);
 // The resting cursor ends the note when the stack row shows one, and the slogan otherwise.
-const note = profile.stack.length > 0 ? stackNote.text || null : null;
+const note = profile.stack.length > 0 ? stackNote.text?.trim() || null : null;
 ---
 
 <div class="neofetch" data-intro>
