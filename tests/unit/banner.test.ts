@@ -60,6 +60,12 @@ describe('bannerSvg', () => {
     expect(bannerSvg(bitmap('#'), 'A & <B>', 'dark')).toContain('<title>A &amp; &lt;B&gt;</title>');
   });
 
+  it('leaves control characters out of that title, so the file stays valid XML', () => {
+    const svg = bannerSvg(bitmap('#'), 'Lil\u0000’\u0007Horse\u0085\uFFFF\uD800', 'dark');
+    expect(svg).toContain('<title>Lil’Horse</title>');
+    expect(drawnAlpha(svg).some((alpha) => alpha > 0)).toBe(true);
+  });
+
   it('is a valid, empty image when the font can draw none of the title', () => {
     const svg = bannerSvg(bitmap(), '小马', 'light');
     expect(svg).toBe(
@@ -126,6 +132,10 @@ describe('bannerLabel', () => {
   it('spells styled letters as plain ones', () => {
     expect(bannerLabel(TITLE)).toBe('Lil’Horse');
     expect(bannerLabel("Lil'Horse")).toBe("Lil'Horse");
+  });
+
+  it('drops control characters, noncharacters and lone surrogates', () => {
+    expect(bannerLabel('Lil\tHorse\u0000\u009F\uFFFE\uDFFF 🐴')).toBe('LilHorse 🐴');
   });
 });
 

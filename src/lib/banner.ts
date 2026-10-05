@@ -177,7 +177,8 @@ export function bannerScale(width: number): number {
 
 /** The title as a screen reader should say it: styled letters such as 𝕷 become plain ones. */
 export function bannerLabel(title: string): string {
-  return title.normalize('NFKC');
+  // Control characters, U+FFFE, U+FFFF and lone surrogates would make the standalone SVG invalid XML.
+  return title.normalize('NFKC').replace(/[\p{Cc}\p{Cs}\uFFFE\uFFFF]/gu, '');
 }
 
 /** The size of a standalone banner in screen pixels. */
