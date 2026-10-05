@@ -9,6 +9,8 @@ export const STRIKE_MS = 200;
 export interface IntroEnv {
   storage: Pick<Storage, 'getItem' | 'setItem'> | null;
   reducedMotion(): boolean;
+  /** Whether the failsafe in src/styles/intro.css has already shown the card on screen. */
+  revealed(): boolean;
   /** Resolves once the page is in front of the visitor: neither prerendered nor in a hidden tab. */
   shown(): Promise<void>;
   wait(ms: number): Promise<void>;
@@ -23,16 +25,24 @@ function sessionStore(): Storage | null {
 }
 
 export function defaultEnv(doc: Document): IntroEnv {
+  const inFront = () =>
+    !(doc as Document & { prerendering?: boolean }).prerendering &&
+    doc.visibilityState === 'visible';
   return {
     storage: sessionStore(),
     reducedMotion: () => matchMedia('(prefers-reduced-motion: reduce)').matches,
+    revealed: () =>
+      inFront() &&
+      (doc.getAnimations?.() ?? []).some(
+        (animation) =>
+          'animationName' in animation &&
+          animation.animationName === 'intro-failsafe' &&
+          animation.playState === 'finished',
+      ),
     shown: () =>
       new Promise((resolve) => {
-        const ready = () =>
-          !(doc as Document & { prerendering?: boolean }).prerendering &&
-          doc.visibilityState === 'visible';
         const check = () => {
-          if (!ready()) return;
+          if (!inFront()) return;
           doc.removeEventListener('prerenderingchange', check);
           doc.removeEventListener('visibilitychange', check);
           resolve();
@@ -91,8 +101,10 @@ export async function playIntro(
     clearPending();
     return;
   }
+  // Asked before the wait, so a page that was hidden or prerendered meanwhile still plays.
+  const revealed = env.revealed();
   await env.shown();
-  if (env.reducedMotion() || playedBefore(env.storage)) {
+  if (revealed || env.reducedMotion() || playedBefore(env.storage)) {
     clearPending();
     return;
   }

@@ -135,6 +135,43 @@ test('hides what the intro will type until it starts, and shows it after 3 s if 
   if ((await shine.count()) > 0) await expect(shine).toHaveCSS('animation-delay', '3s');
 });
 
+test('does not play the intro over a card that the failsafe has already shown', async ({
+  page,
+}) => {
+  let release: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route('**/_astro/*.js', async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.goto('/', { waitUntil: 'commit' });
+  await page.locator('.neofetch dl').waitFor({ state: 'attached' });
+  test.skip((await page.locator('[data-slogan]').count()) === 0, 'the root page has no slogan');
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .some(
+        (animation) => 'animationName' in animation && animation.animationName === 'intro-failsafe',
+      ),
+  );
+  await page.evaluate(() => {
+    for (const animation of document.getAnimations())
+      if ('animationName' in animation && animation.animationName === 'intro-failsafe')
+        animation.finish();
+  });
+  await expect(page.locator('.slogan-text')).toHaveCSS('opacity', '1');
+
+  release();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.hasAttribute('data-intro-pending')))
+    .toBe(false);
+  expect(await playingNow(page)).toEqual({ overlays: 0, playing: false });
+  await expect(page.locator('.slogan-text')).toHaveCSS('opacity', '1');
+  expect(await page.evaluate((key) => sessionStorage.getItem(key), INTRO_KEY)).toBeNull();
+});
+
 test('the banner shimmers at once when the intro has already played', async ({ page }) => {
   await page.addInitScript((key) => sessionStorage.setItem(key, '1'), INTRO_KEY);
   await page.goto('/');

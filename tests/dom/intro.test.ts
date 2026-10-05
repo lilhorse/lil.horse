@@ -56,6 +56,7 @@ function env(overrides: Partial<IntroEnv> = {}) {
   const value: IntroEnv = {
     storage: new MemoryStorage(),
     reducedMotion: () => false,
+    revealed: () => false,
     shown: () => Promise.resolve(),
     wait: async (ms) => {
       moments.push(moment(ms));
@@ -156,6 +157,34 @@ describe('playIntro', () => {
     expect(pending()).toBe(false);
   });
 
+  it('does not play over a card that the failsafe has already shown, but clears the mark', async () => {
+    const before = root().outerHTML;
+    const storage = new MemoryStorage();
+    const { value, moments } = env({ storage, revealed: () => true });
+    await playIntro(root(), value);
+    expect(moments).toEqual([]);
+    expect(pending()).toBe(false);
+    expect(storage.items.size).toBe(0);
+    expect(root().outerHTML).toBe(before);
+  });
+
+  it('asks whether the failsafe has shown the card before it waits for the page to be shown', async () => {
+    let shownYet = false;
+    let revealedAsked = false;
+    const { value, moments } = env({
+      revealed: () => {
+        revealedAsked = !shownYet;
+        return shownYet;
+      },
+      shown: async () => {
+        shownYet = true;
+      },
+    });
+    await playIntro(root(), value);
+    expect(revealedAsked).toBe(true);
+    expect(moments).toHaveLength(13);
+  });
+
   it('hides the typing from screen readers, which read the card itself', async () => {
     const { value } = env({
       wait: async () => {
@@ -242,6 +271,30 @@ describe('playIntro', () => {
 const settled = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe('defaultEnv', () => {
+  it('reports the card revealed once the failsafe has finished in a page in front of the visitor', () => {
+    const animations: { animationName?: string; playState: string }[] = [];
+    Object.defineProperty(document, 'getAnimations', {
+      configurable: true,
+      value: () => animations,
+    });
+    const revealed = () => defaultEnv(document).revealed();
+    expect(revealed()).toBe(false);
+    animations.push({ animationName: 'intro-failsafe', playState: 'running' });
+    animations.push({ animationName: 'cursor-blink', playState: 'finished' });
+    animations.push({ playState: 'finished' });
+    expect(revealed()).toBe(false);
+    animations.push({ animationName: 'intro-failsafe', playState: 'finished' });
+    expect(revealed()).toBe(true);
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    expect(revealed()).toBe(false);
+    Reflect.deleteProperty(document, 'visibilityState');
+    Object.defineProperty(document, 'prerendering', { configurable: true, value: true });
+    expect(revealed()).toBe(false);
+    Reflect.deleteProperty(document, 'prerendering');
+    Reflect.deleteProperty(document, 'getAnimations');
+    expect(revealed()).toBe(false);
+  });
+
   it('waits for a hidden tab to come to the front before it reports the page shown', async () => {
     Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
     let shown = false;
