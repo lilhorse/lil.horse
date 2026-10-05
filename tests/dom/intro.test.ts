@@ -31,7 +31,7 @@ const BLOCKED = {
 const CURSOR = '<span class="cursor" aria-hidden="true">▋</span>';
 const SLOGAN = '<span class="slogan-text">Hi 🍻.</span>';
 const ITEMS = '<s>Go</s> · <s>Vue</s>';
-const NOTE = `<span class="comment" data-note><span class="note-text"> # AI 😎</span>${CURSOR}</span>`;
+const NOTE = ` <span class="comment" data-note><span class="note-text"># AI 😎</span>${CURSOR}</span>`;
 
 function card(slogan: string, stack: string): string {
   return `<div class="neofetch" data-intro><p class="slogan" data-slogan>${slogan}</p><dl><div><dt>Stack</dt><dd data-stack>${stack}</dd></div></dl></div>`;
@@ -86,12 +86,11 @@ describe('playIntro', () => {
       `${STRIKE_GAP_MS} slogan:Hi 🍻.▋ (parked) strikes:x- note:-`,
       `${STRIKE_MS} slogan:Hi 🍻.▋ (parked) strikes:xx note:-`,
       `${CHAR_MS} slogan:- strikes:xx note:▋`,
-      `${CHAR_MS} slogan:- strikes:xx note: ▋`,
-      `${CHAR_MS} slogan:- strikes:xx note: #▋`,
-      `${CHAR_MS} slogan:- strikes:xx note: # ▋`,
-      `${CHAR_MS} slogan:- strikes:xx note: # A▋`,
-      `${CHAR_MS} slogan:- strikes:xx note: # AI▋`,
-      `${CHAR_MS} slogan:- strikes:xx note: # AI ▋`,
+      `${CHAR_MS} slogan:- strikes:xx note:#▋`,
+      `${CHAR_MS} slogan:- strikes:xx note:# ▋`,
+      `${CHAR_MS} slogan:- strikes:xx note:# A▋`,
+      `${CHAR_MS} slogan:- strikes:xx note:# AI▋`,
+      `${CHAR_MS} slogan:- strikes:xx note:# AI ▋`,
     ]);
     expect(root().outerHTML).toBe(before);
   });
@@ -193,7 +192,7 @@ describe('playIntro', () => {
       await playIntro(root(), first.value);
       const again = env({ storage });
       await playIntro(root(), again.value);
-      expect(first.moments).toHaveLength(14);
+      expect(first.moments).toHaveLength(13);
       expect(again.moments).toEqual(first.moments);
     }
   });
@@ -214,7 +213,7 @@ describe('playIntro', () => {
     expect(storage.items.size).toBe(0);
     show();
     await playing;
-    expect(moments).toHaveLength(14);
+    expect(moments).toHaveLength(13);
   });
 
   it('puts the card back when a step fails', async () => {

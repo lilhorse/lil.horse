@@ -94,7 +94,7 @@ describe('Neofetch', () => {
       `<p class="slogan" data-slogan><span class="slogan-text">${SLOGAN}</span></p>`,
     );
     expect(html).toContain(
-      '<dd data-stack><s>TypeScript</s>\u00a0· <s>Go</s><span class="comment" data-note><span class="note-text"> # AI &amp; co 😎</span><span class="cursor" aria-hidden="true">▋</span></span></dd>',
+      '<dd data-stack><s>TypeScript</s>\u00a0· <s>Go</s> <span class="comment" data-note><span class="note-text"># AI &amp; co 😎</span><span class="cursor" aria-hidden="true">▋</span></span></dd>',
     );
     expect(html.match(/class="cursor"/g)).toHaveLength(1);
     expect(await htmlErrors(html)).toEqual([]);
@@ -165,7 +165,7 @@ describe('Neofetch', () => {
     expect(
       element(await card({ strikethrough: false, text: '# AI' }), '<dd data-stack', 'dd'),
     ).toBe(
-      '<dd data-stack>TypeScript\u00a0· Go<span class="comment" data-note><span class="note-text"> # AI</span><span class="cursor" aria-hidden="true">▋</span></span></dd>',
+      '<dd data-stack>TypeScript\u00a0· Go <span class="comment" data-note><span class="note-text"># AI</span><span class="cursor" aria-hidden="true">▋</span></span></dd>',
     );
     expect(element(await card({ strikethrough: true }), '<dd data-stack', 'dd')).toBe(
       '<dd data-stack><s>TypeScript</s>\u00a0· <s>Go</s></dd>',

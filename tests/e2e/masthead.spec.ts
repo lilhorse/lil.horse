@@ -160,6 +160,37 @@ for (const colorScheme of ['light', 'dark'] as const) {
   });
 }
 
+test('a space parts the last stack item from the note on a shared line', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'a phone never fits the note beside an item');
+  await page.addInitScript((key) => sessionStorage.setItem(key, '1'), INTRO_KEY);
+  await page.goto('/');
+  test.skip((await page.locator('[data-note]').count()) === 0, 'the card has no stack note');
+  test.skip((await page.locator('[data-stack] s').count()) === 0, 'the stack is not struck');
+  const { gap, sameLine } = await page.locator('[data-stack]').evaluate((stack) => {
+    const nodes = [...stack.childNodes];
+    const last = nodes.findLastIndex((node) => node instanceof Element && node.matches('s'));
+    for (const node of nodes.slice(0, last)) node.remove();
+    const box = (text: Node | null | undefined, from: number, to: number) => {
+      const range = document.createRange();
+      if (text) {
+        range.setStart(text, from);
+        range.setEnd(text, to);
+      }
+      return range.getBoundingClientRect();
+    };
+    const item = stack.querySelector('s')?.firstChild;
+    const note = stack.querySelector('.note-text')?.firstChild;
+    const start = note?.textContent?.search(/\S/) ?? 0;
+    const before = box(item, 0, item?.textContent?.length ?? 0);
+    const after = box(note, start, start + 1);
+    return { gap: after.left - before.right, sameLine: Math.abs(after.top - before.top) < 1 };
+  });
+  expect(sameLine).toBe(true);
+  expect(gap).toBeGreaterThan(4);
+});
+
 test('hovering a stack item lifts its strike', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'needs a pointer that hovers');
   await page.addInitScript((key) => sessionStorage.setItem(key, '1'), INTRO_KEY);

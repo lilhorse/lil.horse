@@ -111,12 +111,15 @@ const note = profile.stack.length > 0 ? stackNote.text?.trim() || null : null;
               </Fragment>
             ))}
             {note && (
-              <span class="comment" data-note>
-                <span class="note-text">{` ${note}`}</span>
-                <span class="cursor" aria-hidden="true">
-                  ▋
+              <Fragment>
+                {' '}
+                <span class="comment" data-note>
+                  <span class="note-text">{note}</span>
+                  <span class="cursor" aria-hidden="true">
+                    ▋
+                  </span>
                 </span>
-              </span>
+              </Fragment>
             )}
           </dd>
         </div>
