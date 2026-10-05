@@ -85,10 +85,20 @@ describe('inlineCode', () => {
 
 describe('profileReadme', () => {
   it('writes the card for today’s profile', () => {
-    expect(readme())
-      .toBe(`<picture><source media="(prefers-color-scheme: dark)" srcset="https://lil.horse/brand/horse-night.svg"><a href="https://lil.horse"><img align="left" width="120" alt="lil.horse" src="https://lil.horse/brand/horse-chestnut.svg"></a></picture>
-
-<picture><source media="(prefers-color-scheme: dark)" srcset="https://lil.horse/brand/masthead-dark.svg?v=16533973"><a href="https://lil.horse"><img alt="Lil’Horse" width="312" src="https://lil.horse/brand/masthead-light.svg?v=884c65c9"></a></picture>
+    expect(readme()).toBe(`<div>
+  <a href="https://lil.horse">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://lil.horse/brand/horse-night.svg">
+      <img align="left" width="120" alt="lil.horse" src="https://lil.horse/brand/horse-chestnut.svg">
+    </picture>
+  </a>
+  <a href="https://lil.horse">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://lil.horse/brand/masthead-dark.svg?v=16533973">
+      <img alt="Lil’Horse" width="312" src="https://lil.horse/brand/masthead-light.svg?v=884c65c9">
+    </picture>
+  </a>
+</div>
 
 *Dis is da cyberspace of Lil’Horse, just chill and have fun 🍻.*
 
@@ -102,6 +112,17 @@ describe('profileReadme', () => {
 
 *Indie Coder & GFW Hater.*
 `);
+  });
+
+  it('keeps each image a direct child of its picture inside one HTML block', () => {
+    const block = readme().split('\n\n')[0];
+    expect(block.startsWith('<div>\n')).toBe(true);
+    expect(block.endsWith('\n</div>')).toBe(true);
+    const pictures = block.match(/<picture>[\s\S]*?<\/picture>/g) ?? [];
+    expect(pictures).toHaveLength(2);
+    for (const picture of pictures) {
+      expect(picture).toMatch(/^<picture>\s*<source [^>]+>\s*<img [^>]+>\s*<\/picture>$/);
+    }
   });
 
   it('never prints the email address', () => {
@@ -196,6 +217,6 @@ describe('profileReadme', () => {
       site: 'https://lil.horse',
     });
     expect(markdown).not.toContain('masthead-');
-    expect(markdown).toContain('</picture>\n\n**小马 \\***\n\n**Role**');
+    expect(markdown).toContain('  </a>\n</div>\n\n**小马 \\***\n\n**Role**');
   });
 });

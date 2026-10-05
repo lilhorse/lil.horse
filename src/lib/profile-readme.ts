@@ -57,9 +57,16 @@ export function profileReadme({
   const base = site.replace(/\/+$/, '');
   const host = new URL(base).host;
   const href = escapeAttr(base);
-  // GitHub links every image whose parent is not a link, which would split a <picture> nested in one.
+  // github.com keeps <img> a direct child of <picture>, which the dark <source> needs, only in a multi-line HTML block.
   const picture = (dark: string, image: string) =>
-    `<picture><source media="(prefers-color-scheme: dark)" srcset="${dark}"><a href="${href}">${image}</a></picture>`;
+    [
+      `  <a href="${href}">`,
+      '    <picture>',
+      `      <source media="(prefers-color-scheme: dark)" srcset="${dark}">`,
+      `      ${image}`,
+      '    </picture>',
+      '  </a>',
+    ].join('\n');
   const horse = picture(
     `${href}/brand/horse-night.svg`,
     `<img align="left" width="120" alt="${escapeAttr(host)}" src="${href}/brand/horse-chestnut.svg">`,
@@ -76,7 +83,7 @@ export function profileReadme({
           bannerUrl('dark'),
           `<img alt="${escapeAttr(bannerLabel(title))}" width="${bannerImageSize(banner).width}" src="${bannerUrl('light')}">`,
         )
-      : `**${field(title)}**`;
+      : null;
   const contact = [
     `[${escapeMarkdown(host)}](${destination(base)})`,
     ...(profile.email ? [`[email](${destination(`${base}/contact`)})`] : []),
@@ -91,8 +98,8 @@ export function profileReadme({
     `**Contact** · ${contact.join(' · ')}`,
   ];
   const blocks = [
-    horse,
-    masthead,
+    ['<div>', horse, ...(masthead ? [masthead] : []), '</div>'].join('\n'),
+    ...(masthead ? [] : [`**${field(title)}**`]),
     ...italic(slogan),
     info.map((row) => `${row}<br>`).join('\n'),
     SWATCHES,
