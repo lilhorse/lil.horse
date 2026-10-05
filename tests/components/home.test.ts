@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Neofetch from '../../src/components/shell/Neofetch.astro';
-import { bannerBitmap, bannerPath } from '../../src/lib/banner';
+import { bannerBitmap, bannerPath, shimmerBand } from '../../src/lib/banner';
 import Home from '../../src/pages/index.astro';
 import { htmlErrors, render, textOf } from '../helpers/astro-render';
 import { element, masthead, post, profile, project, useSite } from '../helpers/site-data';
@@ -32,7 +32,9 @@ describe('Neofetch', () => {
     expect(svg).toContain(`viewBox="0 0 ${banner.width} ${banner.height}"`);
     expect(svg).toContain(`width="${banner.width * 4}" height="${banner.height * 4}"`);
     expect(svg).toContain('shape-rendering="crispEdges"');
-    expect(svg).toContain(`<path fill="url(#masthead-gradient)" d="${bannerPath(banner)}"></path>`);
+    expect(svg).toContain(
+      `<path id="masthead-letters" fill="url(#masthead-gradient)" d="${bannerPath(banner)}"></path>`,
+    );
     expect(
       [...svg.matchAll(/<stop offset="(\d+)%" style="stop-color: var\(--(swatch-\d)\)"/g)].map(
         ([, offset, token]) => `${offset} ${token}`,
@@ -46,6 +48,24 @@ describe('Neofetch', () => {
       '100 swatch-6',
     ]);
     expect(html).not.toContain('lilhorse@lil.horse');
+    expect(await htmlErrors(html)).toEqual([]);
+  });
+
+  it('clips a band of light for the shimmer to the letters, without a second copy of them', async () => {
+    const html = await render(Neofetch, { profile, masthead: { title: TITLE, slogan: SLOGAN } });
+    const svg = element(html, '<svg class="banner"', 'svg');
+    const banner = bannerBitmap(TITLE, () => undefined);
+    const band = shimmerBand(banner.width);
+    expect(svg).toContain(
+      '<clipPath id="masthead-ink"><use href="#masthead-letters"></use></clipPath>',
+    );
+    expect(svg).toContain(
+      `<g clip-path="url(#masthead-ink)"><rect class="shine" x="${-band}" y="0" width="${band}" height="${banner.height}" fill="url(#masthead-shine)" style="--sweep: ${banner.width + band}px"></rect></g>`,
+    );
+    expect(svg).toContain(
+      '<stop offset="0.5" style="stop-color: light-dark(#ffffff40, #ffffff59)"></stop>',
+    );
+    expect(svg.split(bannerPath(banner))).toHaveLength(2);
     expect(await htmlErrors(html)).toEqual([]);
   });
 

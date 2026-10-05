@@ -65,3 +65,17 @@
     transition: none;
   }
 }
+
+/* A 1.6 s sweep, then 5 s of rest; it first starts once the intro is over. */
+@media (prefers-reduced-motion: no-preference) {
+  .neofetch:not(.intro) .banner .shine {
+    animation: shine 6.6s ease-in-out infinite;
+  }
+}
+
+@keyframes shine {
+  24.24%,
+  100% {
+    transform: translateX(var(--sweep));
+  }
+}

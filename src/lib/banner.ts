@@ -203,6 +203,11 @@ const GLOWS: Record<BannerTheme, (color: (typeof BANNER_COLORS)[BannerTheme]) =>
 
 const SHIMMER_OPACITY: Record<BannerTheme, number> = { dark: 0.35, light: 0.25 };
 
+/** The width of the shimmer's band of light, in bitmap pixels. */
+export function shimmerBand(width: number): number {
+  return Math.max(4, Math.round(width / 4));
+}
+
 /** The banner as a file of its own, in one theme's colours, for pages that cannot use the site's CSS. */
 export function bannerSvg(bitmap: Bitmap, title: string, theme: BannerTheme): string {
   const { width, height } = bannerImageSize(bitmap);
@@ -213,7 +218,7 @@ export function bannerSvg(bitmap: Bitmap, title: string, theme: BannerTheme): st
   const stops = colors.swatches
     .map((color, index) => `<stop offset="${index * 20}%" stop-color="${color}"/>`)
     .join('');
-  const band = Math.max(4, Math.round(bitmap.width / 4));
+  const band = shimmerBand(bitmap.width);
   const shine = (opacity: number) =>
     `<stop offset="0.5" stop-color="#fff" stop-opacity="${opacity}"/>`;
   return (

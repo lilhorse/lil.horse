@@ -16,6 +16,11 @@ const playingNow = (page: Page) =>
     playing: document.querySelector('[data-intro]')?.classList.contains('intro'),
   }));
 
+const shimmer = (page: Page) =>
+  page
+    .locator('.neofetch .banner .shine')
+    .evaluate((element) => getComputedStyle(element).animationName);
+
 async function openHome(page: Page): Promise<void> {
   await page.goto('/');
   test.skip((await page.locator('[data-slogan]').count()) === 0, 'the root page has no slogan');
@@ -57,6 +62,7 @@ test('the intro plays once per session, in place, and ends as the page began', a
   };
 
   await expect(page.locator('.slogan .typed')).toHaveText('▋');
+  expect(await shimmer(page)).toBe('none');
   const before = await card.boundingBox();
   await run(CHAR_MS, slogan.length);
   await expect(page.locator('.slogan .typed.parked')).toHaveText(`${slogan.join('')}▋`);
@@ -69,8 +75,10 @@ test('the intro plays once per session, in place, and ends as the page began', a
   await expect(page.locator('.comment .typed')).toHaveText('▋');
   await run(CHAR_MS, 10);
   await expect(page.locator('.comment .typed')).toHaveText(`${note.slice(0, 10).join('')}▋`);
+  expect(await shimmer(page)).toBe('none');
   await run(CHAR_MS, note.length - 10);
   await expect(page.locator('.typed')).toHaveCount(0);
+  expect(await shimmer(page)).toBe('shine');
   expect(await card.boundingBox()).toEqual(before);
   await expect(page.locator('.note-text')).toHaveCSS('opacity', '1');
   await expect(page.locator('.comment > .cursor')).toHaveCSS('opacity', '1');
@@ -84,14 +92,22 @@ test('the intro plays once per session, in place, and ends as the page began', a
   expect(await card.evaluate((element) => element.outerHTML)).toBe(played);
 });
 
-test('the intro never plays, and the cursor never blinks, under reduced motion', async ({
+test('the intro never plays, and nothing blinks or shimmers, under reduced motion', async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await openHome(page);
   expect(await playingNow(page)).toEqual({ overlays: 0, playing: false });
   await expect(page.locator('.neofetch .cursor')).toHaveCSS('animation-name', 'none');
+  expect(await shimmer(page)).toBe('none');
   expect(await page.evaluate(() => sessionStorage.length)).toBe(0);
+});
+
+test('the banner shimmers at once when the intro has already played', async ({ page }) => {
+  await page.addInitScript((key) => sessionStorage.setItem(key, '1'), INTRO_KEY);
+  await page.goto('/');
+  test.skip((await page.locator('.neofetch .banner .shine').count()) === 0, 'no banner');
+  expect(await shimmer(page)).toBe('shine');
 });
 
 test('hovering a stack item lifts its strike', async ({ page }, testInfo) => {
