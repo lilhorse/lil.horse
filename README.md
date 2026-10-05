@@ -93,7 +93,7 @@ The CSP (`src/lib/csp.ts`) has no `'unsafe-inline'` in `script-src`; it lists th
 
 ## Deployment
 
-`wrangler.jsonc` names the Worker `lil-horse`, serves `dist/` as static assets (`x.html` at `/x`, `404.html` for unknown paths), and runs the Worker script only for `/hooks/*`, so in production only `/hooks/*` reaches the Worker and the asset layer serves everything else. Keep `workers_dev` and `preview_urls` set: both default to off once `routes` is set, and the webhook and pull request previews need them. The Worker answers at `https://lil-horse.lilhorse.workers.dev`, where every version, deployed or only uploaded, gets a preview URL; a `_headers` rule adds `X-Robots-Tag: noindex` on every workers.dev address.
+`wrangler.jsonc` names the Worker `lil-horse`, serves `dist/` as static assets (`x.html` at `/x`, `404.html` for unknown paths), and runs the Worker script first only for `/hooks/*`. The asset layer answers every other request that matches a file, and every page navigation that matches none with `404.html`; any other unmatched request (a `fetch()`, a bot, a missing image) reaches the Worker, which passes it to the assets. Keep `workers_dev` and `preview_urls` set: both default to off once `routes` is set, and the webhook and pull request previews need them. The Worker answers at `https://lil-horse.lilhorse.workers.dev`, where every version, deployed or only uploaded, gets a preview URL; a `_headers` rule adds `X-Robots-Tag: noindex` on every workers.dev address.
 
 `src/worker/hook.ts` handles `POST /hooks/notion` and answers `404` for other paths under `/hooks/`; the entry module, `src/worker/index.ts`, only re-exports its default handler, since the Workers runtime treats every export of it as an entrypoint. A Notion edit reaches the site like this:
 
@@ -103,7 +103,7 @@ The CSP (`src/lib/csp.ts`) has no `'unsafe-inline'` in `script-src`; it lists th
 
 The workflow also runs on every push to `main`, by hand (from the Actions tab, or with `gh workflow run deploy.yml`, where `-f full_refresh=true` sets `NOTION_FULL_REFRESH=1`), and daily at 17:00 UTC with a full refresh through `.github/workflows/refresh.yml` on `main`. GitHub disables a scheduled workflow after 60 days without activity in a public repository; this stops only the daily refresh, not deploys from a push or from Notion. If it happens, re-enable Daily refresh in the Actions tab.
 
-Only `main` deploys; a manual run on another branch skips the job. A newer run cancels one in progress, so a burst of edits deploys once. `.cache/` and Astro's data store in `node_modules/.astro` are restored from the last successful run.
+Only `main` deploys; a manual run on another branch skips both jobs. A newer run cancels one in progress, so a burst of edits deploys once. `.cache/` and Astro's data store in `node_modules/.astro` are restored from the last run that deployed.
 
 To deploy from a laptop, run `pnpm build && pnpm check:dist && pnpm smoke:worker && pnpm exec wrangler deploy` after `pnpm exec wrangler login`. `pnpm smoke:worker` runs the Worker and the last build in `dist/` under workerd (`wrangler dev`) and checks the status codes of `GET /hooks/notion`, an unsigned `POST /hooks/notion`, `GET /hooks/other`, and `GET /`, never loading `.dev.vars` or `.env`, so no local secret reaches the Worker. Run it before deploying any Worker change; `wrangler deploy --dry-run` only bundles and can't tell whether the Worker starts.
 
@@ -149,13 +149,13 @@ Cloudflare refuses to change a secret while the newest Worker version isn't the 
 
 ### GitHub profile README
 
-`lilhorse/lilhorse` shows the home page's card as its README, which the build writes to `dist/profile/README.md` (`src/pages/profile/README.md.ts`, from `src/lib/profile-readme.ts`). The email row links to the contact page, so the address never appears there.
+`lilhorse/lilhorse` shows the home page's card as its README, which the build writes to `dist/profile/README.md` (`src/pages/profile/README.md.ts`, from `src/lib/profile-readme.ts`). Text from Notion has its Markdown and HTML escaped and stays on one line. The email row links to the contact page, so the address never appears there.
 
 Its images load from lil.horse, each in a `<picture>` whose dark variant follows the visitor's GitHub theme: the horses (`/brand/horse-night.svg`, `/brand/horse-chestnut.svg`) and the banner (`/brand/masthead-dark.svg`, `/brand/masthead-light.svg`). The banner files are standalone SVGs at four screen pixels per bitmap pixel, with a glow margin of three bitmap pixels (12 screen pixels). Their URLs carry `?v=` and a hash of the SVG, so GitHub fetches a changed banner at once. If the banner font can draw none of the title, the SVGs are empty and the README shows the title in bold. Keep each link inside its `<picture>`, around the `<img>`: GitHub wraps an image whose parent isn't a link in its own link, which splits a `<picture>` inside an outer link.
 
 After a successful deploy, the `sync-profile` job takes `dist/profile/README.md` from the deploy job's artifact and runs `scripts/sync-profile-readme.ts` with plain Node (no installs), passing `PROFILE_README_TOKEN` as `GH_TOKEN` and `PROFILE_REPOSITORY` as `lilhorse/lilhorse`; the job's own `GITHUB_TOKEN` can only read this repository. The script compares the profile repository's `README.md` with the build and commits any difference as `chore: sync the profile card from lil.horse` (or creates the file); otherwise it prints `Profile README unchanged`. So the card follows Notion within a day, or at once after a Notion edit. Without a token, as in a fork or a local run, the script prints a notice and does nothing.
 
-After a network error or a `5xx`, the script retries once, two seconds later. If GitHub still fails or refuses (for example, the token was revoked), only `sync-profile` fails, with GitHub's reason; the site is deployed and the cache saved. Create a new token with the same permissions, store it as in [Secrets](#secrets), and rerun the deploy workflow.
+After a network error or a `5xx`, the script retries once, two seconds later. If GitHub still fails or refuses (for example, the token was revoked), only `sync-profile` fails, with GitHub's reason; the site is deployed and the cache saved. After fixing the cause (for a revoked token, a new one with the same permissions, stored as in [Secrets](#secrets)), start a new run with `gh workflow run deploy.yml`: re-running an old run redeploys its commit, and its artifact lasts only a day.
 
 ### Rollback
 
@@ -250,7 +250,7 @@ Share images set the title in JetBrains Mono (Noto Sans SC for Chinese), adding 
 
 ## Site configuration
 
-Besides the Notion IDs, `site.config.ts` holds the site's name and URL, the Giscus repository and discussion category with their IDs, and the Cloudflare Web Analytics token, `analytics.cloudflareToken`. The token is empty on purpose: Cloudflare injects the beacon for lil.horse at the edge, excluding visitor data from the EU, and the CSP allows it. If you set a token, turn off that automatic injection, or every visit is counted twice; the site then adds the beacon itself, and a prerendered page loads it only once shown. Fixture builds never include it.
+Besides the Notion IDs, `site.config.ts` holds the site's name and URL, the Giscus repository and discussion category with their IDs, and the Cloudflare Web Analytics token, `analytics.cloudflareToken`. The token is empty on purpose: Cloudflare injects the beacon for lil.horse at the edge, excluding visitor data from the EU, which a static page can't do because it can't tell where its visitor is; the CSP allows the beacon. If you set a token, turn off that automatic injection, or every visit is counted twice; the site then adds the beacon itself, which counts EU visitors too, and a prerendered page loads it only once shown. Fixture builds never include it.
 
 ## History
 
