@@ -24,6 +24,8 @@ const { workflow_run_id: id, html_url: url } = JSON.parse(
     'repos/{owner}/{repo}/actions/workflows/baselines.yml/dispatches',
     '-f',
     `ref=${branch}`,
+    '-F',
+    'return_run_details=true',
   ),
 ) as { workflow_run_id: number; html_url: string };
 console.log(`Regenerating the Linux baselines in ${url}`);
