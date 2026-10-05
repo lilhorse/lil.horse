@@ -1,5 +1,5 @@
 ---
-import { bannerBitmap, bannerLabel, bannerPath } from '../../lib/banner';
+import { bannerBitmap, bannerLabel, bannerPath, bannerScale } from '../../lib/banner';
 import { emailHtml, socialLinks } from '../../lib/profile';
 import type { Availability, MastheadEntry, ProfileEntry } from '../../notion/types';
 import PixelHorse from './PixelHorse.astro';
@@ -15,15 +15,13 @@ const STATUS: Record<Availability, string> = {
   Busy: 'busy',
 };
 
-// A whole number of screen pixels per banner pixel, as close to this width as that allows.
-const BANNER_WIDTH = 300;
 const SWATCHES = [1, 2, 3, 4, 5, 6];
 
 const { profile, masthead } = Astro.props;
 const email = profile.email ? emailHtml(profile.email) : null;
 const social = socialLinks(profile);
 const banner = bannerBitmap(masthead.title, (message) => console.warn(message));
-const scale = Math.max(1, Math.round(BANNER_WIDTH / Math.max(banner.width, 1)));
+const scale = bannerScale(banner.width);
 ---
 
 <div class="neofetch">

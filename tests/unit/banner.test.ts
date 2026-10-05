@@ -8,6 +8,7 @@ import {
   bannerImageSize,
   bannerLabel,
   bannerPath,
+  bannerScale,
   bannerSvg,
   fontCoverage,
   type Bitmap,
@@ -104,6 +105,20 @@ describe('bannerPath', () => {
 
   it('is empty for a bitmap with no lit pixel', () => {
     expect(bannerPath(bitmap('...', '...'))).toBe('');
+  });
+});
+
+describe('bannerScale', () => {
+  it('scales by whole pixels to about 300 px wide', () => {
+    expect(bannerScale(72)).toBe(4);
+    expect(bannerScale(60)).toBe(5);
+    expect(bannerScale(130)).toBe(2);
+    expect(bannerScale(400)).toBe(1);
+  });
+
+  it('never blows a short title up more than five times', () => {
+    expect(bannerScale(14)).toBe(5);
+    expect(bannerScale(1)).toBe(5);
   });
 });
 

@@ -155,6 +155,11 @@ export function bannerPath(bitmap: Bitmap): string {
   return d;
 }
 
+/** Screen pixels per bitmap pixel on the home page: whole, close to 300 px wide, at most 5. */
+export function bannerScale(width: number): number {
+  return Math.min(5, Math.max(1, Math.round(300 / Math.max(width, 1))));
+}
+
 /** The title as a screen reader should say it: styled letters such as 𝕷 become plain ones. */
 export function bannerLabel(title: string): string {
   return title.normalize('NFKC');

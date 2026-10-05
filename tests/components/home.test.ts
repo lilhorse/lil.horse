@@ -59,6 +59,12 @@ describe('Neofetch', () => {
     expect(html.indexOf(slogan)).toBeLessThan(html.indexOf('<p class="rule"'));
   });
 
+  it('keeps a short title title-sized', async () => {
+    const html = await render(Neofetch, { profile, masthead: { title: 'Hi', slogan: null } });
+    const banner = bannerBitmap('Hi', () => undefined);
+    expect(html).toContain(`width="${banner.width * 5}" height="${banner.height * 5}"`);
+  });
+
   it('leaves out the slogan when the root page has none', async () => {
     const html = await render(Neofetch, { profile, masthead: { title: TITLE, slogan: null } });
     expect(html).not.toContain('slogan');
