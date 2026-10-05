@@ -32,8 +32,8 @@ const TODAY: ProfileEntry = {
   bio: 'Indie Coder & GFW Hater.',
 };
 
-// The size of the bitmap src/lib/banner.ts draws for today's title.
-const BANNER = { width: 72, height: 14 };
+// Blank, at the size src/lib/banner.ts draws today's title, so the pinned versions hold on any machine.
+const BANNER = { width: 72, height: 14, pixels: new Uint8Array(72 * 14) };
 
 const readme = (
   profile: Partial<ProfileEntry> = {},
@@ -50,6 +50,14 @@ const readme = (
 
 const line = (markdown: string, label: string) =>
   markdown.split('\n').find((row) => row.startsWith(`**${label}**`));
+
+const versions = (markdown: string): Record<string, string | undefined> =>
+  Object.fromEntries(
+    Array.from(markdown.matchAll(/\/brand\/masthead-(dark|light)\.svg\?v=([^"]*)"/g), (match) => [
+      match[1],
+      match[2],
+    ]),
+  );
 
 describe('escapeMarkdown', () => {
   it('escapes Markdown and HTML punctuation', () => {
@@ -80,7 +88,7 @@ describe('profileReadme', () => {
     expect(readme())
       .toBe(`<picture><source media="(prefers-color-scheme: dark)" srcset="https://lil.horse/brand/horse-night.svg"><a href="https://lil.horse"><img align="left" width="120" alt="lil.horse" src="https://lil.horse/brand/horse-chestnut.svg"></a></picture>
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="https://lil.horse/brand/masthead-dark.svg"><a href="https://lil.horse"><img alt="Lil’Horse" width="312" src="https://lil.horse/brand/masthead-light.svg"></a></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="https://lil.horse/brand/masthead-dark.svg?v=16533973"><a href="https://lil.horse"><img alt="Lil’Horse" width="312" src="https://lil.horse/brand/masthead-light.svg?v=884c65c9"></a></picture>
 
 *Dis is da cyberspace of Lil’Horse, just chill and have fun 🍻.*
 
@@ -151,6 +159,28 @@ describe('profileReadme', () => {
     expect(markdown).toContain('\n*\\_Me\\_ - me*\n');
   });
 
+  it('versions each banner URL by its SVG, and no horse URL', () => {
+    const markdown = readme();
+    expect(versions(markdown)).toEqual({
+      dark: expect.stringMatching(/^[0-9a-f]{8}$/),
+      light: expect.stringMatching(/^[0-9a-f]{8}$/),
+    });
+    expect(markdown).not.toMatch(/horse-(?:night|chestnut)\.svg\?/);
+  });
+
+  it('keeps the versions for the same title and changes them with the title', () => {
+    const today = versions(readme());
+    expect(versions(readme())).toEqual(today);
+    const renamed = versions(readme({}, { title: 'Big Horse' }));
+    expect(renamed.dark).not.toBe(today.dark);
+    expect(renamed.light).not.toBe(today.light);
+  });
+
+  it('gives the dark and light banners versions of their own', () => {
+    const { dark, light } = versions(readme());
+    expect(dark).not.toBe(light);
+  });
+
   it('names the banner image by the title in plain letters, escaped', () => {
     expect(readme({}, { title: '“𝐁𝐢𝐠” <&> "Horse"' })).toContain(
       '<img alt="“Big” &lt;&amp;&gt; &quot;Horse&quot;" width="312"',
@@ -160,7 +190,7 @@ describe('profileReadme', () => {
   it('prints the title as text when the banner font can draw none of it', () => {
     const markdown = profileReadme({
       title: '小马 *',
-      banner: { width: 0, height: 0 },
+      banner: { width: 0, height: 0, pixels: new Uint8Array() },
       slogan: null,
       profile: TODAY,
       site: 'https://lil.horse',

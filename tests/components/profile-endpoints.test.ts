@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { APIContext } from 'astro';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -32,11 +33,25 @@ describe('/profile/README.md', () => {
     const markdown = await response.text();
     const { width } = bannerImageSize(bannerBitmap(TITLE, () => undefined));
     expect(markdown).toContain(
-      `<img alt="Lil’Horse" width="${width}" src="https://lil.horse/brand/masthead-light.svg">`,
+      `<img alt="Lil’Horse" width="${width}" src="https://lil.horse/brand/masthead-light.svg?v=`,
     );
     expect(markdown).toContain(`*${SLOGAN}*`);
     expect(markdown).toContain('[email](https://lil.horse/contact)');
     expect(markdown).not.toContain('sup@lil.horse');
+  });
+});
+
+describe('/profile/README.md and /brand/masthead-*.svg', () => {
+  it('version the banner URLs by the SHA-256 of the files the site serves', async () => {
+    const markdown = await (await readme({} as APIContext)).text();
+    for (const theme of ['dark', 'light']) {
+      const response = await masthead({ params: { theme } } as unknown as APIContext);
+      const version = createHash('sha256')
+        .update(await response.text())
+        .digest('hex')
+        .slice(0, 8);
+      expect(markdown).toContain(`https://lil.horse/brand/masthead-${theme}.svg?v=${version}"`);
+    }
   });
 });
 

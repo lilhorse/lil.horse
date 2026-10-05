@@ -1,5 +1,6 @@
+import { createHash } from 'node:crypto';
 import type { Availability, ProfileEntry } from '../notion/types';
-import { bannerImageSize, bannerLabel, type Bitmap } from './banner';
+import { bannerImageSize, bannerLabel, bannerSvg, type BannerTheme, type Bitmap } from './banner';
 import { escapeAttr } from './html';
 import { socialLinks } from './profile';
 
@@ -38,8 +39,8 @@ const destination = (url: string) =>
 
 export interface ProfileReadmeInput {
   title: string;
-  /** The banner's bitmap size; zero wide when the banner font can draw none of the title. */
-  banner: Pick<Bitmap, 'width' | 'height'>;
+  /** Zero wide when the banner font can draw none of the title. */
+  banner: Bitmap;
   slogan: string | null;
   profile: ProfileEntry;
   site: string;
@@ -58,16 +59,22 @@ export function profileReadme({
   const href = escapeAttr(base);
   // GitHub links every image whose parent is not a link, which would split a <picture> nested in one.
   const picture = (dark: string, image: string) =>
-    `<picture><source media="(prefers-color-scheme: dark)" srcset="${href}/brand/${dark}"><a href="${href}">${image}</a></picture>`;
+    `<picture><source media="(prefers-color-scheme: dark)" srcset="${dark}"><a href="${href}">${image}</a></picture>`;
   const horse = picture(
-    'horse-night.svg',
+    `${href}/brand/horse-night.svg`,
     `<img align="left" width="120" alt="${escapeAttr(host)}" src="${href}/brand/horse-chestnut.svg">`,
   );
+  // GitHub's image cache fetches a changed banner at once only when its address changes too.
+  const bannerUrl = (theme: BannerTheme) =>
+    `${href}/brand/masthead-${theme}.svg?v=${createHash('sha256')
+      .update(bannerSvg(banner, title, theme))
+      .digest('hex')
+      .slice(0, 8)}`;
   const masthead =
     banner.width > 0
       ? picture(
-          'masthead-dark.svg',
-          `<img alt="${escapeAttr(bannerLabel(title))}" width="${bannerImageSize(banner).width}" src="${href}/brand/masthead-light.svg">`,
+          bannerUrl('dark'),
+          `<img alt="${escapeAttr(bannerLabel(title))}" width="${bannerImageSize(banner).width}" src="${bannerUrl('light')}">`,
         )
       : `**${field(title)}**`;
   const contact = [
