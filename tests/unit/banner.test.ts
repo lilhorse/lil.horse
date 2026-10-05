@@ -40,10 +40,10 @@ describe('bannerSvg', () => {
     expect(bannerSvg(bitmap('#.', '##'), TITLE, 'dark')).toBe(
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-3 -3 8 8" width="32" height="32" shape-rendering="crispEdges">' +
         '<title>Lil’Horse</title>' +
-        '<style>.shine{animation:shine 6.6s ease-in-out infinite}@keyframes shine{24.24%,100%{transform:translateX(6px)}}@media (prefers-reduced-motion:reduce){.shine{display:none}}</style>' +
+        '<style>.shine{animation:shine 3s ease-in-out infinite}@keyframes shine{53.33%,100%{transform:translateX(6px)}}@media (prefers-reduced-motion:reduce){.shine{display:none}}</style>' +
         '<defs><path id="letters" d="M0 0h1v1h-1zM0 1h2v1h-2z"/>' +
         `<linearGradient id="swatches" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="2" y2="0">${GRADIENT(BANNER_COLORS.dark.swatches)}</linearGradient>` +
-        '<linearGradient id="band"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>' +
+        '<linearGradient id="band"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.3" stop-color="#fff" stop-opacity="0.25"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.75"/><stop offset="0.7" stop-color="#fff" stop-opacity="0.25"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>' +
         '<clipPath id="ink"><use href="#letters"/></clipPath>' +
         '<filter id="glow" filterUnits="userSpaceOnUse" x="-3" y="-3" width="8" height="8" color-interpolation-filters="sRGB">' +
         '<feDropShadow dx="0" dy="0" stdDeviation="1.5" flood-color="#bb9af7" flood-opacity="0.45"/></filter></defs>' +
@@ -55,22 +55,26 @@ describe('bannerSvg', () => {
   it('sweeps a soft band of light across the letters only, never under reduced motion', () => {
     const banner = bannerBitmap(TITLE, vi.fn());
     const band = Math.round(banner.width / 4);
-    for (const [theme, opacity] of [
-      ['dark', 0.35],
-      ['light', 0.25],
+    for (const [theme, peak, shoulder] of [
+      ['dark', 0.75, 0.25],
+      ['light', 0.6, 0.2],
     ] as const) {
       const svg = bannerSvg(banner, TITLE, theme);
       expect(svg).toContain('<clipPath id="ink"><use href="#letters"/></clipPath>');
       expect(svg).toContain(
         `<g clip-path="url(#ink)"><rect class="shine" x="${-band}" y="-3" width="${band}"`,
       );
-      expect(svg).toContain(`<stop offset="0.5" stop-color="#fff" stop-opacity="${opacity}"/>`);
-      expect(svg).toContain('.shine{animation:shine 6.6s ease-in-out infinite}');
       expect(svg).toContain(
-        `@keyframes shine{24.24%,100%{transform:translateX(${banner.width + band}px)}}`,
+        `<stop offset="0.3" stop-color="#fff" stop-opacity="${shoulder}"/>` +
+          `<stop offset="0.5" stop-color="#fff" stop-opacity="${peak}"/>` +
+          `<stop offset="0.7" stop-color="#fff" stop-opacity="${shoulder}"/>`,
+      );
+      expect(svg).toContain('.shine{animation:shine 3s ease-in-out infinite}');
+      expect(svg).toContain(
+        `@keyframes shine{53.33%,100%{transform:translateX(${banner.width + band}px)}}`,
       );
       expect(svg).toContain('@media (prefers-reduced-motion:reduce){.shine{display:none}}');
-      expect(svg.length).toBeLessThan(3_000);
+      expect(svg.length).toBeLessThan(3_100);
     }
   });
 

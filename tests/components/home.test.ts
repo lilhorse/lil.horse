@@ -63,7 +63,9 @@ describe('Neofetch', () => {
       `<g clip-path="url(#masthead-ink)"><rect class="shine" x="${-band}" y="0" width="${band}" height="${banner.height}" fill="url(#masthead-shine)" style="--sweep: ${banner.width + band}px"></rect></g>`,
     );
     expect(svg).toContain(
-      '<stop offset="0.5" style="stop-color: light-dark(#ffffff40, #ffffff59)"></stop>',
+      '<stop offset="0.3" style="stop-color: light-dark(#ffffff1f, #ffffff40)"></stop>' +
+        '<stop offset="0.5" style="stop-color: light-dark(#ffffff99, #ffffffbf)"></stop>' +
+        '<stop offset="0.7" style="stop-color: light-dark(#ffffff1f, #ffffff40)"></stop>',
     );
     expect(svg.split(bannerPath(banner))).toHaveLength(2);
     expect(await htmlErrors(html)).toEqual([]);

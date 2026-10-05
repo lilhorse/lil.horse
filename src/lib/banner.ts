@@ -201,7 +201,7 @@ const GLOWS: Record<BannerTheme, (color: (typeof BANNER_COLORS)[BannerTheme]) =>
     `<feDropShadow dx="0" dy="0" stdDeviation="1.5" flood-color="${text}" flood-opacity="0.22"/>`,
 };
 
-const SHIMMER_OPACITY: Record<BannerTheme, number> = { dark: 0.35, light: 0.25 };
+const SHIMMER_OPACITY: Record<BannerTheme, number> = { dark: 0.75, light: 0.6 };
 
 /** The width of the shimmer's band of light, in bitmap pixels. */
 export function shimmerBand(width: number): number {
@@ -220,11 +220,13 @@ export function bannerSvg(bitmap: Bitmap, title: string, theme: BannerTheme): st
     .join('');
   const band = shimmerBand(bitmap.width);
   const shine = (opacity: number) =>
-    `<stop offset="0.5" stop-color="#fff" stop-opacity="${opacity}"/>`;
+    `<stop offset="0.3" stop-color="#fff" stop-opacity="${+(opacity / 3).toFixed(3)}"/>` +
+    `<stop offset="0.5" stop-color="#fff" stop-opacity="${opacity}"/>` +
+    `<stop offset="0.7" stop-color="#fff" stop-opacity="${+(opacity / 3).toFixed(3)}"/>`;
   return (
     open +
-    // A 1.6 s sweep, then 5 s of rest; the band waits off the letters between sweeps.
-    `<style>.shine{animation:shine 6.6s ease-in-out infinite}@keyframes shine{24.24%,100%{transform:translateX(${bitmap.width + band}px)}}@media (prefers-reduced-motion:reduce){.shine{display:none}}</style>` +
+    // A 1.6 s sweep every 3 s; the band waits off the letters between sweeps.
+    `<style>.shine{animation:shine 3s ease-in-out infinite}@keyframes shine{53.33%,100%{transform:translateX(${bitmap.width + band}px)}}@media (prefers-reduced-motion:reduce){.shine{display:none}}</style>` +
     `<defs><path id="letters" d="${bannerPath(bitmap)}"/>` +
     `<linearGradient id="swatches" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="${bitmap.width}" y2="0">${stops}</linearGradient>` +
     `<linearGradient id="band"><stop offset="0" stop-color="#fff" stop-opacity="0"/>${shine(SHIMMER_OPACITY[theme])}<stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>` +
