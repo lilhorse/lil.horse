@@ -7,6 +7,7 @@ export const THEME_INIT_SCRIPT = [
   'const t=p==="system"?(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):p;',
   'const h=document.documentElement;h.dataset.theme=t;h.dataset.themePref=p;',
   `let i=null;try{i=sessionStorage.getItem(${JSON.stringify(INTRO_KEY)})}catch{}`,
+  // Under reduced motion base.css cancels the failsafe too, so a mark left uncleared would hide the card for good.
   `if(i!=="1"&&!matchMedia("(prefers-reduced-motion: reduce)").matches)h.setAttribute(${JSON.stringify(PENDING_ATTR)},"");`,
   `if(p!=="system"){const c=t==="dark"?${JSON.stringify(BAR_COLORS.dark)}:${JSON.stringify(BAR_COLORS.light)};`,
   `for(const m of document.querySelectorAll('meta[name="theme-color"]'))m.setAttribute("content",c)}})();`,

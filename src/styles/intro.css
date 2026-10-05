@@ -1,5 +1,3 @@
-/* The home card's motion lives here, outside any layer, so the card's own styles stay under Astro's 4 KB inline limit. */
-
 /* Hidden from the first paint until the intro starts, and shown after 3 s should its script never run. */
 :root[data-intro-pending]
   .neofetch
@@ -37,6 +35,16 @@
   inset: 0;
 }
 
+.neofetch .cursor {
+  animation: cursor-blink 1s steps(1) infinite;
+}
+
+@keyframes cursor-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
 .neofetch .typed .cursor {
   position: absolute;
   inset-block-start: 0;
@@ -54,7 +62,7 @@
   initial-value: transparent;
 }
 
-/* Unlike text-decoration, a background line can grow from the left, and a hover can fade it. */
+/* Unlike text-decoration, a background line can grow from the left. */
 [data-stack] s {
   --strike: var(--danger);
   --strike-thickness: 2px;
@@ -94,17 +102,9 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  [data-stack] s {
-    transition: none;
-  }
-}
-
 /* A 1.6 s sweep every 3 s; it first starts once the intro is over. */
-@media (prefers-reduced-motion: no-preference) {
-  .neofetch:not(.intro) .banner .shine {
-    animation: shine 3s ease-in-out infinite;
-  }
+.neofetch:not(.intro) .banner .shine {
+  animation: shine 3s ease-in-out infinite;
 }
 
 @keyframes shine {

@@ -138,7 +138,7 @@ export async function playIntro(
   };
 
   card.classList.add('intro');
-  // Safe now: the intro class, and the typing class typeOut adds before it first waits, take over the hiding.
+  // typeOut adds .typing before its first wait, so nothing shows in between.
   clearPending();
   try {
     let parked: HTMLElement | undefined;
