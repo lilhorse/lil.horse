@@ -37,6 +37,11 @@ const WORKSPACE_ID = '7f3d2c1b-4a5e-4f60-8b9c-0d1e2f3a4b5c';
 const FILE_ID = 'c4b3a291-8076-4e5d-9c3b-2a1f0e9d8c7b';
 const ZERO_ID = '00000000-0000-0000-0000-000000000000';
 
+const MASTHEAD = {
+  title: '𝕷𝖎𝖑’𝕳𝖔𝖗𝖘𝖊',
+  slogan: 'Dis is da cyberspace of Lil’Horse, just chill and have fun 🍻.',
+};
+
 const fileUrl = (workspaceId: string, name: string) =>
   `https://prod-files-secure.s3.us-west-2.amazonaws.com/${workspaceId}/${FILE_ID}/${name}`;
 
@@ -67,6 +72,7 @@ function workspace() {
     profile: nextId(),
     about: nextId(),
     contact: nextId(),
+    masthead: nextId(),
   };
   const sources = { posts: nextId(), projects: nextId(), profile: nextId() };
   for (const key of ['posts', 'projects', 'profile'] as const)
@@ -133,6 +139,16 @@ function workspace() {
   contact.icon = { type: 'external', external: { url: 'https://images.example.com/horse.png' } };
   api.pages.set(ids.about, about);
   api.pages.set(ids.contact, contact);
+  api.pages.set(ids.masthead, page({ title: prop.title(MASTHEAD.title) }, { id: ids.masthead }));
+  api.setChildren(ids.masthead, [
+    block('child_page', { title: 'Blog' }),
+    block('heading_3', {
+      rich_text: [rt(MASTHEAD.slogan, { annotations: { italic: true } })],
+      is_toggleable: false,
+      color: 'default',
+    }),
+    block('paragraph', { rich_text: [], color: 'default' }),
+  ]);
 
   const [moviesDb, moviesDs, linkedDb, booksDb, booksDs, contactsDb, contactsDs] = Array.from(
     { length: 7 },
@@ -341,6 +357,7 @@ function workspace() {
     projectsDatabaseId: ids.projects,
     profileDatabaseId: ids.profile,
     pages: { about: ids.about, contact: ids.contact },
+    mastheadPageId: ids.masthead,
     databaseDisplay: {
       [booksDb]: {
         columns: [{ property: 'Name' }, { property: 'Score', format: 'stars' }],
@@ -488,6 +505,7 @@ describe('recorded fixtures', () => {
       'Thanks to @Real Name for reading my Douban backup and About on January 11, 2024 with x^2.',
       'Thanks to @someone for reading my Douban backup and About on January 11, 2024 with x^2.',
     ]);
+    expect(replayed.masthead).toEqual(MASTHEAD);
     expect([coverKey(live), coverKey(replayed)]).toEqual([
       mediaCacheKey(fileUrl(WORKSPACE_ID, 'cover.png')),
       mediaCacheKey(fileUrl(ZERO_ID, 'cover.png')),

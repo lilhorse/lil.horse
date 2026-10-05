@@ -20,7 +20,18 @@ describe('getSiteData', () => {
     const [first, second] = await Promise.all([getSiteData(), getSiteData()]);
     expect(second).toBe(first);
     expect(await getSiteData()).toBe(first);
-    expect(astroContent.getEntry).toHaveBeenCalledOnce();
+    expect(astroContent.getEntry.mock.calls).toEqual([
+      ['profile', 'profile'],
+      ['masthead', 'masthead'],
+    ]);
+  });
+
+  it('fails without a masthead entry', async () => {
+    const { getSiteData } = await freshContent();
+    astroContent.getEntry.mockImplementation(async (collection: string) =>
+      collection === 'profile' ? { data: { id: 'me', name: "Lil'Horse" } } : undefined,
+    );
+    await expect(getSiteData()).rejects.toThrow('The masthead collection is empty');
   });
 
   it('reads the collections again after a failed load', async () => {

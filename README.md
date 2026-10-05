@@ -17,7 +17,7 @@ Content is written in Notion. At build time, Astro reads it through the official
 
 ## How it works
 
-1. **Content.** Posts, projects and the profile live in three Notion databases. About and Contact are ordinary Notion pages. Their IDs are in `site.config.ts`.
+1. **Content.** Posts, projects and the profile live in three Notion databases. About and Contact are ordinary Notion pages, and the home page's masthead comes from the workspace's root page. Their IDs are in `site.config.ts`.
 2. **Sync.** `src/notion/sync.ts` queries the databases, validates every row and turns each page's blocks into a serializable AST. If a row fails validation, the build stops, and the error names the page and the field. `src/notion/` is a self-contained Notion reader: `src/notion/loaders.ts` is the Astro adapter, and an ESLint rule keeps the rest of the folder from importing site code (`sync.ts` has one marked exception).
 3. **Cache.** Each page's AST is cached in `.cache/`. The cached AST is reused while the page, its inline databases and its media stay unchanged. Notion reports edit times to the minute, so pages edited in the last two minutes are never cached. `NOTION_FULL_REFRESH=1` rebuilds every page.
 4. **Media.** Images, files, covers and bookmark previews are downloaded during the build and served from `/_media`, so the site never links to Notion's expiring file URLs. Images are converted to AVIF and WebP at several widths.
@@ -157,7 +157,7 @@ cp .env.example .env # then set NOTION_TOKEN
 pnpm dev
 ```
 
-`NOTION_TOKEN` is the token of a Notion integration. The integration needs read access to the three databases and the two pages. If a page contains a linked view of a database, the integration also needs access to the view's source database; otherwise the table is skipped with a warning. `.env` is git-ignored. Never commit it.
+`NOTION_TOKEN` is the token of a Notion integration. The integration needs read access to the three databases and the three pages (About, Contact and the root page). If a page contains a linked view of a database, the integration also needs access to the view's source database; otherwise the table is skipped with a warning. `.env` is git-ignored. Never commit it.
 
 `pnpm dev` and `pnpm build` load `.env` only, not `.env.local` or `.env.<mode>`. `pnpm dev` syncs with Notion once, when it starts. Restart it to pick up edits made in Notion.
 
@@ -218,6 +218,8 @@ Each tag used by a Published post gets a page at `/blog/tags/<tag>`. Tags that d
 A visible project needs a `Description`. If its page has content, it also needs a `Slug`. Check `Featured` to list a project on the home page.
 
 In the profile, `GitHub` and `X` take a handle, `@handle` or a full URL.
+
+The masthead of the home page comes from the root page, `mastheadPageId` in `site.config.ts`. Its title becomes the banner, and its first line of text becomes the slogan: the first heading, paragraph, quote or callout with any text, as plain text on one line. The root page never stops the build. If it cannot be read, the build warns and the home page shows the profile's `Name` with no slogan; an untitled root page also shows the `Name`.
 
 An inline database shows the columns and row order of its first table view. To pick the columns and sort order yourself, or to show a column as star ratings, add an entry for its block ID to `databaseDisplay` in `site.config.ts`.
 

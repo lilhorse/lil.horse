@@ -12,6 +12,9 @@ import { FakeNotionApi } from '../helpers/fake-api';
 import { block, database, dataSource, nextId, page, prop, rt } from '../helpers/notion-factory';
 import { tempDir } from '../helpers/temp-dir';
 
+const MASTHEAD_TITLE = '𝕷𝖎𝖑’𝕳𝖔𝖗𝖘𝖊';
+const SLOGAN = 'Dis is da cyberspace of Lil’Horse, just chill and have fun 🍻.';
+
 function workspace() {
   const api = new FakeNotionApi();
   const ids = {
@@ -20,6 +23,7 @@ function workspace() {
     profile: nextId(),
     about: nextId(),
     contact: nextId(),
+    masthead: nextId(),
   };
   const sources = { posts: nextId(), projects: nextId(), profile: nextId() };
   for (const key of ['posts', 'projects', 'profile'] as const)
@@ -80,6 +84,15 @@ function workspace() {
   const contact = page({ title: prop.title('Contact') }, { id: ids.contact });
   api.pages.set(ids.about, about);
   api.pages.set(ids.contact, contact);
+  api.pages.set(ids.masthead, page({ title: prop.title(MASTHEAD_TITLE) }, { id: ids.masthead }));
+  api.setChildren(ids.masthead, [
+    block('heading_3', {
+      rich_text: [rt(SLOGAN, { annotations: { italic: true } })],
+      is_toggleable: false,
+      color: 'default',
+    }),
+    block('paragraph', { rich_text: [], color: 'default' }),
+  ]);
 
   const moviesDb = nextId();
   const moviesDs = nextId();
@@ -113,6 +126,7 @@ function workspace() {
     projectsDatabaseId: ids.projects,
     profileDatabaseId: ids.profile,
     pages: { about: ids.about, contact: ids.contact },
+    mastheadPageId: ids.masthead,
     databaseDisplay: {},
   };
   return {
@@ -187,6 +201,7 @@ describe('syncNotion', () => {
       'lil-horse',
     );
     expect(site.profile.name).toBe("Lil'Horse");
+    expect(site.masthead).toEqual({ title: MASTHEAD_TITLE, slogan: SLOGAN });
     expect(site.pages.map((entry) => [entry.key, entry.title])).toEqual([
       ['about', 'About'],
       ['contact', 'Contact'],
@@ -635,6 +650,54 @@ describe('syncNotion', () => {
       message: `Failed to load the cover of Notion page https://www.notion.so/${posts.hello.id}: HTTP 404`,
       cause: 'http_404',
     });
+  });
+
+  it('falls back to the profile name, with no slogan and one warning, when the masthead page is missing', async () => {
+    const { api, config } = workspace();
+    api.pages.delete(config.mastheadPageId);
+    const { value, warnings } = await options(api, config);
+    const site = await syncNotion(value);
+    expect(site.masthead).toEqual({ title: "Lil'Horse", slogan: null });
+    const expected = `The masthead falls back to the profile name: Notion cannot find https://www.notion.so/${config.mastheadPageId} (mastheadPageId in site.config.ts); share it with the integration`;
+    expect(warnings.filter((warning) => warning.includes('masthead'))).toEqual([expected]);
+    expect(site.warnings).toContain(expected);
+  });
+
+  it('falls back the same way when the masthead blocks fail to load', async () => {
+    const { api, config } = workspace();
+    const listBlockChildren = api.listBlockChildren.bind(api);
+    vi.spyOn(api, 'listBlockChildren').mockImplementation(async (id) => {
+      if (id === config.mastheadPageId)
+        throw Object.assign(new Error('Bad gateway'), { code: 'bad_gateway' });
+      return listBlockChildren(id);
+    });
+    const { value, warnings } = await options(api, config);
+    const site = await syncNotion(value);
+    expect(site.masthead).toEqual({ title: "Lil'Horse", slogan: null });
+    expect(warnings.filter((warning) => warning.includes('masthead'))).toEqual([
+      `The masthead falls back to the profile name: Could not read https://www.notion.so/${config.mastheadPageId} (mastheadPageId in site.config.ts): Bad gateway`,
+    ]);
+  });
+
+  it('shows no slogan when the masthead page has no text', async () => {
+    const { api, config } = workspace();
+    api.setChildren(config.mastheadPageId, [
+      block('paragraph', { rich_text: [], color: 'default' }),
+    ]);
+    const { value, warnings } = await options(api, config);
+    expect((await syncNotion(value)).masthead).toEqual({ title: MASTHEAD_TITLE, slogan: null });
+    expect(warnings.filter((warning) => warning.includes('masthead'))).toEqual([]);
+  });
+
+  it('keeps the slogan but shows the profile name when the masthead page has no title', async () => {
+    const { api, config } = workspace();
+    const id = config.mastheadPageId;
+    api.pages.set(id, page({ title: prop.title('') }, { id }));
+    const { value, warnings } = await options(api, config);
+    expect((await syncNotion(value)).masthead).toEqual({ title: "Lil'Horse", slogan: SLOGAN });
+    expect(warnings.filter((warning) => warning.includes('masthead'))).toEqual([
+      `The masthead page https://www.notion.so/${config.mastheadPageId} has no title; the masthead shows the profile name instead`,
+    ]);
   });
 
   it('names the page it fails to cache', async () => {

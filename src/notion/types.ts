@@ -357,10 +357,17 @@ export interface StandalonePageEntry {
   content: PageContent;
 }
 
+/** The home page's title and slogan, from the Notion root page. */
+export interface MastheadEntry {
+  title: string;
+  slogan: string | null;
+}
+
 export interface SiteContent {
   posts: PostEntry[];
   projects: ProjectEntry[];
   profile: ProfileEntry;
+  masthead: MastheadEntry;
   pages: StandalonePageEntry[];
   mediaKeys: string[];
   warnings: string[];
@@ -376,5 +383,6 @@ export interface NotionSiteConfig {
   projectsDatabaseId: string;
   profileDatabaseId: string;
   pages: Record<StandalonePageKey, string>;
+  mastheadPageId: string;
   databaseDisplay: Record<string, DatabaseDisplay>;
 }

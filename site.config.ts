@@ -14,6 +14,7 @@ const notion: NotionSiteConfig = {
     about: normalizeId('055e368444314f2f953c65a79982553c'),
     contact: normalizeId('47088e3f3cb448acb439045cbcf61680'),
   },
+  mastheadPageId: normalizeId('7015941ccb764404a4b3c5b13f02b852'),
   databaseDisplay: {
     [normalizeId(WATCHED_MOVIES_VIEW_BLOCK_ID)]: {
       columns: [
