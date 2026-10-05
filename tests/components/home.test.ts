@@ -90,7 +90,7 @@ describe('Neofetch', () => {
     expect(rows(html)).toEqual([
       'Role: Developer',
       'Location: Auckland',
-      'Stack: TypeScript\u00a0· Go',
+      'Stack: TypeScript\u00a0· Go # unlimited stack via Claude &amp; Codex 😎',
       'Status: Open to work',
       'Contact: sup@lil.horse · github',
     ]);
@@ -106,7 +106,7 @@ describe('Neofetch', () => {
       masthead,
       profile: { ...profile, stack: ['TypeScript', 'Tailwind CSS', 'Go'] },
     });
-    expect(html).toContain('<dd>TypeScript\u00a0· Tailwind\u00a0CSS\u00a0· Go</dd>');
+    expect(html).toContain('<s>TypeScript</s>\u00a0· <s>Tailwind\u00a0CSS</s>\u00a0· <s>Go</s>');
   });
 
   it('leaves out the stack and contact rows when they are empty', async () => {
