@@ -613,6 +613,7 @@ describe('FixtureSanitizer.prune', () => {
     const config: NotionSiteConfig = {
       ...IDS,
       pages: { about: 'e'.repeat(32), contact: 'f'.repeat(32) },
+      mastheadPageId: '9'.repeat(32),
       databaseDisplay: {
         [BLOCK]: {
           columns: [{ property: 'Rating', format: 'stars' }],

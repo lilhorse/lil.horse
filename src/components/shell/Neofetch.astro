@@ -1,11 +1,12 @@
 ---
+import { bannerBitmap, bannerLabel, bannerPath, bannerScale } from '../../lib/banner';
 import { emailHtml, socialLinks } from '../../lib/profile';
-import { SHELL } from '../../lib/shell';
-import type { Availability, ProfileEntry } from '../../notion/types';
+import type { Availability, MastheadEntry, ProfileEntry } from '../../notion/types';
 import PixelHorse from './PixelHorse.astro';
 
 interface Props {
   profile: ProfileEntry;
+  masthead: MastheadEntry;
 }
 
 const STATUS: Record<Availability, string> = {
@@ -14,19 +15,48 @@ const STATUS: Record<Availability, string> = {
   Busy: 'busy',
 };
 
-const { profile } = Astro.props;
+const SWATCHES = [1, 2, 3, 4, 5, 6];
+
+const { profile, masthead } = Astro.props;
 const email = profile.email ? emailHtml(profile.email) : null;
 const social = socialLinks(profile);
+const banner = bannerBitmap(masthead.title, (message) => console.warn(message));
+const scale = bannerScale(banner.width);
 ---
 
 <div class="neofetch">
   <PixelHorse grid={24} size={120} animated />
   <div class="info">
-    <p class="title">
-      <span class="name">{SHELL.user}</span>
-      <span class="at">@</span>
-      <span class="name">{SHELL.host}</span>
-    </p>
+    {banner.width > 0 ? (
+      <svg
+        class="banner"
+        role="img"
+        aria-label={bannerLabel(masthead.title)}
+        viewBox={`0 0 ${banner.width} ${banner.height}`}
+        width={banner.width * scale}
+        height={banner.height * scale}
+        shape-rendering="crispEdges"
+      >
+        <defs>
+          <linearGradient id="masthead-gradient">
+            {SWATCHES.map((swatch, index) => (
+              <stop offset={`${index * 20}%`} style={`stop-color: var(--swatch-${swatch})`} />
+            ))}
+          </linearGradient>
+        </defs>
+        <path fill="url(#masthead-gradient)" d={bannerPath(banner)} />
+      </svg>
+    ) : (
+      <p class="title">{masthead.title}</p>
+    )}
+    {masthead.slogan && (
+      <p class="slogan" data-slogan>
+        <span class="slogan-text">{masthead.slogan}</span>
+        <span class="cursor" aria-hidden="true">
+          ▋
+        </span>
+      </p>
+    )}
     <p class="rule" aria-hidden="true">
       ------------------
     </p>
@@ -91,11 +121,58 @@ const social = socialLinks(profile);
     min-inline-size: 0;
     line-height: 1.65;
   }
-  .name {
+  .banner {
+    /* The light swatches fade into the light background without an edge. */
+    --banner-edge: light-dark(color-mix(in oklab, var(--fg) 45%, transparent), transparent);
+    --banner-glow: light-dark(
+      color-mix(in oklab, var(--fg) 22%, transparent),
+      color-mix(in oklab, var(--swatch-6) 45%, transparent)
+    );
+    display: block;
+    max-inline-size: 100%;
+    block-size: auto;
+    filter: drop-shadow(0 0 1px var(--banner-edge)) drop-shadow(0 0 6px var(--banner-glow));
+  }
+  .title {
     color: var(--accent-2);
     font-weight: 700;
   }
-  .at,
+  .slogan {
+    position: relative;
+    margin-block-start: 6px;
+    color: var(--fg-soft);
+    font-style: italic;
+  }
+  .cursor {
+    color: var(--ok);
+    font-style: normal;
+    animation: cursor-blink 1s steps(1) infinite;
+  }
+  @keyframes cursor-blink {
+    50% {
+      opacity: 0;
+    }
+  }
+  /* While the slogan types out, its text keeps the line breaks and stays readable to screen readers. */
+  .typing .slogan-text,
+  .typing > .cursor {
+    opacity: 0;
+  }
+  .slogan :global(.slogan-typed) {
+    position: absolute;
+    inset: 0;
+  }
+  .slogan :global(.slogan-typed) .cursor {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    animation: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cursor {
+      animation: none;
+    }
+  }
   .sep {
     color: var(--muted);
   }

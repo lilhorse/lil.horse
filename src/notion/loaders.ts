@@ -13,7 +13,7 @@ import { placeholderFetch } from './placeholder-fetch';
 import { LOADER_VERSION, syncNotion } from './sync';
 import type { PostStatus, SiteContent } from './types';
 
-export type CollectionKey = 'posts' | 'projects' | 'profile' | 'pages';
+export type CollectionKey = 'posts' | 'projects' | 'profile' | 'masthead' | 'pages';
 type Logger = LoaderContext['logger'];
 
 let pending: Promise<SiteContent> | undefined;
@@ -84,7 +84,7 @@ async function runSync(logger: Logger): Promise<SiteContent> {
   return site;
 }
 
-// All four collections share one successful sync per process; restart `astro dev` to pull new Notion edits.
+// All collections share one successful sync per process; restart `astro dev` to pull new Notion edits.
 export function loadSiteContent(logger: Logger): Promise<SiteContent> {
   pending ??= runSync(logger.fork('notion')).catch((error: unknown) => {
     pending = undefined;
@@ -104,6 +104,8 @@ export function entriesFor(
       return site.projects.map((project) => [project.id, { ...project }]);
     case 'profile':
       return [['profile', { ...site.profile }]];
+    case 'masthead':
+      return [['masthead', { ...site.masthead }]];
     case 'pages':
       return site.pages.map((entry) => [entry.key, { ...entry }]);
   }

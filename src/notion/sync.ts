@@ -7,6 +7,7 @@ import { isNotFoundError, type NotionApi } from './api';
 import { toIcon } from './ast';
 import type { BookmarkFetcher } from './bookmarks';
 import { normalizeId, notionUrl } from './ids';
+import { readMasthead } from './masthead';
 import type { MediaStore } from './media';
 import type { PageCache } from './page-cache';
 import { buildPageContent } from './page-content';
@@ -20,6 +21,7 @@ import {
 } from './schema';
 import { excerpt, readingMinutes } from './text';
 import type {
+  MastheadEntry,
   MediaRef,
   NotionSiteConfig,
   PageContent,
@@ -104,6 +106,25 @@ async function resolveDataSourceId(
   const source = database.data_sources[0];
   if (!source) throw new Error(`Notion database ${databaseId} has no data source`);
   return normalizeId(source.id);
+}
+
+function mastheadOrName(
+  read: MastheadEntry | Error,
+  name: string,
+  pageId: string,
+  warn: (message: string) => void,
+): MastheadEntry {
+  if (read instanceof Error) {
+    warn(`The masthead falls back to the profile name: ${read.message}`);
+    return { title: name, slogan: null };
+  }
+  if (!read.title) {
+    warn(
+      `The masthead page ${notionUrl(pageId)} has no title; the masthead shows the profile name instead`,
+    );
+    return { title: name, slogan: read.slogan };
+  }
+  return read;
 }
 
 function contentLoader(options: SyncOptions, warn: (message: string) => void) {
@@ -194,6 +215,11 @@ export async function syncNotion(options: SyncOptions): Promise<SiteContent> {
     options.log.warn(message);
   };
   const { api, media, config } = options;
+
+  // Never rejects, so a failure elsewhere cannot leave it unhandled.
+  const mastheadRead = readConfigured('mastheadPageId', config.mastheadPageId, () =>
+    readMasthead(api, config.mastheadPageId),
+  ).catch((error: Error) => error);
 
   const [postsSource, projectsSource, profileSource] = await Promise.all(
     (['postsDatabaseId', 'projectsDatabaseId', 'profileDatabaseId'] as const).map((entry) =>
@@ -317,6 +343,12 @@ export async function syncNotion(options: SyncOptions): Promise<SiteContent> {
 
   const profileEntry = profile.items[0];
   if (!profileEntry) throw new Error('Profile could not be parsed');
+  const masthead = mastheadOrName(
+    await mastheadRead,
+    profileEntry.name,
+    config.mastheadPageId,
+    warn,
+  );
   checkLinks(postEntries, projectEntries, pageEntries, warn);
 
   const mediaKeys = new Set<string>();
@@ -334,6 +366,7 @@ export async function syncNotion(options: SyncOptions): Promise<SiteContent> {
     posts: postEntries.sort(byPublishedDesc),
     projects: projectEntries.sort(byOrderThenName),
     profile: profileEntry,
+    masthead,
     pages: pageEntries,
     mediaKeys: [...mediaKeys].sort(),
     warnings,

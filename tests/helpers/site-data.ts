@@ -3,6 +3,7 @@ import type { SiteData } from '../../src/lib/content';
 import { tagIndex } from '../../src/lib/tags';
 import type {
   HeadingRef,
+  MastheadEntry,
   PageContent,
   PostEntry,
   ProfileEntry,
@@ -74,6 +75,8 @@ export const profile: ProfileEntry = {
   bio: null,
 };
 
+export const masthead: MastheadEntry = { title: "Lil'Horse", slogan: null };
+
 export const heading = (text: string, level: HeadingRef['level'] = 2): HeadingRef => ({
   anchor: text.toLowerCase(),
   text,
@@ -86,6 +89,7 @@ export function useSite(data: Partial<SiteData> = {}): void {
     posts: [],
     projects: [],
     profile,
+    masthead,
     pages: [],
     links: new Map(),
     resolve: () => undefined,

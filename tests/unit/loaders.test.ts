@@ -16,6 +16,7 @@ const site = {
   posts: [{ id: 'a', slug: 'helloworld' }],
   projects: [{ id: 'p1' }],
   profile: { id: 'me', name: "Lil'Horse" },
+  masthead: { title: '𝕷𝖎𝖑’𝕳𝖔𝖗𝖘𝖊', slogan: 'Chill.' },
   pages: [{ id: 'b', key: 'about' }],
   mediaKeys: [],
   warnings: [],
@@ -53,6 +54,9 @@ describe('entriesFor', () => {
     expect(entriesFor(site, 'projects').map(([id]) => id)).toEqual(['p1']);
     expect(entriesFor(site, 'pages').map(([id]) => id)).toEqual(['about']);
     expect(entriesFor(site, 'profile')).toEqual([['profile', { id: 'me', name: "Lil'Horse" }]]);
+    expect(entriesFor(site, 'masthead')).toEqual([
+      ['masthead', { title: '𝕷𝖎𝖑’𝕳𝖔𝖗𝖘𝖊', slogan: 'Chill.' }],
+    ]);
   });
 });
 
@@ -136,7 +140,7 @@ describe('notionLoader', () => {
     const { notionLoader } = await freshLoaders();
     const notion = notionLogger();
     const contexts = [];
-    for (const collection of ['posts', 'projects', 'profile', 'pages'] as const) {
+    for (const collection of ['posts', 'projects', 'profile', 'masthead', 'pages'] as const) {
       const context = loaderContext(notion);
       await notionLoader(collection).load(context as unknown as LoaderContext);
       contexts.push(context);
