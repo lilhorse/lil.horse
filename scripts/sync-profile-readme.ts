@@ -50,7 +50,6 @@ export async function syncProfileReadme({
     const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
     return { status: response.status, ok: response.ok, data };
   };
-  // Once more after a network error or a 5xx; any other answer stands.
   const request = async (method: 'GET' | 'PUT', body?: object) => {
     const first = await send(method, body).catch((error: Error) => error);
     if (!(first instanceof Error) && first.status < 500) return first;
