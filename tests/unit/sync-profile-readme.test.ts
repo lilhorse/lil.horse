@@ -1,3 +1,5 @@
+import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import {
   COMMIT_MESSAGE,
@@ -146,5 +148,27 @@ describe('syncProfileReadme', () => {
         'PROFILE_REPOSITORY must name the profile repository as owner/name',
       );
     expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
+// The sync-profile job runs the script with plain Node, without installing any package.
+describe('scripts/sync-profile-readme.ts', () => {
+  const SCRIPT = 'scripts/sync-profile-readme.ts';
+
+  it('imports only Node built-ins', () => {
+    const source = readFileSync(SCRIPT, 'utf8');
+    const specifiers = Array.from(
+      source.matchAll(/\bfrom\s*['"]([^'"]+)['"]|\bimport\s*\(?\s*['"]([^'"]+)['"]/g),
+      (match) => match[1] ?? match[2],
+    );
+    expect(specifiers).toContain('node:fs/promises');
+    expect(specifiers.filter((specifier) => !specifier?.startsWith('node:'))).toEqual([]);
+  });
+
+  it('runs under plain Node, which strips its types', () => {
+    const run = spawnSync(process.execPath, [SCRIPT], { env: {}, encoding: 'utf8' });
+    expect(run.stderr).toBe('');
+    expect(run.stdout).toBe('GH_TOKEN is not set, so the profile README is not synced\n');
+    expect(run.status).toBe(0);
   });
 });
