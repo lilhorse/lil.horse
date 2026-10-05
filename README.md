@@ -172,7 +172,7 @@ If a build or `pnpm check:dist` fails, nothing is deployed and the previous depl
 - `lighthouse`: a fixture build and `pnpm lighthouse` (Lighthouse CI, mobile emulation, three runs) on the home page, the blog list, a post, the projects list, and About. It fails if the median performance score is under 0.98 or any run scores under 1 for accessibility, best practices, or SEO, and keeps the reports as the `lighthouse-reports` artifact.
 - `preview` (pull requests from this repository only): uploads a build from live Notion data as a Worker version with the alias `pr-<number>`. Its comment on the pull request links the version URL and `https://pr-<number>-lil-horse.lilhorse.workers.dev` and names the head commit and the built merge commit, whose hash the site footer shows. Each push updates that comment; the alias follows the latest push, and each version URL keeps its own build. Uploaded versions are never deployed and don't change what `wrangler rollback` returns to.
 
-`.github/workflows/baselines.yml` regenerates the Linux screenshot baselines in the same image. Push the commit to test to a `baselines/<name>` branch (`git push origin HEAD:baselines/<name>`) or run the workflow by hand, download them with `gh run download <run-id> -n visual-baselines-linux -D tests/e2e/visual.spec.ts-snapshots`, commit the `-linux.png` files next to the `-darwin.png` ones, and delete the branch. When you upgrade `@playwright/test`, move the image tag in `ci.yml` and `baselines.yml` to match.
+`.github/workflows/baselines.yml` regenerates the Linux screenshot baselines in the same image. On a clean branch, `pnpm baselines:linux` pushes the branch, runs the workflow on it, and commits and pushes the `-linux.png` files that changed, so the pull request's CI checks them. It needs the GitHub CLI, signed in. When you upgrade `@playwright/test`, move the image tag in `ci.yml` and `baselines.yml` to match.
 
 ## Development
 
@@ -190,7 +190,7 @@ pnpm dev
 
 `pnpm test:e2e` tests the last build in Chromium at desktop and phone sizes, with engine-specific checks in WebKit and Firefox (install the browsers once with `pnpm exec playwright install chromium webkit firefox`). It runs axe on every page, the open palette, and the shortcuts help in both themes. It also checks that no page scrolls sideways and that, on a phone, every link and button outside running text is at least 44x44 px. Third-party requests are stubbed, so it never loads Giscus or the analytics beacon. Set `E2E_PORT` to run several worktrees at once.
 
-`tests/e2e/visual.spec.ts` compares the home page, the blog list, and a post, in both themes and sizes, with `tests/e2e/visual.spec.ts-snapshots/` (`-darwin` for a Mac, `-linux` for CI), only on a fixture build. After an intended visual change, refresh the Mac set with `pnpm build:fixtures && pnpm test:e2e tests/e2e/visual.spec.ts --update-snapshots` and the Linux set with the [baselines workflow](#continuous-integration).
+`tests/e2e/visual.spec.ts` compares the home page, the blog list, and a post, in both themes and sizes, with `tests/e2e/visual.spec.ts-snapshots/` (`-darwin` for a Mac, `-linux` for CI), only on a fixture build. After an intended visual change, refresh the Mac set with `pnpm build:fixtures && pnpm test:e2e tests/e2e/visual.spec.ts --update-snapshots`, commit it, and refresh the Linux set with `pnpm baselines:linux` (see [Continuous integration](#continuous-integration)).
 
 `pnpm lighthouse` runs the CI Lighthouse checks on the last build, served on the end-to-end port, and writes reports to `test-results/lighthouse/`; it needs Chrome. `SCREENSHOTS=1 pnpm test:e2e tests/e2e/screenshots.spec.ts` saves full-page screenshots of every page, in both themes and sizes, to `test-results/screenshots/`.
 
@@ -208,6 +208,7 @@ pnpm dev
 | `pnpm check`           | Type-checks without syncing Notion                                  |
 | `pnpm check:dist`      | Checks the build output in `dist/`                                  |
 | `pnpm smoke:worker`    | Smoke-tests the Worker under workerd                                |
+| `pnpm baselines:linux` | Regenerates, commits, and pushes the Linux screenshot baselines     |
 | `pnpm lighthouse`      | Lighthouse CI against the last build in `dist/`                     |
 | `pnpm record:fixtures` | Records sanitized fixtures from the live workspace                  |
 | `pnpm brand`           | Regenerates the logo, favicons, and app icons from `brand/horse.ts` |

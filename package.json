@@ -19,6 +19,7 @@
     "test:e2e": "playwright test",
     "check:dist": "tsx scripts/check-dist.ts",
     "smoke:worker": "tsx scripts/worker-smoke.ts",
+    "baselines:linux": "tsx scripts/linux-baselines.ts",
     "record:fixtures": "tsx --env-file=.env scripts/record-fixtures.ts",
     "brand": "tsx brand/build.ts",
     "lighthouse": "lhci autorun"
