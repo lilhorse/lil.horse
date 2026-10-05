@@ -1,4 +1,5 @@
 import type { Availability, ProfileEntry } from '../notion/types';
+import { bannerImageSize, bannerLabel, type Bitmap } from './banner';
 import { escapeAttr } from './html';
 import { socialLinks } from './profile';
 
@@ -37,8 +38,8 @@ const destination = (url: string) =>
 
 export interface ProfileReadmeInput {
   title: string;
-  /** The title in half blocks; empty when the banner font can draw none of it. */
-  banner: string[];
+  /** The banner's bitmap size; zero wide when the banner font can draw none of the title. */
+  banner: Pick<Bitmap, 'width' | 'height'>;
   slogan: string | null;
   profile: ProfileEntry;
   site: string;
@@ -54,8 +55,21 @@ export function profileReadme({
 }: ProfileReadmeInput): string {
   const base = site.replace(/\/+$/, '');
   const host = new URL(base).host;
+  const href = escapeAttr(base);
   // GitHub links every image whose parent is not a link, which would split a <picture> nested in one.
-  const horse = `<picture><source media="(prefers-color-scheme: dark)" srcset="${escapeAttr(base)}/brand/horse-night.svg"><a href="${escapeAttr(base)}"><img align="left" width="120" alt="${escapeAttr(host)}" src="${escapeAttr(base)}/brand/horse-chestnut.svg"></a></picture>`;
+  const picture = (dark: string, image: string) =>
+    `<picture><source media="(prefers-color-scheme: dark)" srcset="${href}/brand/${dark}"><a href="${href}">${image}</a></picture>`;
+  const horse = picture(
+    'horse-night.svg',
+    `<img align="left" width="120" alt="${escapeAttr(host)}" src="${href}/brand/horse-chestnut.svg">`,
+  );
+  const masthead =
+    banner.width > 0
+      ? picture(
+          'masthead-dark.svg',
+          `<img alt="${escapeAttr(bannerLabel(title))}" width="${bannerImageSize(banner).width}" src="${href}/brand/masthead-light.svg">`,
+        )
+      : `**${field(title)}**`;
   const contact = [
     `[${escapeMarkdown(host)}](${destination(base)})`,
     ...(profile.email ? [`[email](${destination(`${base}/contact`)})`] : []),
@@ -71,7 +85,7 @@ export function profileReadme({
   ];
   const blocks = [
     horse,
-    banner.length > 0 ? ['```text', ...banner, '```'].join('\n') : `**${field(title)}**`,
+    masthead,
     ...italic(slogan),
     info.map((row) => `${row}<br>`).join('\n'),
     SWATCHES,

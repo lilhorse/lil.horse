@@ -16,8 +16,23 @@ const FAMILY = 'STIX Two Math';
 const SIZE = 16;
 const ALPHA_THRESHOLD = 128;
 const EMPTY: Bitmap = { width: 0, height: 0, pixels: new Uint8Array() };
-// Indexed by top * 2 + bottom.
-const HALF_BLOCKS = [' ', '▄', '▀', '█'];
+// The standalone banners: bitmap pixels of margin for the glow, and screen pixels per bitmap pixel.
+const IMAGE_PADDING = 3;
+const IMAGE_SCALE = 4;
+
+/** The theme colours a standalone banner needs, copied from src/styles/tokens.css. */
+export const BANNER_COLORS = {
+  light: {
+    swatches: ['#c92a2a', '#a35530', '#ffe27a', '#2f7a2f', '#1f4fd6', '#ffc2d9'],
+    text: '#1f1b16',
+  },
+  dark: {
+    swatches: ['#f7768e', '#e0af68', '#9ece6a', '#7dcfff', '#7aa2f7', '#bb9af7'],
+    text: '#c0caf5',
+  },
+} as const;
+
+export type BannerTheme = keyof typeof BANNER_COLORS;
 
 function addFormat4(data: DataView, at: number, covered: Set<number>): void {
   const segments = data.getUint16(at + 6) / 2;
@@ -124,19 +139,6 @@ export function bannerBitmap(title: string, warn: (message: string) => void): Bi
   return bitmap;
 }
 
-/** Two pixel rows per line of text, without trailing spaces. */
-export function halfBlocks(bitmap: Bitmap): string[] {
-  const at = (x: number, y: number) =>
-    y < bitmap.height ? (bitmap.pixels[y * bitmap.width + x] ?? 0) : 0;
-  const lines: string[] = [];
-  for (let y = 0; y < bitmap.height; y += 2) {
-    let line = '';
-    for (let x = 0; x < bitmap.width; x++) line += HALF_BLOCKS[at(x, y) * 2 + at(x, y + 1)];
-    lines.push(line.trimEnd());
-  }
-  return lines;
-}
-
 /** SVG path data with one rectangle per run of lit pixels in a row. */
 export function bannerPath(bitmap: Bitmap): string {
   const lit = (x: number, y: number) => bitmap.pixels[y * bitmap.width + x] === 1;
@@ -156,4 +158,43 @@ export function bannerPath(bitmap: Bitmap): string {
 /** The title as a screen reader should say it: styled letters such as 𝕷 become plain ones. */
 export function bannerLabel(title: string): string {
   return title.normalize('NFKC');
+}
+
+/** The size of a standalone banner in screen pixels. */
+export function bannerImageSize(bitmap: Pick<Bitmap, 'width' | 'height'>): {
+  width: number;
+  height: number;
+} {
+  return {
+    width: (bitmap.width + IMAGE_PADDING * 2) * IMAGE_SCALE,
+    height: (bitmap.height + IMAGE_PADDING * 2) * IMAGE_SCALE,
+  };
+}
+
+// The site's 1 px and 6 px drop-shadow() blurs at 4×; CSS takes a blur length as the standard deviation.
+const GLOWS: Record<BannerTheme, (color: (typeof BANNER_COLORS)[BannerTheme]) => string> = {
+  dark: ({ swatches }) =>
+    `<feDropShadow dx="0" dy="0" stdDeviation="1.5" flood-color="${swatches[5]}" flood-opacity="0.45"/>`,
+  light: ({ text }) =>
+    `<feDropShadow dx="0" dy="0" stdDeviation="0.25" flood-color="${text}" flood-opacity="0.45"/>` +
+    `<feDropShadow dx="0" dy="0" stdDeviation="1.5" flood-color="${text}" flood-opacity="0.22"/>`,
+};
+
+/** The banner as a file of its own, in one theme's colours, for pages that cannot use the site's CSS. */
+export function bannerSvg(bitmap: Bitmap, title: string, theme: BannerTheme): string {
+  const { width, height } = bannerImageSize(bitmap);
+  const [x, y, w, h] = [-IMAGE_PADDING, -IMAGE_PADDING, width / IMAGE_SCALE, height / IMAGE_SCALE];
+  const open = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x} ${y} ${w} ${h}" width="${width}" height="${height}" shape-rendering="crispEdges"><title>${escapeHtml(bannerLabel(title))}</title>`;
+  if (bitmap.width === 0) return `${open}</svg>\n`;
+  const colors = BANNER_COLORS[theme];
+  const stops = colors.swatches
+    .map((color, index) => `<stop offset="${index * 20}%" stop-color="${color}"/>`)
+    .join('');
+  return (
+    `${open}<defs>` +
+    `<linearGradient id="swatches" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="${bitmap.width}" y2="0">${stops}</linearGradient>` +
+    // CSS filters blend in sRGB; SVG filters default to linearRGB, which would lighten the glow.
+    `<filter id="glow" filterUnits="userSpaceOnUse" x="${x}" y="${y}" width="${w}" height="${h}" color-interpolation-filters="sRGB">${GLOWS[theme](colors)}</filter>` +
+    `</defs><path fill="url(#swatches)" filter="url(#glow)" d="${bannerPath(bitmap)}"/></svg>\n`
+  );
 }

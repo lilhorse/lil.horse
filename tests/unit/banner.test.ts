@@ -1,12 +1,15 @@
 import { readFileSync } from 'node:fs';
+import { Resvg } from '@resvg/resvg-js';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  BANNER_COLORS,
   BANNER_FONT,
   bannerBitmap,
+  bannerImageSize,
   bannerLabel,
   bannerPath,
+  bannerSvg,
   fontCoverage,
-  halfBlocks,
   type Bitmap,
 } from '../../src/lib/banner';
 
@@ -22,21 +25,75 @@ function bitmap(...rows: string[]): Bitmap {
 
 const TITLE = '𝕷𝖎𝖑’𝕳𝖔𝖗𝖘𝖊';
 
-describe('halfBlocks', () => {
-  it('puts two pixel rows in one text row', () => {
-    expect(halfBlocks(bitmap('##..', '#.#.'))).toEqual(['█▀▄']);
+const GRADIENT = (stops: readonly string[]) =>
+  stops.map((color, index) => `<stop offset="${index * 20}%" stop-color="${color}"/>`).join('');
+
+/** The alpha of every pixel resvg draws, so a broken file fails to parse here. */
+const drawnAlpha = (svg: string) => {
+  const { pixels } = new Resvg(svg, { font: { loadSystemFonts: false } }).render();
+  return pixels.filter((_, index) => index % 4 === 3);
+};
+
+describe('bannerSvg', () => {
+  it('draws the dark banner with its swatches and a soft glow, padded for the glow', () => {
+    expect(bannerSvg(bitmap('#.', '##'), TITLE, 'dark')).toBe(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-3 -3 8 8" width="32" height="32" shape-rendering="crispEdges">' +
+        '<title>Lil’Horse</title><defs>' +
+        `<linearGradient id="swatches" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="2" y2="0">${GRADIENT(BANNER_COLORS.dark.swatches)}</linearGradient>` +
+        '<filter id="glow" filterUnits="userSpaceOnUse" x="-3" y="-3" width="8" height="8" color-interpolation-filters="sRGB">' +
+        '<feDropShadow dx="0" dy="0" stdDeviation="1.5" flood-color="#bb9af7" flood-opacity="0.45"/></filter></defs>' +
+        '<path fill="url(#swatches)" filter="url(#glow)" d="M0 0h1v1h-1zM0 1h2v1h-2z"/></svg>\n',
+    );
   });
 
-  it('pairs the last row of an odd height with a dark row', () => {
-    expect(halfBlocks(bitmap('#.', '##', '.#'))).toEqual(['█▄', ' ▀']);
+  it('gives the light banner a thin edge under its soft shadow', () => {
+    const svg = bannerSvg(bitmap('#.', '##'), TITLE, 'light');
+    expect(svg).toContain(GRADIENT(BANNER_COLORS.light.swatches));
+    expect(svg).toContain(
+      '<feDropShadow dx="0" dy="0" stdDeviation="0.25" flood-color="#1f1b16" flood-opacity="0.45"/>' +
+        '<feDropShadow dx="0" dy="0" stdDeviation="1.5" flood-color="#1f1b16" flood-opacity="0.22"/>',
+    );
   });
 
-  it('keeps leading spaces and strips trailing ones', () => {
-    expect(halfBlocks(bitmap('.#..', '.#..', '...#', '....'))).toEqual([' █', '   ▀']);
+  it('escapes the title it names the image with', () => {
+    expect(bannerSvg(bitmap('#'), 'A & <B>', 'dark')).toContain('<title>A &amp; &lt;B&gt;</title>');
   });
 
-  it('draws nothing for an empty bitmap', () => {
-    expect(halfBlocks(bitmap())).toEqual([]);
+  it('is a valid, empty image when the font can draw none of the title', () => {
+    const svg = bannerSvg(bitmap(), '小马', 'light');
+    expect(svg).toBe(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-3 -3 6 6" width="24" height="24" shape-rendering="crispEdges"><title>小马</title></svg>\n',
+    );
+    expect(drawnAlpha(svg).every((alpha) => alpha === 0)).toBe(true);
+  });
+
+  it('draws today’s title in both themes', () => {
+    const banner = bannerBitmap(TITLE, vi.fn());
+    for (const theme of ['dark', 'light'] as const)
+      expect(drawnAlpha(bannerSvg(banner, TITLE, theme)).some((alpha) => alpha > 0)).toBe(true);
+  });
+
+  it('is four screen pixels per bitmap pixel, padding included', () => {
+    expect(bannerImageSize({ width: 72, height: 14 })).toEqual({ width: 312, height: 80 });
+  });
+});
+
+describe('BANNER_COLORS', () => {
+  it('copies the swatches and the text colour of both themes from tokens.css', () => {
+    const css = readFileSync('src/styles/tokens.css', 'utf8');
+    const token = (name: string) => {
+      const match = new RegExp(`--${name}: light-dark\\((#[0-9a-f]{6}), (#[0-9a-f]{6})\\);`).exec(
+        css,
+      );
+      if (!match?.[1] || !match[2]) throw new Error(`--${name} is not a light-dark() hex pair`);
+      return { light: match[1], dark: match[2] };
+    };
+    for (const theme of ['light', 'dark'] as const) {
+      expect(BANNER_COLORS[theme].swatches, theme).toEqual(
+        [1, 2, 3, 4, 5, 6].map((swatch) => token(`swatch-${swatch}`)[theme]),
+      );
+      expect(BANNER_COLORS[theme].text, theme).toBe(token('fg')[theme]);
+    }
   });
 });
 
@@ -65,13 +122,13 @@ describe('the banner font', () => {
     for (const char of '小🍻▀\n') expect(covers.has(char.codePointAt(0) ?? 0)).toBe(false);
   });
 
-  it('draws the title in 7 or 8 rows of at most 80 half blocks', () => {
+  it('draws today’s title in about 70 by 16 pixels', () => {
     const warn = vi.fn();
-    const art = halfBlocks(bannerBitmap(TITLE, warn));
-    expect(art.length).toBeGreaterThanOrEqual(7);
-    expect(art.length).toBeLessThanOrEqual(8);
-    expect(Math.max(...art.map((line) => [...line].length))).toBeLessThanOrEqual(80);
-    expect(art.join('')).toMatch(/^[ ▀▄█]+$/);
+    const banner = bannerBitmap(TITLE, warn);
+    expect(banner.width).toBeGreaterThanOrEqual(60);
+    expect(banner.width).toBeLessThanOrEqual(80);
+    expect(banner.height).toBeGreaterThanOrEqual(12);
+    expect(banner.height).toBeLessThanOrEqual(16);
     expect(warn).not.toHaveBeenCalled();
   });
 

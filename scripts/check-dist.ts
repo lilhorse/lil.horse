@@ -34,6 +34,8 @@ export const REQUIRED_ROUTES = [
   'profile/README.md',
   'brand/horse-chestnut.svg',
   'brand/horse-night.svg',
+  'brand/masthead-dark.svg',
+  'brand/masthead-light.svg',
 ];
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {

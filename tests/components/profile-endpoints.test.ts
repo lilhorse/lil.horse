@@ -1,8 +1,12 @@
 import { readFileSync } from 'node:fs';
 import type { APIContext } from 'astro';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { bannerBitmap, halfBlocks } from '../../src/lib/banner';
+import { bannerBitmap, bannerImageSize, bannerSvg } from '../../src/lib/banner';
 import { GET as horse, getStaticPaths } from '../../src/pages/brand/[name].svg';
+import {
+  GET as masthead,
+  getStaticPaths as mastheadPaths,
+} from '../../src/pages/brand/masthead-[theme].svg';
 import { GET as readme } from '../../src/pages/profile/README.md';
 import { profile, useSite } from '../helpers/site-data';
 
@@ -26,11 +30,38 @@ describe('/profile/README.md', () => {
     const response = await readme({} as APIContext);
     expect(response.headers.get('content-type')).toBe('text/markdown; charset=utf-8');
     const markdown = await response.text();
-    const banner = halfBlocks(bannerBitmap(TITLE, () => undefined)).join('\n');
-    expect(markdown).toContain(`\`\`\`text\n${banner}\n\`\`\``);
+    const { width } = bannerImageSize(bannerBitmap(TITLE, () => undefined));
+    expect(markdown).toContain(
+      `<img alt="Lil’Horse" width="${width}" src="https://lil.horse/brand/masthead-light.svg">`,
+    );
     expect(markdown).toContain(`*${SLOGAN}*`);
     expect(markdown).toContain('[email](https://lil.horse/contact)');
     expect(markdown).not.toContain('sup@lil.horse');
+  });
+});
+
+describe('/brand/masthead-*.svg', () => {
+  const themes = () => mastheadPaths().map(({ params }) => params.theme);
+  const svg = async (theme: string) => {
+    const response = await masthead({ params: { theme } } as unknown as APIContext);
+    expect(response.headers.get('content-type')).toBe('image/svg+xml');
+    return response.text();
+  };
+
+  it('serves the banner in each theme', async () => {
+    expect(themes()).toEqual(['dark', 'light']);
+    const banner = bannerBitmap(TITLE, () => undefined);
+    expect(await svg('dark')).toBe(bannerSvg(banner, TITLE, 'dark'));
+    expect(await svg('light')).toBe(bannerSvg(banner, TITLE, 'light'));
+  });
+
+  it('serves an empty image when the font can draw none of the title', async () => {
+    useSite({ masthead: { title: '小马', slogan: null } });
+    for (const theme of themes()) {
+      const image = await svg(theme);
+      expect(image).toContain('<title>小马</title>');
+      expect(image).not.toContain('<path');
+    }
   });
 });
 
