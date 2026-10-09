@@ -97,6 +97,12 @@ describe('ogTree', () => {
     expect(Object.values(NIGHT).flat()).toHaveLength(12);
   });
 
+  it('draws the window dots in the site header colours', () => {
+    const tokens = readFileSync('src/styles/tokens.css', 'utf8');
+    const dots = [1, 2, 3].map((n) => new RegExp(`--dot-${n}: (#[0-9a-f]{6});`).exec(tokens)?.[1]);
+    expect(dots).toEqual(NIGHT.dots);
+  });
+
   it('clamps the title to three lines in a block', () => {
     const json = JSON.stringify(ogTree({ title: 'T', command: 'c', path: 'p', meta: [] }));
     expect(json).toContain('"display":"block"');
