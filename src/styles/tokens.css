@@ -41,9 +41,9 @@
     --tag-blue-bg: light-dark(#c9e2ff, color-mix(in oklab, #7aa2f7 16%, var(--bg)));
     --tag-blue-fg: light-dark(#1f1b16, #7aa2f7);
 
-    --dot-1: light-dark(#ffc2d9, #292e42);
-    --dot-2: light-dark(#ffe27a, #292e42);
-    --dot-3: light-dark(#c4efb0, #292e42);
+    --dot-1: #f7768e;
+    --dot-2: #e0af68;
+    --dot-3: #9ece6a;
     --swatch-1: light-dark(#c92a2a, #f7768e);
     --swatch-2: light-dark(#a35530, #e0af68);
     --swatch-3: light-dark(#ffe27a, #9ece6a);
